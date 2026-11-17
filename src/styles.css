@@ -70,11 +70,49 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-promo: var(--promo);
+  --color-promo-foreground: var(--promo-foreground);
+  --color-ml: var(--ml);
+  --color-ml-hover: var(--ml-hover);
+  --color-ml-deep: var(--ml-deep);
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-hover: var(--whatsapp-hover);
+  --color-deal: var(--deal);
+  --color-deal-soft: var(--deal-soft);
+  --color-badge: var(--badge);
+  --color-star: var(--star);
+  --color-on-brand: var(--on-brand);
+  --color-admin: var(--admin);
+  --color-admin-panel: var(--admin-panel);
+  --color-admin-foreground: var(--admin-foreground);
+  --color-admin-muted: var(--admin-muted);
+  --color-admin-border: var(--admin-border);
+  --color-admin-accent: var(--admin-accent);
+  --color-admin-accent-hover: var(--admin-accent-hover);
 }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: oklch(0.984 0.003 247.858);
+  --promo: oklch(0.92 0.19 103);
+  --promo-foreground: oklch(0.208 0.042 265.755);
+  --ml: oklch(0.62 0.17 255);
+  --ml-hover: oklch(0.54 0.15 256);
+  --ml-deep: oklch(0.42 0.18 264);
+  --whatsapp: oklch(0.627 0.17 149);
+  --whatsapp-hover: oklch(0.527 0.137 150);
+  --deal: oklch(0.63 0.16 152);
+  --deal-soft: oklch(0.979 0.021 166);
+  --badge: oklch(0.769 0.188 70);
+  --star: oklch(0.828 0.189 84);
+  --on-brand: oklch(1 0 0);
+  --admin: oklch(0.141 0.005 285.8);
+  --admin-panel: oklch(0.21 0.006 285.9);
+  --admin-foreground: oklch(0.967 0.001 286.4);
+  --admin-muted: oklch(0.552 0.016 285.9);
+  --admin-border: oklch(1 0 0 / 10%);
+  --admin-accent: oklch(0.715 0.143 215.2);
+  --admin-accent-hover: oklch(0.789 0.154 211.5);
   --foreground: oklch(0.129 0.042 264.695);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
@@ -152,4 +190,9 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
