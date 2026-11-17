@@ -32,7 +32,7 @@ function MagicTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
   const [ai, setAi] = useState(true); const [preview, setPreview] = useState<AffiliateProduct | null>(null);
   const publish = () => {
     const p = productFromUrl(url, cat, aff, ai);
-    if (!p) return toast.error('Cole uma URL do Mercado Livre.');
+    if (!p) { toast.error('Cole uma URL do Mercado Livre.'); return; }
     setPreview(p); onAdd([p]); setUrl(''); setAff('');
     toast.success(`${p.mlbId} publicado no topo da vitrine!`);
   };

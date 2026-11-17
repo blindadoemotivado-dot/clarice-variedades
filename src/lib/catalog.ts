@@ -53,7 +53,6 @@ export function productFromUrl(url: string, category: AffiliateProduct['category
     imageUrl: `https://images.unsplash.com/photo-${SIM_IMAGES[n % SIM_IMAGES.length]}?auto=format&fit=crop&w=600&q=80`,
     affiliateUrl: affiliateUrl?.trim() || clean,
     category,
-    badgeText: undefined,
     freeShipping: true,
     isFull: n % 2 === 0,
     rating: 4.5,
