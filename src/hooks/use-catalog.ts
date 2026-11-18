@@ -198,7 +198,7 @@ export function useCatalog() {
     }
   }, []);
 
-  const syncRadar = useCallback(async (customTag?: string): Promise<RadarSyncResult> => {
+  const syncRadar = useCallback(async (customTag?: string, customTerm?: string): Promise<RadarSyncResult> => {
     setIsSyncing(true);
     try {
       let serverRes: RadarSyncResult = {
@@ -209,7 +209,7 @@ export function useCatalog() {
       };
 
       try {
-        const res = await syncRadarOffersServerFn({ data: { tag: customTag } });
+        const res = await syncRadarOffersServerFn({ data: { tag: customTag, term: customTerm } });
         if (res) serverRes = res;
       } catch (err) {
         console.warn('[useCatalog] Server function error, fallback to local fetch:', err);
@@ -307,32 +307,54 @@ export function useCatalog() {
         }
       }
     }, []),
-    batchApprovePending: useCallback(async (ids: string[]) => {
-      const set = new Set(ids);
-      const toApprove = pendingProducts.filter((p) => set.has(p.id));
-      if (toApprove.length === 0) return;
-
-      const approvedItems: AffiliateProduct[] = toApprove.map((p) => ({
-        ...p,
-        active: true,
-        status: 'ativo',
-      }));
-
-      setPendingProducts((prev) => prev.filter((p) => !set.has(p.id)));
-      setProducts((prev) => [...approvedItems, ...prev]);
-
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase
-            .from('produtos_clarice')
-            .update({ active: true, status: 'ativo' })
-            .in('id', ids);
-          if (error) console.warn('[useCatalog] Erro ao aprovar lote no Supabase:', error.message);
-        } catch (err) {
-          console.warn('[useCatalog] Falha de conexão ao aprovar lote:', err);
+    batchApprovePending: useCallback(
+      async (items: (string | { id: string; affiliateUrl?: string })[]) => {
+        const urlMap = new Map<string, string>();
+        const ids: string[] = [];
+        for (const item of items) {
+          if (typeof item === 'string') {
+            ids.push(item);
+          } else {
+            ids.push(item.id);
+            if (item.affiliateUrl) {
+              urlMap.set(item.id, item.affiliateUrl);
+            }
+          }
         }
-      }
-    }, [pendingProducts]),
+
+        const set = new Set(ids);
+        const toApprove = pendingProducts.filter((p) => set.has(p.id));
+        if (toApprove.length === 0) return;
+
+        const approvedItems: AffiliateProduct[] = toApprove.map((p) => ({
+          ...p,
+          affiliateUrl: urlMap.get(p.id) || p.affiliateUrl,
+          active: true,
+          status: 'ativo',
+        }));
+
+        setPendingProducts((prev) => prev.filter((p) => !set.has(p.id)));
+        setProducts((prev) => [...approvedItems, ...prev]);
+
+        if (isSupabaseConfigured) {
+          try {
+            for (const item of approvedItems) {
+              await supabase
+                .from('produtos_clarice')
+                .update({
+                  active: true,
+                  status: 'ativo',
+                  affiliate_url: item.affiliateUrl,
+                })
+                .eq('id', item.id);
+            }
+          } catch (err) {
+            console.warn('[useCatalog] Falha de conexão ao aprovar lote:', err);
+          }
+        }
+      },
+      [pendingProducts]
+    ),
     toggleFeatured: useCallback((id: string) => {
       setProducts((p) => p.map((x) => (x.id === id ? { ...x, featured: !x.featured } : x)));
     }, []),

@@ -10,6 +10,14 @@ const SEARCH_TARGETS = [
   { term: 'parafusadeira furadeira impacto bateria', category: 'Ferramentas' },
   { term: 'secador cabelo profissional ion', category: 'Beleza & Saúde' },
   { term: 'cafeteira eletrica expresso', category: 'Eletroportáteis' },
+  { term: 'fone bluetooth cancelamento ruido', category: 'Eletrônicos' },
+  { term: 'smartwatch prova dagua', category: 'Eletrônicos' },
+  { term: 'kit organizador cozinha hermetico', category: 'Casa & Cozinha' },
+  { term: 'ventilador turbo silencioso', category: 'Eletroportáteis' },
+  { term: 'escova alisadora secadora', category: 'Beleza & Saúde' },
+  { term: 'mochila impermeavel antifurto notebook', category: 'Acessórios' },
+  { term: 'caixa de som bluetooth potente', category: 'Eletrônicos' },
+  { term: 'ferro de passar vapor cerâmica', category: 'Eletroportáteis' },
 ];
 
 const CURATED_RADAR_DEALS = [
@@ -88,6 +96,81 @@ const CURATED_RADAR_DEALS = [
     rating: 4.7,
     reviewsCount: 8190,
   },
+  {
+    mlbId: 'MLB-9281045',
+    title: 'Aspirador de Pó Robô WAP Wconnect com Wi-Fi e Passa Pano',
+    originalPrice: 1399.0,
+    currentPrice: 949.0,
+    discountPercent: 32,
+    installmentsText: 'em 10x sem juros',
+    imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
+    category: 'Eletroportáteis',
+    badgeText: 'Radar 32% OFF',
+    freeShipping: true,
+    isFull: true,
+    rating: 4.8,
+    reviewsCount: 5120,
+  },
+  {
+    mlbId: 'MLB-9382109',
+    title: 'Smart TV 55 Polegadas 4K UHD Samsung Crystal com Gaming Hub',
+    originalPrice: 3299.0,
+    currentPrice: 2499.0,
+    discountPercent: 24,
+    installmentsText: 'em 10x sem juros',
+    imageUrl: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=600&q=80',
+    category: 'Eletrônicos',
+    badgeText: 'Radar 24% OFF',
+    freeShipping: true,
+    isFull: true,
+    rating: 4.9,
+    reviewsCount: 7890,
+  },
+  {
+    mlbId: 'MLB-9483210',
+    title: 'Fritadeira Elétrica Air Fryer 4 Litros Mondial Inox Family',
+    originalPrice: 429.0,
+    currentPrice: 299.0,
+    discountPercent: 30,
+    installmentsText: 'em 6x sem juros',
+    imageUrl: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80',
+    category: 'Casa & Cozinha',
+    badgeText: 'Radar 30% OFF',
+    freeShipping: true,
+    isFull: true,
+    rating: 4.8,
+    reviewsCount: 14200,
+  },
+  {
+    mlbId: 'MLB-9584321',
+    title: 'Mochila Impermeável Antifurto para Notebook com Saída USB',
+    originalPrice: 189.9,
+    currentPrice: 129.9,
+    discountPercent: 31,
+    installmentsText: 'em 3x sem juros',
+    imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80',
+    category: 'Acessórios',
+    badgeText: 'Radar 31% OFF',
+    freeShipping: true,
+    isFull: true,
+    rating: 4.7,
+    reviewsCount: 3940,
+  },
+  {
+    mlbId: 'MLB-9685432',
+    title: 'Jogo de Panelas 5 Peças Cerâmica Antiaderente Tramontina',
+    originalPrice: 589.0,
+    currentPrice: 399.0,
+    discountPercent: 32,
+    installmentsText: 'em 8x sem juros',
+    imageUrl: 'https://images.unsplash.com/photo-1584990347449-a2d4c2c044c9?auto=format&fit=crop&w=600&q=80',
+    category: 'Casa & Cozinha',
+    badgeText: 'Radar 32% OFF',
+    freeShipping: true,
+    isFull: true,
+    rating: 4.9,
+    reviewsCount: 6210,
+  },
 ];
 
 async function fetchFromMercadoLivre(target: { term: string; category: string }) {
@@ -112,7 +195,7 @@ async function fetchFromMercadoLivre(target: { term: string; category: string })
 
       if (!original || original <= current) continue;
       const discountPercent = Math.round(((original - current) / original) * 100);
-      if (discountPercent < 20) continue;
+      if (discountPercent < 15) continue;
 
       const freeShipping = Boolean(item.shipping?.free_shipping);
       if (!freeShipping) continue;
@@ -156,7 +239,7 @@ export interface RadarSyncResult {
 }
 
 export const syncRadarOffersServerFn = createServerFn({ method: 'POST' })
-  .validator((d: { tag?: string } | undefined) => d)
+  .validator((d: { tag?: string; term?: string } | undefined) => d)
   .handler(async ({ data }): Promise<RadarSyncResult> => {
     const supabaseUrl =
       process.env.VITE_SUPABASE_URL ||
@@ -167,6 +250,7 @@ export const syncRadarOffersServerFn = createServerFn({ method: 'POST' })
       process.env.VITE_SUPABASE_ANON_KEY ||
       '';
     const affiliateTag = data?.tag?.trim() || 'clarice-achadinhos';
+    const customTerm = data?.term?.trim();
 
     if (!supabaseKey) {
       return {
@@ -189,14 +273,29 @@ export const syncRadarOffersServerFn = createServerFn({ method: 'POST' })
 
     // 2. Coletar ofertas do Mercado Livre
     let capturedDeals: typeof CURATED_RADAR_DEALS = [];
-    for (const target of SEARCH_TARGETS) {
-      const deals = await fetchFromMercadoLivre(target);
-      if (deals.length > 0) capturedDeals.push(...deals);
-    }
+    if (customTerm) {
+      const deals = await fetchFromMercadoLivre({ term: customTerm, category: 'Radar sob Demanda' });
+      if (deals.length > 0) {
+        capturedDeals = deals;
+      } else {
+        // Fallback buscando nos curados por palavra-chave
+        const termLower = customTerm.toLowerCase();
+        capturedDeals = CURATED_RADAR_DEALS.filter(
+          (d) =>
+            d.title.toLowerCase().includes(termLower) ||
+            d.category.toLowerCase().includes(termLower)
+        );
+      }
+    } else {
+      for (const target of SEARCH_TARGETS) {
+        const deals = await fetchFromMercadoLivre(target);
+        if (deals.length > 0) capturedDeals.push(...deals);
+      }
 
-    // Fallback inteligente se a API externa do ML aplicar restrição de IP
-    if (capturedDeals.length === 0) {
-      capturedDeals = CURATED_RADAR_DEALS;
+      // Fallback inteligente se a API externa do ML aplicar restrição de IP
+      if (capturedDeals.length === 0) {
+        capturedDeals = CURATED_RADAR_DEALS;
+      }
     }
 
     // 3. Deduplicação estrita

@@ -37,3 +37,7 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright & Automations
+.ml-profile/
+.ml-browser-session/

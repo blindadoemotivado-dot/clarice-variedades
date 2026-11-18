@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
+  CheckCheck,
   CheckCircle2,
   CheckSquare,
   Copy,
@@ -13,6 +14,7 @@ import {
   MessageCircle,
   Radar,
   RefreshCw,
+  Search,
   Server,
   Settings,
   Sparkles,
@@ -81,10 +83,10 @@ export interface AdminSheetProps {
   onClearDemo?: () => void;
   pendingProducts?: AffiliateProduct[];
   onApprovePending?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
-  onBatchApprovePending?: (ids: string[]) => Promise<void> | void;
+  onBatchApprovePending?: (items: (string | { id: string; affiliateUrl?: string })[]) => Promise<void> | void;
   onRejectPending?: (id: string) => Promise<void> | void;
   onBatchRejectPending?: (ids: string[]) => Promise<void> | void;
-  onSyncRadar?: (tag?: string) => Promise<any> | void;
+  onSyncRadar?: (tag?: string, term?: string) => Promise<any> | void;
 }
 
 function CategorySelect({ value, onChange }: { value: Cat; onChange: (c: Cat) => void }) {
@@ -626,10 +628,10 @@ function RadarTab({
 }: {
   pendingProducts?: AffiliateProduct[];
   onApprove?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
-  onBatchApprove?: (ids: string[]) => Promise<void> | void;
+  onBatchApprove?: (items: (string | { id: string; affiliateUrl?: string })[]) => Promise<void> | void;
   onReject?: (id: string) => Promise<void> | void;
   onBatchReject?: (ids: string[]) => Promise<void> | void;
-  onSyncRadar?: (tag?: string) => Promise<any> | void;
+  onSyncRadar?: (tag?: string, term?: string) => Promise<any> | void;
 }) {
   const [settings] = useStoreSettings();
   const [affiliateUrls, setAffiliateUrls] = useState<Record<string, string>>({});
@@ -637,9 +639,27 @@ function RadarTab({
   const [syncing, setSyncing] = useState(false);
   const [selectedRadarIds, setSelectedRadarIds] = useState<Set<string>>(new Set());
 
+  // Garimpo sob demanda & filtro
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+
+  // Modal / painel para colar links curtos em lote
+  const [isBatchPasteOpen, setIsBatchPasteOpen] = useState(false);
+  const [batchPastedText, setBatchPastedText] = useState('');
+  const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
+
+  const filteredPending = pendingProducts.filter(
+    (p) =>
+      p.title.toLowerCase().includes(filterQuery.toLowerCase()) ||
+      p.mlbId.toLowerCase().includes(filterQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(filterQuery.toLowerCase())
+  );
+
+  const filteredRadarIds = filteredPending.map((p) => p.id);
   const allRadarSelected =
-    pendingProducts.length > 0 &&
-    pendingProducts.every((p) => selectedRadarIds.has(p.id));
+    filteredRadarIds.length > 0 &&
+    filteredRadarIds.every((id) => selectedRadarIds.has(id));
 
   const toggleSelectRadar = (id: string) => {
     setSelectedRadarIds((prev) => {
@@ -652,9 +672,17 @@ function RadarTab({
 
   const toggleSelectAllRadar = () => {
     if (allRadarSelected) {
-      setSelectedRadarIds(new Set());
+      setSelectedRadarIds((prev) => {
+        const next = new Set(prev);
+        filteredRadarIds.forEach((id) => next.delete(id));
+        return next;
+      });
     } else {
-      setSelectedRadarIds(new Set(pendingProducts.map((p) => p.id)));
+      setSelectedRadarIds((prev) => {
+        const next = new Set(prev);
+        filteredRadarIds.forEach((id) => next.add(id));
+        return next;
+      });
     }
   };
 
@@ -676,6 +704,85 @@ function RadarTab({
       toast.error('Erro ao sincronizar radar com o Mercado Livre.');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSearchOnDemand = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = searchTerm.trim();
+    if (!query) {
+      toast.info('Digite uma palavra-chave para garimpar (ex: air fryer, smart tv, cafeteira)...');
+      return;
+    }
+    if (!onSyncRadar) return;
+
+    setIsSearching(true);
+    try {
+      const res = await onSyncRadar(settings.mlAffiliateTag, query);
+      if (res && typeof res === 'object' && 'message' in res) {
+        toast.success(res.message);
+      } else {
+        toast.success(`Garimpo finalizado para "${query}"!`);
+      }
+      setSearchTerm('');
+    } catch {
+      toast.error('Erro ao garimpar ofertas no Mercado Livre.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleCopySelectedLinks = () => {
+    const selected = pendingProducts.filter((p) => selectedRadarIds.has(p.id));
+    if (selected.length === 0) return;
+    const links = selected
+      .map((p) => `https://produto.mercadolivre.com.br/${p.mlbId}`)
+      .join('\n');
+    navigator.clipboard.writeText(links);
+    toast.success(`${selected.length} link(s) copiados! Cole no Link Builder do Mercado Livre.`);
+  };
+
+  const handleBatchPublishWithShortUrls = async () => {
+    const selected = pendingProducts.filter((p) => selectedRadarIds.has(p.id));
+    if (selected.length === 0) return;
+
+    const lines = batchPastedText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length === 0) {
+      toast.error('Cole ao menos um link de afiliado oficial do Mercado Livre (meli.la ou mercadolivre.com).');
+      return;
+    }
+
+    setIsSubmittingBatch(true);
+    try {
+      const itemsToApprove = selected.map((p, idx) => {
+        const raw = lines[idx] || lines[0];
+        const isOfficial = raw.includes('mercadolivre.com') || raw.includes('meli.la');
+        return {
+          id: p.id,
+          affiliateUrl: isOfficial ? raw : p.affiliateUrl,
+        };
+      });
+
+      if (onBatchApprove) {
+        await onBatchApprove(itemsToApprove);
+      } else if (onApprove) {
+        for (const item of itemsToApprove) {
+          await onApprove(item.id, item.affiliateUrl);
+        }
+      }
+
+      toast.success(`${itemsToApprove.length} achadinho(s) publicado(s) com links curtos oficiais!`);
+      setIsBatchPasteOpen(false);
+      setBatchPastedText('');
+      clearRadarSelection();
+    } catch {
+      toast.error('Erro ao aprovar lote com links curtos.');
+    } finally {
+      setIsSubmittingBatch(false);
     }
   };
 
@@ -732,7 +839,7 @@ function RadarTab({
   const handleBatchReject = async () => {
     const count = selectedRadarIds.size;
     if (count === 0) return;
-    if (window.confirm(`Deseja descartar as ${count} ofertas selecionadas da fila do radar?`)) {
+    if (window.confirm(`Deseja excluir as ${count} ofertas selecionadas da fila do radar?`)) {
       const ids = Array.from(selectedRadarIds);
       if (onBatchReject) {
         await onBatchReject(ids);
@@ -742,12 +849,61 @@ function RadarTab({
         }
       }
       clearRadarSelection();
-      toast(`${count} oferta(s) removida(s) da fila.`);
+      toast(`${count} oferta(s) excluída(s) da fila.`);
     }
   };
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
+      {/* Modal / Dialog Flutuante para Colar Links Curtos em Lote */}
+      {isBatchPasteOpen && (
+        <div className="rounded-2xl border border-emerald-500/40 bg-zinc-950 p-4 sm:p-5 shadow-2xl space-y-3.5 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-zinc-100">
+                Colar Links Curtos & Publicar em Lote ({selectedRadarIds.size} selecionados)
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsBatchPasteOpen(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-200"
+            >
+              Fechar
+            </button>
+          </div>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Gere os links curtos oficiais no <strong>Link Builder do Mercado Livre</strong> (https://www.mercadolivre.com.br/afiliados/linkbuilder) e cole-os abaixo (um por linha). Cada link curto será atribuído sequencialmente aos produtos selecionados e publicado com status ativo e monetizado.
+          </p>
+          <textarea
+            value={batchPastedText}
+            onChange={(e) => setBatchPastedText(e.target.value)}
+            rows={5}
+            placeholder={`https://meli.la/exemplo1\nhttps://mercadolivre.com/sec/exemplo2\n...`}
+            className={cn(field, 'font-mono text-xs w-full')}
+          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBatchPasteOpen(false)}
+              className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleBatchPublishWithShortUrls}
+              disabled={isSubmittingBatch || !batchPastedText.trim()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-4 py-2 text-xs font-bold transition disabled:opacity-50 shadow-md shadow-emerald-500/20"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              {isSubmittingBatch ? 'Publicando...' : `Confirmar e Publicar (${selectedRadarIds.size})`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Barra de Ação em Lote do Radar (Sticky) */}
       {selectedRadarIds.size > 0 && (
         <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/50 bg-zinc-950/95 p-3.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
@@ -756,7 +912,7 @@ function RadarTab({
               {selectedRadarIds.size}
             </span>
             <span className="text-xs font-bold text-zinc-100">
-              {selectedRadarIds.size === 1 ? '1 oferta selecionada no radar' : `${selectedRadarIds.size} ofertas selecionadas`}
+              {selectedRadarIds.size === 1 ? '1 oferta selecionada' : `${selectedRadarIds.size} ofertas selecionadas`}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -765,68 +921,123 @@ function RadarTab({
               onClick={clearRadarSelection}
               className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
             >
-              Limpar seleção
+              Limpar
+            </button>
+            <button
+              type="button"
+              onClick={handleCopySelectedLinks}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-400/20 transition"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copiar Links Selecionados
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBatchPasteOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/30 transition shadow-md shadow-emerald-500/10"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
+              Colar Links Curtos & Publicar em Lote
             </button>
             <button
               type="button"
               onClick={handleBatchApprove}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-3.5 py-1.5 text-xs font-bold transition shadow-md shadow-emerald-500/20"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-3 py-1.5 text-xs font-bold transition shadow-md shadow-emerald-500/20"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Aprovar Selecionados ({selectedRadarIds.size})
+              Aprovar Direto ({selectedRadarIds.size})
             </button>
             <button
               type="button"
               onClick={handleBatchReject}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:text-red-400 hover:bg-red-400/10 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Descartar ({selectedRadarIds.size})
+              Excluir Selecionados ({selectedRadarIds.size})
             </button>
           </div>
         </div>
       )}
 
-      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Radar className="h-5 w-5 text-cyan-400 animate-pulse" />
-            <h2 className="font-semibold text-zinc-100">Radar de Ofertas do Mercado Livre</h2>
+      {/* Painel do Radar com Garimpo Sob Demanda e Filtro */}
+      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-4 sm:p-5 space-y-3.5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Radar className="h-5 w-5 text-cyan-400 animate-pulse" />
+              <h2 className="font-semibold text-zinc-100">Radar de Ofertas do Mercado Livre</h2>
+            </div>
+            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              Garimpados automaticamente com descontos reais de no mínimo <strong>15% OFF</strong>, imagem em alta resolução e frete grátis. Revise o link de afiliado e publique na vitrine.
+            </p>
           </div>
-          <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-            Garimpados automaticamente com descontos reais de no mínimo <strong>20% OFF</strong>, imagem em alta resolução e frete grátis. Revise o link de afiliado e publique na vitrine com 1 clique.
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {pendingProducts.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleSelectAllRadar}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+              >
+                {allRadarSelected ? (
+                  <>
+                    <CheckSquare className="h-3.5 w-3.5 text-cyan-400" /> Desmarcar fila
+                  </>
+                ) : (
+                  <>
+                    <Square className="h-3.5 w-3.5 text-cyan-400" /> Selecionar fila ({filteredPending.length})
+                  </>
+                )}
+              </button>
+            )}
+            {onSyncRadar && (
+              <button
+                type="button"
+                onClick={handleSync}
+                disabled={syncing}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-400/20 transition disabled:opacity-50"
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
+                {syncing ? 'Sincronizando...' : 'Varredura Padrão'}
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {pendingProducts.length > 0 && (
-            <button
-              type="button"
-              onClick={toggleSelectAllRadar}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
-            >
-              {allRadarSelected ? (
-                <>
-                  <CheckSquare className="h-3.5 w-3.5 text-cyan-400" /> Desmarcar fila
-                </>
-              ) : (
-                <>
-                  <Square className="h-3.5 w-3.5 text-cyan-400" /> Selecionar fila ({pendingProducts.length})
-                </>
-              )}
-            </button>
-          )}
-          {onSyncRadar && (
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncing}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-400/20 transition disabled:opacity-50"
-            >
-              <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
-              {syncing ? 'Sincronizando...' : 'Sincronizar Radar'}
-            </button>
-          )}
-        </div>
+
+        {/* Campo de Busca Livre por Palavra-Chave (Garimpo On-Demand) */}
+        <form onSubmit={handleSearchOnDemand} className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/10">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Garimpar termo no Mercado Livre (ex: air fryer 4l, fone bluetooth, cafeteira)..."
+              className={cn(field, 'pl-9 text-xs')}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isSearching || !searchTerm.trim()}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-zinc-950 font-bold px-4 py-2 text-xs transition disabled:opacity-50 shadow-md shadow-cyan-400/20 shrink-0"
+          >
+            <WandSparkles className={cn('h-3.5 w-3.5', isSearching && 'animate-spin')} />
+            {isSearching ? 'Garimpando no ML...' : 'Garimpar Ofertas'}
+          </button>
+        </form>
+
+        {/* Filtro local da fila de aprovação */}
+        {pendingProducts.length > 0 && (
+          <div className="relative pt-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              placeholder="Filtrar ofertas na fila do Radar..."
+              className={cn(field, 'pl-8 py-1.5 text-xs bg-zinc-950/60')}
+            />
+          </div>
+        )}
       </div>
 
       {pendingProducts.length === 0 ? (
@@ -848,9 +1059,13 @@ function RadarTab({
             </button>
           )}
         </div>
+      ) : filteredPending.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-zinc-900/40 p-6 text-center text-zinc-400">
+          <p className="text-xs text-zinc-400">Nenhuma oferta na fila corresponde ao termo filtrado.</p>
+        </div>
       ) : (
         <div className="space-y-3.5">
-          {pendingProducts.map((p) => {
+          {filteredPending.map((p) => {
             const rawAff = affiliateUrls[p.id] ?? p.affiliateUrl;
             const currentAff = rawAff.replace('clarice-variedades', settings.mlAffiliateTag);
             const isApproving = approvingId === p.id;
