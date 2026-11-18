@@ -88,7 +88,7 @@ function Storefront() {
         </button>
       </footer>
       <button type="button" onClick={() => setConcierge(true)} aria-label="Falar com a Clarice no WhatsApp"
-        className="fixed bottom-16 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 rounded-full bg-whatsapp p-3.5 text-on-brand shadow-lg hover:bg-whatsapp-hover">
+        className="fixed bottom-16 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 rounded-full bg-whatsapp p-3.5 text-on-brand shadow-lg hover:bg-whatsapp-hover">
         <MessageCircle className="h-5 w-5" /> <span className="hidden text-sm font-semibold sm:inline">Peça um achadinho</span>
       </button>
       <ConciergeDialog open={concierge} onOpenChange={setConcierge} />
