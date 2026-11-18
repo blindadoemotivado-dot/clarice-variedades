@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export interface StoreSettings {
   mlAffiliateTag: string;
@@ -61,12 +62,81 @@ export function saveStoreSettings(partial: Partial<StoreSettings>): StoreSetting
   return next;
 }
 
-export function useStoreSettings(): [StoreSettings, (next: Partial<StoreSettings>) => void] {
+export async function fetchStoreSettingsFromSupabase(): Promise<StoreSettings> {
+  if (!isSupabaseConfigured) {
+    return getStoreSettings();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('store_settings')
+      .select('*')
+      .eq('id', 'default')
+      .maybeSingle();
+
+    if (!error && data) {
+      const fromCloud: StoreSettings = {
+        mlAffiliateTag: data.affiliate_tag?.trim() || DEFAULT_STORE_SETTINGS.mlAffiliateTag,
+        whatsappNumber: data.whatsapp_number?.trim() || DEFAULT_STORE_SETTINGS.whatsappNumber,
+        whatsappVipGroupUrl: data.whatsapp_group_url?.trim() || '',
+        adminPin: data.admin_pin_hash?.trim() || DEFAULT_STORE_SETTINGS.adminPin,
+      };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(fromCloud));
+        window.dispatchEvent(new CustomEvent(SETTINGS_EVENT, { detail: fromCloud }));
+      }
+      return fromCloud;
+    }
+  } catch (err) {
+    console.warn('[store-settings] Aviso ao buscar configurações no Supabase:', err);
+  }
+
+  return getStoreSettings();
+}
+
+export async function saveStoreSettingsToSupabase(partial: Partial<StoreSettings>): Promise<StoreSettings> {
+  const next = saveStoreSettings(partial);
+
+  if (isSupabaseConfigured) {
+    try {
+      const { error } = await supabase.from('store_settings').upsert({
+        id: 'default',
+        affiliate_tag: next.mlAffiliateTag,
+        whatsapp_number: next.whatsappNumber,
+        whatsapp_group_url: next.whatsappVipGroupUrl,
+        admin_pin_hash: next.adminPin,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        console.warn('[store-settings] Erro ao sincronizar configurações no Supabase:', error.message);
+      }
+    } catch (err) {
+      console.warn('[store-settings] Falha ao persistir configurações no Supabase:', err);
+    }
+  }
+
+  return next;
+}
+
+export function useStoreSettings(): [
+  StoreSettings,
+  (next: Partial<StoreSettings>) => Promise<StoreSettings>,
+  boolean
+] {
   const [settings, setSettings] = useState<StoreSettings>(getStoreSettings);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Carrega versão mais recente no mount
+    // 1. Carrega inicial do cache local
     setSettings(getStoreSettings());
+
+    // 2. Hidrata do Supabase para todos os visitantes em qualquer dispositivo
+    fetchStoreSettingsFromSupabase().then((cloud) => {
+      setSettings(cloud);
+      setIsHydrated(true);
+    });
 
     const handleUpdate = () => {
       setSettings(getStoreSettings());
@@ -81,12 +151,13 @@ export function useStoreSettings(): [StoreSettings, (next: Partial<StoreSettings
     };
   }, []);
 
-  const update = useCallback((next: Partial<StoreSettings>) => {
-    const updated = saveStoreSettings(next);
+  const update = useCallback(async (next: Partial<StoreSettings>) => {
+    const updated = await saveStoreSettingsToSupabase(next);
     setSettings(updated);
+    return updated;
   }, []);
 
-  return [settings, update];
+  return [settings, update, isHydrated];
 }
 
 /**

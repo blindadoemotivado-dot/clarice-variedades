@@ -234,7 +234,7 @@ function Storefront() {
         )}
       </main>
 
-      <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-10 text-center text-xs text-muted-foreground">
+      <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-28 md:pb-12 text-center text-xs text-muted-foreground">
         <div className="mx-auto mb-6 max-w-md rounded-2xl border border-border/80 bg-background/80 p-4 shadow-sm backdrop-blur-sm sm:p-5">
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 sm:text-left">
             <picture className="shrink-0">
@@ -292,6 +292,7 @@ function Storefront() {
         onRemove={c.remove}
         onToggleFeatured={c.toggleFeatured}
         onReset={c.reset}
+        onClearDemo={c.clearDemoProducts}
         onApprovePending={c.approveProduct}
         onRejectPending={c.rejectPending}
         onSyncRadar={c.syncRadar}

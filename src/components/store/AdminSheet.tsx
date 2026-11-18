@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  AlertTriangle,
   CheckCircle2,
   Copy,
   ExternalLink,
@@ -74,10 +75,11 @@ export interface AdminSheetProps {
   onRemove: (id: string) => void;
   onToggleFeatured: (id: string) => void;
   onReset: () => void;
+  onClearDemo?: () => void;
   pendingProducts?: AffiliateProduct[];
   onApprovePending?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
   onRejectPending?: (id: string) => Promise<void> | void;
-  onSyncRadar?: () => Promise<number> | void;
+  onSyncRadar?: (tag?: string) => Promise<any> | void;
 }
 
 function CategorySelect({ value, onChange }: { value: Cat; onChange: (c: Cat) => void }) {
@@ -287,7 +289,13 @@ function BulkTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
   );
 }
 
-function ManageTab({ products, onRemove, onToggleFeatured, onReset }: Omit<AdminSheetProps, 'open' | 'onOpenChange' | 'onAdd'>) {
+function ManageTab({
+  products,
+  onRemove,
+  onToggleFeatured,
+  onReset,
+  onClearDemo,
+}: Omit<AdminSheetProps, 'open' | 'onOpenChange' | 'onAdd'>) {
   const [search, setSearch] = useState('');
   const filtered = products.filter(
     (p) =>
@@ -305,16 +313,36 @@ function ManageTab({ products, onRemove, onToggleFeatured, onReset }: Omit<Admin
           placeholder="Filtrar por nome, categoria ou código MLB..."
           className={cn(field, 'sm:max-w-xs text-xs')}
         />
-        <button
-          type="button"
-          onClick={() => {
-            onReset();
-            toast.success('Catálogo padrão restaurado.');
-          }}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900/80 px-3.5 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
-        >
-          <RotateCcw className="h-3.5 w-3.5" /> Restaurar catálogo padrão
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onClearDemo && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Deseja remover todos os produtos de demonstração do catálogo? Os achadinhos reais do Radar permanecerão intactos.'
+                  )
+                ) {
+                  onClearDemo();
+                  toast.success('Produtos de demonstração removidos com sucesso!');
+                }
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Limpar Produtos Demo
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              onReset();
+              toast.success('Catálogo padrão restaurado.');
+            }}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900/80 px-3.5 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Restaurar catálogo padrão
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2.5">
@@ -451,7 +479,7 @@ function RadarTab({
   pendingProducts?: AffiliateProduct[];
   onApprove?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
   onReject?: (id: string) => Promise<void> | void;
-  onSyncRadar?: () => Promise<number> | void;
+  onSyncRadar?: (tag?: string) => Promise<any> | void;
 }) {
   const [settings] = useStoreSettings();
   const [affiliateUrls, setAffiliateUrls] = useState<Record<string, string>>({});
@@ -462,10 +490,14 @@ function RadarTab({
     if (!onSyncRadar) return;
     setSyncing(true);
     try {
-      const count = await onSyncRadar();
-      toast.success(`Radar sincronizado! ${count ?? pendingProducts.length} achadinhos na fila.`);
+      const res = await onSyncRadar(settings.mlAffiliateTag);
+      if (res && typeof res === 'object' && 'message' in res) {
+        toast.success(res.message);
+      } else {
+        toast.success(`Radar sincronizado! ${res ?? pendingProducts.length} achadinhos na fila.`);
+      }
     } catch {
-      toast.error('Erro ao sincronizar radar.');
+      toast.error('Erro ao sincronizar radar com o Mercado Livre.');
     } finally {
       setSyncing(false);
     }
@@ -476,7 +508,6 @@ function RadarTab({
     setApprovingId(p.id);
     try {
       const rawUrl = affiliateUrls[p.id] ?? p.affiliateUrl;
-      // Garante substituição de qualquer tag residual 'clarice-variedades' pela tag ativa configurada
       const cleanUrl = rawUrl.replace('clarice-variedades', settings.mlAffiliateTag);
       await onApprove(p.id, cleanUrl);
       toast.success(`"${p.title.slice(0, 32)}..." aprovado e publicado com sucesso!`);
@@ -527,7 +558,7 @@ function RadarTab({
           <Radar className="h-10 w-10 mx-auto text-zinc-600 mb-2" />
           <p className="text-sm font-semibold text-zinc-300">Fila do Radar Vazia</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
-            Todas as ofertas encontradas já foram aprovadas ou descartadas. O radar roda automaticamente a cada 6 horas via GitHub Actions ou manualmente via terminal com <code className="bg-zinc-800 px-1 py-0.5 rounded text-cyan-300">node scripts/radar-ofertas.mjs</code>.
+            Todas as ofertas encontradas já foram aprovadas ou descartadas. O radar roda automaticamente a cada 6 horas via GitHub Actions ou instantaneamente pelo botão abaixo.
           </p>
           {onSyncRadar && (
             <button
@@ -641,7 +672,7 @@ function SettingsTab({
 }: {
   pendingCount: number;
   activeCount: number;
-  onSyncRadar?: () => Promise<number> | void;
+  onSyncRadar?: (tag?: string) => Promise<any> | void;
 }) {
   const [settings, updateSettings] = useStoreSettings();
   const [affTag, setAffTag] = useState(settings.mlAffiliateTag);
@@ -655,6 +686,7 @@ function SettingsTab({
   const [testingEdge, setTestingEdge] = useState(false);
   const [edgeStatus, setEdgeStatus] = useState<string | null>(null);
   const [syncingRadar, setSyncingRadar] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
     setAffTag(settings.mlAffiliateTag);
@@ -663,24 +695,45 @@ function SettingsTab({
     setPin(settings.adminPin);
   }, [settings]);
 
-  const handleSave = () => {
+  // Alerta Poka-Yoke de Placeholders
+  const isDemoWhatsApp =
+    !whatsNum ||
+    whatsNum.includes('999999999') ||
+    whatsNum === '5511999999999';
+
+  const isDemoVip =
+    !vipUrl ||
+    vipUrl.includes('ClariceAchadinhos') ||
+    vipUrl.includes('Exemplo') ||
+    vipUrl.trim() === '';
+
+  const hasPokaYokeAlert = isDemoWhatsApp || isDemoVip;
+
+  const handleSave = async () => {
+    setSavingSettings(true);
     const cleanTag = affTag.trim() || 'clarice-achadinhos';
     const cleanNum = whatsNum.replace(/\D/g, '') || '5511999999999';
     const cleanVip = vipUrl.trim();
     const cleanPin = pin.trim() || 'clarice2026';
 
-    updateSettings({
-      mlAffiliateTag: cleanTag,
-      whatsappNumber: cleanNum,
-      whatsappVipGroupUrl: cleanVip,
-      adminPin: cleanPin,
-    });
+    try {
+      await updateSettings({
+        mlAffiliateTag: cleanTag,
+        whatsappNumber: cleanNum,
+        whatsappVipGroupUrl: cleanVip,
+        adminPin: cleanPin,
+      });
 
-    toast.success('Configurações salvas e aplicadas em toda a loja!');
+      toast.success('Configurações salvas e sincronizadas globalmente no Supabase!');
+    } catch {
+      toast.error('Erro ao persistir configurações.');
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
-  const handleResetDefaults = () => {
-    updateSettings(DEFAULT_STORE_SETTINGS);
+  const handleResetDefaults = async () => {
+    await updateSettings(DEFAULT_STORE_SETTINGS);
     setAffTag(DEFAULT_STORE_SETTINGS.mlAffiliateTag);
     setWhatsNum(DEFAULT_STORE_SETTINGS.whatsappNumber);
     setVipUrl(DEFAULT_STORE_SETTINGS.whatsappVipGroupUrl);
@@ -750,10 +803,14 @@ function SettingsTab({
     }
     setSyncingRadar(true);
     try {
-      const count = await onSyncRadar();
-      toast.success(`Radar sincronizado! ${count ?? pendingCount} achadinhos na fila de aprovação.`);
+      const res = await onSyncRadar(affTag.trim() || settings.mlAffiliateTag);
+      if (res && typeof res === 'object' && 'message' in res) {
+        toast.success(res.message);
+      } else {
+        toast.success(`Radar sincronizado! ${res ?? pendingCount} achadinhos na fila de aprovação.`);
+      }
     } catch {
-      toast.error('Erro ao sincronizar radar.');
+      toast.error('Erro ao sincronizar radar com o Mercado Livre.');
     } finally {
       setSyncingRadar(false);
     }
@@ -768,9 +825,34 @@ function SettingsTab({
           <h2 className="font-semibold text-zinc-100">Painel Unificado de Configurações & Integrações</h2>
         </div>
         <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-          Central única de parâmetros operacionais da Clarice Achadinhos. Configure sua tag de afiliado ML, canais de WhatsApp, credenciais e segurança administrativa sem dependência de painéis fragmentados.
+          Central única de parâmetros operacionais da Clarice Achadinhos persistida globalmente no Supabase. Modificações refletem para todos os visitantes e dispositivos em tempo real.
         </p>
       </div>
+
+      {/* Alerta Poka-Yoke de Placeholders */}
+      {hasPokaYokeAlert && (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:p-5 text-amber-200 space-y-2 shadow-sm">
+          <div className="flex items-center gap-2 font-bold text-amber-300 text-sm">
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+            <span>Alerta Poka-Yoke: Canais de Atendimento com Dados de Demonstração</span>
+          </div>
+          <p className="text-xs text-amber-200/90 leading-relaxed">
+            Identificamos que alguns canais de comunicação com os clientes ainda utilizam valores de exemplo. Atualize com os links e telefones definitivos antes de iniciar a divulgação pública da loja:
+          </p>
+          <ul className="text-xs space-y-1 list-disc list-inside text-amber-300 font-mono">
+            {isDemoWhatsApp && (
+              <li>
+                <strong>WhatsApp de Pedidos</strong>: ainda configurado com número fictício (<code>{whatsNum || 'Vazio'}</code>).
+              </li>
+            )}
+            {isDemoVip && (
+              <li>
+                <strong>Grupo VIP WhatsApp</strong>: ainda configurado com link genérico ou vazio.
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Bloco 1: Tag de Afiliado Mercado Livre */}
@@ -833,10 +915,10 @@ function SettingsTab({
             </p>
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 const clean = pin.trim() || 'clarice2026';
-                updateSettings({ adminPin: clean });
-                toast.success(`PIN atualizado para: "${clean}"`);
+                await updateSettings({ adminPin: clean });
+                toast.success(`PIN atualizado para: "${clean}" e salvo no Supabase!`);
               }}
               className="rounded-lg bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 px-3 py-1 text-xs font-bold transition"
             >
@@ -853,13 +935,13 @@ function SettingsTab({
               Canais de Atendimento WhatsApp
             </label>
             <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20">
-              Ativo
+              {isDemoWhatsApp || isDemoVip ? '⚠️ Demo' : '🟢 Ativo'}
             </span>
           </div>
 
           <div>
             <label className="block text-[11px] font-semibold text-zinc-400 mb-1">
-              Número de WhatsApp para Pedidos ("Peça um achadinho"):
+              WhatsApp de Pedidos ("Peça um achadinho"):
             </label>
             <div className="flex gap-2">
               <input
@@ -984,9 +1066,11 @@ function SettingsTab({
         <button
           type="button"
           onClick={handleSave}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-5 py-3 text-sm font-bold transition shadow-lg shadow-emerald-500/10"
+          disabled={savingSettings}
+          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-5 py-3 text-sm font-bold transition shadow-lg shadow-emerald-500/10 disabled:opacity-50"
         >
-          <CheckCircle2 className="h-4 w-4" /> Salvar Todas as Configurações
+          <CheckCircle2 className="h-4 w-4" />
+          {savingSettings ? 'Salvando no Supabase...' : 'Salvar Todas as Configurações'}
         </button>
         <button
           type="button"

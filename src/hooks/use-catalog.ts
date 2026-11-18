@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AffiliateProduct } from '@/types/product';
 import { MOCK_PRODUCTS } from '@/data/mockProducts';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { syncRadarOffersServerFn, type RadarSyncResult } from '@/services/radarServerFn';
 
 const KEY = 'clarice_v2';
 const FAV_KEY = 'clarice:favorites:v1';
 const LEGACY_FAV_KEY = 'zizi:favorites:v1';
+const DEMO_MLB_IDS = new Set(MOCK_PRODUCTS.map((p) => p.mlbId));
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -180,9 +182,39 @@ export function useCatalog() {
     }
   }, []);
 
-  const syncRadar = useCallback(async (): Promise<number> => {
+  const clearDemoProducts = useCallback(async () => {
+    setProducts((prev) => prev.filter((p) => !DEMO_MLB_IDS.has(p.mlbId) && !p.id.startsWith('seed-')));
+
+    if (isSupabaseConfigured) {
+      try {
+        const demoMlbs = Array.from(DEMO_MLB_IDS);
+        await supabase
+          .from('produtos_clarice')
+          .delete()
+          .in('mlb_id', demoMlbs);
+      } catch (err) {
+        console.warn('[useCatalog] Erro ao remover produtos demo no Supabase:', err);
+      }
+    }
+  }, []);
+
+  const syncRadar = useCallback(async (customTag?: string): Promise<RadarSyncResult> => {
     setIsSyncing(true);
     try {
+      let serverRes: RadarSyncResult = {
+        success: true,
+        newDealsCount: 0,
+        totalPendingCount: pendingProducts.length,
+        message: 'Radar atualizado.',
+      };
+
+      try {
+        const res = await syncRadarOffersServerFn({ data: { tag: customTag } });
+        if (res) serverRes = res;
+      } catch (err) {
+        console.warn('[useCatalog] Server function error, fallback to local fetch:', err);
+      }
+
       if (isSupabaseConfigured) {
         const { data, error } = await supabase
           .from('produtos_clarice')
@@ -193,10 +225,14 @@ export function useCatalog() {
         if (!error && data) {
           const mapped = (data as SupabaseProductRow[]).map(mapRowToProduct);
           setPendingProducts(mapped);
-          return mapped.length;
+          return {
+            ...serverRes,
+            totalPendingCount: mapped.length,
+          };
         }
       }
-      return pendingProducts.length;
+
+      return serverRes;
     } finally {
       setIsSyncing(false);
     }
@@ -209,6 +245,7 @@ export function useCatalog() {
     isSyncing,
     fetchCatalog,
     syncRadar,
+    clearDemoProducts,
     approveProduct,
     rejectPending,
     add: useCallback((items: AffiliateProduct[]) => {
