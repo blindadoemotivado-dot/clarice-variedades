@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  CheckSquare,
   Copy,
   ExternalLink,
   Eye,
@@ -12,10 +13,10 @@ import {
   MessageCircle,
   Radar,
   RefreshCw,
-  RotateCcw,
   Server,
   Settings,
   Sparkles,
+  Square,
   Star,
   Trash2,
   WandSparkles,
@@ -73,12 +74,16 @@ export interface AdminSheetProps {
   products: AffiliateProduct[];
   onAdd: (p: AffiliateProduct[]) => void;
   onRemove: (id: string) => void;
+  onBatchRemove?: (ids: string[]) => Promise<void> | void;
   onToggleFeatured: (id: string) => void;
   onReset: () => void;
+  onEmptyCatalog?: () => Promise<void> | void;
   onClearDemo?: () => void;
   pendingProducts?: AffiliateProduct[];
   onApprovePending?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
+  onBatchApprovePending?: (ids: string[]) => Promise<void> | void;
   onRejectPending?: (id: string) => Promise<void> | void;
+  onBatchRejectPending?: (ids: string[]) => Promise<void> | void;
   onSyncRadar?: (tag?: string) => Promise<any> | void;
 }
 
@@ -292,11 +297,14 @@ function BulkTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
 function ManageTab({
   products,
   onRemove,
+  onBatchRemove,
   onToggleFeatured,
-  onReset,
+  onEmptyCatalog,
   onClearDemo,
 }: Omit<AdminSheetProps, 'open' | 'onOpenChange' | 'onAdd'>) {
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const filtered = products.filter(
     (p) =>
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -304,8 +312,113 @@ function ManageTab({
       p.category.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredIds = filtered.map((p) => p.id);
+  const allFilteredSelected =
+    filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+
+    const confirmMsg =
+      count === 1
+        ? 'Deseja realmente excluir o produto selecionado do catálogo?'
+        : `Deseja realmente excluir os ${count} produtos selecionados do catálogo?`;
+
+    if (window.confirm(confirmMsg)) {
+      const idsArray = Array.from(selectedIds);
+      if (onBatchRemove) {
+        await onBatchRemove(idsArray);
+      } else {
+        idsArray.forEach((id) => onRemove(id));
+      }
+      clearSelection();
+      toast.success(`${count} ${count === 1 ? 'produto excluído' : 'produtos excluídos'} do catálogo!`);
+    }
+  };
+
+  const handleEmptyCatalog = async () => {
+    if (products.length === 0) {
+      toast.info('O catálogo já está vazio.');
+      return;
+    }
+
+    if (
+      window.confirm(
+        '⚠️ ATENÇÃO: Deseja realmente esvaziar todo o catálogo ativo? Todos os produtos da vitrine pública serão excluídos.'
+      )
+    ) {
+      if (onEmptyCatalog) {
+        await onEmptyCatalog();
+      }
+      clearSelection();
+      toast.success('Catálogo esvaziado com sucesso!');
+    }
+  };
+
   return (
     <div className="space-y-3.5 max-w-4xl mx-auto">
+      {/* Barra de Ação em Lote Seletiva (Sticky) */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/50 bg-zinc-950/95 p-3.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-400 text-xs font-black text-zinc-950 px-1.5">
+              {selectedIds.size}
+            </span>
+            <span className="text-xs font-bold text-zinc-100">
+              {selectedIds.size === 1 ? '1 produto selecionado' : `${selectedIds.size} produtos selecionados`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+            >
+              Limpar seleção
+            </button>
+            <button
+              type="button"
+              onClick={handleBatchDelete}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-1.5 text-xs font-bold transition shadow-md shadow-rose-600/30"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Excluir Selecionados ({selectedIds.size})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Barra de Ferramentas / Filtro */}
       <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
         <input
           value={search}
@@ -314,6 +427,23 @@ function ManageTab({
           className={cn(field, 'sm:max-w-xs text-xs')}
         />
         <div className="flex flex-wrap items-center gap-2">
+          {filtered.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleSelectAllFiltered}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-400/20 transition"
+            >
+              {allFilteredSelected ? (
+                <>
+                  <CheckSquare className="h-3.5 w-3.5" /> Desmarcar todos
+                </>
+              ) : (
+                <>
+                  <Square className="h-3.5 w-3.5" /> Selecionar todos ({filtered.length})
+                </>
+              )}
+            </button>
+          )}
           {onClearDemo && (
             <button
               type="button"
@@ -334,13 +464,10 @@ function ManageTab({
           )}
           <button
             type="button"
-            onClick={() => {
-              onReset();
-              toast.success('Catálogo padrão restaurado.');
-            }}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900/80 px-3.5 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+            onClick={handleEmptyCatalog}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3.5 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/25 transition shadow-sm"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> Restaurar catálogo padrão
+            <Trash2 className="h-3.5 w-3.5" /> Esvaziar Catálogo
           </button>
         </div>
       </div>
@@ -349,84 +476,103 @@ function ManageTab({
         {filtered.length === 0 ? (
           <p className="py-12 text-center text-sm text-zinc-500">Nenhum produto encontrado neste filtro.</p>
         ) : (
-          filtered.map((p) => (
-            <div
-              key={p.id}
-              className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 rounded-xl border border-white/10 bg-zinc-900/70 p-3 transition hover:border-white/20"
-            >
-              <img
-                src={p.imageUrl}
-                alt=""
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = FALLBACK_IMAGE;
-                }}
-                className="h-14 w-14 shrink-0 rounded-lg object-contain bg-white/5 p-1"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-bold text-cyan-300 bg-cyan-400/10 px-1.5 py-0.5 rounded">
-                    {p.mlbId}
-                  </span>
-                  <span className="text-[10px] text-zinc-400">{p.category}</span>
-                  {isMonetizedUrl(p.affiliateUrl) ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
-                      ✓ Monetizado
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-400 border border-rose-500/30">
-                      ⚠ Sem Afiliado
-                    </span>
-                  )}
+          filtered.map((p) => {
+            const isSelected = selectedIds.has(p.id);
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  'flex flex-col sm:flex-row items-start sm:items-center gap-3.5 rounded-xl border p-3 transition',
+                  isSelected
+                    ? 'border-cyan-400/60 bg-cyan-950/30 ring-1 ring-cyan-400/30'
+                    : 'border-white/10 bg-zinc-900/70 hover:border-white/20'
+                )}
+              >
+                {/* Checkbox Individual */}
+                <div className="flex items-center self-center pr-0.5">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(p.id)}
+                    aria-label={`Selecionar ${p.title}`}
+                    className="h-4 w-4 rounded border-white/20 bg-zinc-950 text-cyan-400 focus:ring-2 focus:ring-cyan-400/40 cursor-pointer accent-cyan-400"
+                  />
                 </div>
-                <p className="truncate text-xs font-medium text-zinc-100 mt-1">{p.title}</p>
-                <p className="mt-1 text-xs text-zinc-400">
-                  <strong className="text-zinc-100">{formatBRL(p.currentPrice)}</strong>{' '}
-                  <span className="text-emerald-400">({p.discountPercent}% OFF)</span>
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => copyText(p.affiliateUrl, 'Link copiado com sucesso!')}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-300 hover:text-cyan-200"
-                  >
-                    <Link2 className="h-3 w-3" /> Copiar link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => copyText(buildWhatsAppCopy(p), 'Copy formatada copiada com sucesso!')}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 hover:text-emerald-200"
-                  >
-                    <FileText className="h-3 w-3" /> Gerar WhatsApp
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 self-end sm:self-center">
-                <button
-                  type="button"
-                  onClick={() => onToggleFeatured(p.id)}
-                  aria-label="Alternar destaque"
-                  className={cn(
-                    'rounded-lg p-2 transition',
-                    p.featured ? 'text-amber-300 bg-amber-400/10' : 'text-zinc-500 hover:text-amber-300'
-                  )}
-                >
-                  <Star className={cn('h-4 w-4', p.featured && 'fill-current')} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onRemove(p.id);
-                    toast('Produto removido do catálogo.');
+
+                <img
+                  src={p.imageUrl}
+                  alt=""
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = FALLBACK_IMAGE;
                   }}
-                  aria-label="Remover produto"
-                  className="rounded-lg p-2 text-zinc-500 hover:text-red-400 transition hover:bg-red-400/10"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  className="h-14 w-14 shrink-0 rounded-lg object-contain bg-white/5 p-1"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold text-cyan-300 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                      {p.mlbId}
+                    </span>
+                    <span className="text-[10px] text-zinc-400">{p.category}</span>
+                    {isMonetizedUrl(p.affiliateUrl) ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                        ✓ Monetizado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-400 border border-rose-500/30">
+                        ⚠ Sem Afiliado
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-xs font-medium text-zinc-100 mt-1">{p.title}</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    <strong className="text-zinc-100">{formatBRL(p.currentPrice)}</strong>{' '}
+                    <span className="text-emerald-400">({p.discountPercent}% OFF)</span>
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => copyText(p.affiliateUrl, 'Link copiado com sucesso!')}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-300 hover:text-cyan-200"
+                    >
+                      <Link2 className="h-3 w-3" /> Copiar link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => copyText(buildWhatsAppCopy(p), 'Copy formatada copiada com sucesso!')}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 hover:text-emerald-200"
+                    >
+                      <FileText className="h-3 w-3" /> Gerar WhatsApp
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => onToggleFeatured(p.id)}
+                    aria-label="Alternar destaque"
+                    className={cn(
+                      'rounded-lg p-2 transition',
+                      p.featured ? 'text-amber-300 bg-amber-400/10' : 'text-zinc-500 hover:text-amber-300'
+                    )}
+                  >
+                    <Star className={cn('h-4 w-4', p.featured && 'fill-current')} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRemove(p.id);
+                      toast('Produto removido do catálogo.');
+                    }}
+                    aria-label="Remover produto"
+                    className="rounded-lg p-2 text-zinc-500 hover:text-red-400 transition hover:bg-red-400/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -473,18 +619,48 @@ Basta clicar no produto que você deseja e finalizar sua compra diretamente no a
 function RadarTab({
   pendingProducts = [],
   onApprove,
+  onBatchApprove,
   onReject,
+  onBatchReject,
   onSyncRadar,
 }: {
   pendingProducts?: AffiliateProduct[];
   onApprove?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
+  onBatchApprove?: (ids: string[]) => Promise<void> | void;
   onReject?: (id: string) => Promise<void> | void;
+  onBatchReject?: (ids: string[]) => Promise<void> | void;
   onSyncRadar?: (tag?: string) => Promise<any> | void;
 }) {
   const [settings] = useStoreSettings();
   const [affiliateUrls, setAffiliateUrls] = useState<Record<string, string>>({});
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [selectedRadarIds, setSelectedRadarIds] = useState<Set<string>>(new Set());
+
+  const allRadarSelected =
+    pendingProducts.length > 0 &&
+    pendingProducts.every((p) => selectedRadarIds.has(p.id));
+
+  const toggleSelectRadar = (id: string) => {
+    setSelectedRadarIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllRadar = () => {
+    if (allRadarSelected) {
+      setSelectedRadarIds(new Set());
+    } else {
+      setSelectedRadarIds(new Set(pendingProducts.map((p) => p.id)));
+    }
+  };
+
+  const clearRadarSelection = () => {
+    setSelectedRadarIds(new Set());
+  };
 
   const handleSync = async () => {
     if (!onSyncRadar) return;
@@ -510,6 +686,11 @@ function RadarTab({
       const rawUrl = affiliateUrls[p.id] ?? p.affiliateUrl;
       const cleanUrl = rawUrl.replace('clarice-variedades', settings.mlAffiliateTag);
       await onApprove(p.id, cleanUrl);
+      setSelectedRadarIds((prev) => {
+        const next = new Set(prev);
+        next.delete(p.id);
+        return next;
+      });
       toast.success(`"${p.title.slice(0, 32)}..." aprovado e publicado com sucesso!`);
     } catch {
       toast.error('Erro ao aprovar produto.');
@@ -518,18 +699,94 @@ function RadarTab({
     }
   };
 
+  const handleBatchApprove = async () => {
+    const count = selectedRadarIds.size;
+    if (count === 0) return;
+    const ids = Array.from(selectedRadarIds);
+    if (onBatchApprove) {
+      await onBatchApprove(ids);
+    } else if (onApprove) {
+      for (const id of ids) {
+        await onApprove(id);
+      }
+    }
+    clearRadarSelection();
+    toast.success(`${count} achadinho(s) aprovado(s) e publicado(s) no catálogo!`);
+  };
+
   const handleReject = async (p: AffiliateProduct) => {
     if (!onReject) return;
     try {
       await onReject(p.id);
+      setSelectedRadarIds((prev) => {
+        const next = new Set(prev);
+        next.delete(p.id);
+        return next;
+      });
       toast('Oferta removida da fila do radar.');
     } catch {
       toast.error('Erro ao descartar produto.');
     }
   };
 
+  const handleBatchReject = async () => {
+    const count = selectedRadarIds.size;
+    if (count === 0) return;
+    if (window.confirm(`Deseja descartar as ${count} ofertas selecionadas da fila do radar?`)) {
+      const ids = Array.from(selectedRadarIds);
+      if (onBatchReject) {
+        await onBatchReject(ids);
+      } else if (onReject) {
+        for (const id of ids) {
+          await onReject(id);
+        }
+      }
+      clearRadarSelection();
+      toast(`${count} oferta(s) removida(s) da fila.`);
+    }
+  };
+
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
+      {/* Barra de Ação em Lote do Radar (Sticky) */}
+      {selectedRadarIds.size > 0 && (
+        <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/50 bg-zinc-950/95 p-3.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-400 text-xs font-black text-zinc-950 px-1.5">
+              {selectedRadarIds.size}
+            </span>
+            <span className="text-xs font-bold text-zinc-100">
+              {selectedRadarIds.size === 1 ? '1 oferta selecionada no radar' : `${selectedRadarIds.size} ofertas selecionadas`}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={clearRadarSelection}
+              className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+            >
+              Limpar seleção
+            </button>
+            <button
+              type="button"
+              onClick={handleBatchApprove}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-3.5 py-1.5 text-xs font-bold transition shadow-md shadow-emerald-500/20"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Aprovar Selecionados ({selectedRadarIds.size})
+            </button>
+            <button
+              type="button"
+              onClick={handleBatchReject}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-800/80 px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:text-red-400 hover:bg-red-400/10 transition"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Descartar ({selectedRadarIds.size})
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -540,17 +797,36 @@ function RadarTab({
             Garimpados automaticamente com descontos reais de no mínimo <strong>20% OFF</strong>, imagem em alta resolução e frete grátis. Revise o link de afiliado e publique na vitrine com 1 clique.
           </p>
         </div>
-        {onSyncRadar && (
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={syncing}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-400/20 transition disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
-            {syncing ? 'Sincronizando...' : 'Sincronizar Radar'}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {pendingProducts.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleSelectAllRadar}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+            >
+              {allRadarSelected ? (
+                <>
+                  <CheckSquare className="h-3.5 w-3.5 text-cyan-400" /> Desmarcar fila
+                </>
+              ) : (
+                <>
+                  <Square className="h-3.5 w-3.5 text-cyan-400" /> Selecionar fila ({pendingProducts.length})
+                </>
+              )}
+            </button>
+          )}
+          {onSyncRadar && (
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncing}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-400/20 transition disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
+              {syncing ? 'Sincronizando...' : 'Sincronizar Radar'}
+            </button>
+          )}
+        </div>
       </div>
 
       {pendingProducts.length === 0 ? (
@@ -578,12 +854,30 @@ function RadarTab({
             const rawAff = affiliateUrls[p.id] ?? p.affiliateUrl;
             const currentAff = rawAff.replace('clarice-variedades', settings.mlAffiliateTag);
             const isApproving = approvingId === p.id;
+            const isSelected = selectedRadarIds.has(p.id);
+
             return (
               <div
                 key={p.id}
-                className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4 transition hover:border-cyan-400/30 flex flex-col gap-3.5"
+                className={cn(
+                  'rounded-2xl border p-4 transition flex flex-col gap-3.5',
+                  isSelected
+                    ? 'border-cyan-400/60 bg-cyan-950/30 ring-1 ring-cyan-400/30'
+                    : 'border-white/10 bg-zinc-900/70 hover:border-cyan-400/30'
+                )}
               >
                 <div className="flex flex-col sm:flex-row gap-3.5 items-start sm:items-center">
+                  {/* Checkbox Individual Radar */}
+                  <div className="flex items-center self-center pr-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectRadar(p.id)}
+                      aria-label={`Selecionar ${p.title}`}
+                      className="h-4 w-4 rounded border-white/20 bg-zinc-950 text-cyan-400 focus:ring-2 focus:ring-cyan-400/40 cursor-pointer accent-cyan-400"
+                    />
+                  </div>
+
                   <img
                     src={p.imageUrl}
                     alt={p.title}
@@ -1139,12 +1433,22 @@ export function AdminSheet({ open, onOpenChange, ...rest }: AdminSheetProps) {
                 <RadarTab
                   pendingProducts={rest.pendingProducts}
                   onApprove={rest.onApprovePending}
+                  onBatchApprove={rest.onBatchApprovePending}
                   onReject={rest.onRejectPending}
+                  onBatchReject={rest.onBatchRejectPending}
                   onSyncRadar={rest.onSyncRadar}
                 />
               </TabsContent>
               <TabsContent value="catalog" className="mt-0 focus-visible:outline-none">
-                <ManageTab {...rest} />
+                <ManageTab
+                  products={rest.products}
+                  onRemove={rest.onRemove}
+                  onBatchRemove={rest.onBatchRemove}
+                  onToggleFeatured={rest.onToggleFeatured}
+                  onReset={rest.onReset}
+                  onEmptyCatalog={rest.onEmptyCatalog}
+                  onClearDemo={rest.onClearDemo}
+                />
               </TabsContent>
               <TabsContent value="magic" className="mt-0 focus-visible:outline-none">
                 <MagicTab onAdd={rest.onAdd} />

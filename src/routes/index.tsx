@@ -290,11 +290,15 @@ function Storefront() {
         pendingProducts={c.pendingProducts}
         onAdd={c.add}
         onRemove={c.remove}
+        onBatchRemove={c.batchRemove}
         onToggleFeatured={c.toggleFeatured}
         onReset={c.reset}
+        onEmptyCatalog={c.emptyCatalog}
         onClearDemo={c.clearDemoProducts}
         onApprovePending={c.approveProduct}
+        onBatchApprovePending={c.batchApprovePending}
         onRejectPending={c.rejectPending}
+        onBatchRejectPending={c.batchRejectPending}
         onSyncRadar={c.syncRadar}
       />
       <Toaster position="bottom-center" richColors />
