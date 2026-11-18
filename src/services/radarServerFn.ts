@@ -265,10 +265,11 @@ export const syncRadarOffersServerFn = createServerFn({ method: 'POST' })
       auth: { persistSession: false },
     });
 
-    // 1. Obter códigos MLB existentes para deduplicação
+    // 1. Obter códigos MLB existentes para deduplicação (apenas ativos ou pendentes)
     const { data: existingRows } = await supabase
       .from('produtos_clarice')
-      .select('mlb_id');
+      .select('mlb_id')
+      .or('active.eq.true,status.eq.pendente_afiliado,status.eq.ativo');
     const existingMlbIds = new Set((existingRows || []).map((r) => r.mlb_id));
 
     // 2. Coletar ofertas do Mercado Livre

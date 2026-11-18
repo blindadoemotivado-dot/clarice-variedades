@@ -2,8 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
+import { chromium } from 'playwright';
 
-// 1. Carrega variáveis de ambiente de .env.local se não existirem no processo
+// 1. Carrega variáveis de ambiente de .env.local
 function loadEnvLocal() {
   const envPath = path.resolve(process.cwd(), '.env.local');
   if (fs.existsSync(envPath)) {
@@ -28,12 +29,16 @@ function loadEnvLocal() {
 
 loadEnvLocal();
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://tuxvpzeciwxgxhmcrprt.supabase.co';
+const SUPABASE_URL =
+  process.env.VITE_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://tuxvpzeciwxgxhmcrprt.supabase.co';
 const SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY ||
   '';
-const DEFAULT_AFFILIATE_TAG = process.env.ML_AFFILIATE_TAG || 'clarice-achadinhos';
+const DEFAULT_AFFILIATE_TAG =
+  process.env.ML_AFFILIATE_TAG || 'kd20250113073553';
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('❌ Erro: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios.');
@@ -44,343 +49,281 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-// Termos e categorias amplas para varredura do radar (meta: 25 a 40 achadinhos reais)
-export const SEARCH_TARGETS = [
-  { term: 'air fryer 4l', category: 'Casa & Cozinha' },
-  { term: 'smart tv 55 polegadas 4k', category: 'Eletrônicos' },
-  { term: 'jogo de panelas antiaderente', category: 'Casa & Cozinha' },
-  { term: 'aspirador po robo', category: 'Eletroportáteis' },
-  { term: 'smartphone 5g 256gb', category: 'Eletrônicos' },
-  { term: 'parafusadeira furadeira impacto bateria', category: 'Ferramentas' },
-  { term: 'secador cabelo profissional ion', category: 'Beleza & Saúde' },
-  { term: 'cafeteira eletrica expresso', category: 'Eletroportáteis' },
-  { term: 'fone bluetooth cancelamento ruido', category: 'Eletrônicos' },
-  { term: 'smartwatch prova dagua', category: 'Eletrônicos' },
-  { term: 'kit organizador cozinha hermetico', category: 'Casa & Cozinha' },
-  { term: 'ventilador turbo silencioso', category: 'Eletroportáteis' },
-  { term: 'escova alisadora secadora', category: 'Beleza & Saúde' },
-  { term: 'mochila impermeavel antifurto notebook', category: 'Acessórios' },
-  { term: 'caixa de som bluetooth potente', category: 'Eletrônicos' },
-  { term: 'ferro de passar vapor cerâmica', category: 'Eletroportáteis' },
+// URLs alvo para varredura real de ofertas
+const TARGET_URLS = [
+  { url: 'https://www.mercadolivre.com.br/ofertas', name: 'Ofertas Principais' },
+  { url: 'https://lista.mercadolivre.com.br/eletrodomesticos/ofertas', name: 'Eletroportáteis' },
+  { url: 'https://lista.mercadolivre.com.br/casa-moveis-decoracao/ofertas', name: 'Casa & Cozinha' },
+  { url: 'https://lista.mercadolivre.com.br/ferramentas/ofertas', name: 'Ferramentas' },
+  { url: 'https://lista.mercadolivre.com.br/eletronicos-audio-video/ofertas', name: 'Eletrônicos' },
+  { url: 'https://lista.mercadolivre.com.br/beleza-cuidado-pessoal/ofertas', name: 'Beleza & Saúde' },
 ];
 
-// Lote curado de achadinhos verificados (fallback de alta disponibilidade)
-export const RADAR_FALLBACK_DEALS = [
-  {
-    mlbId: 'MLB-4921048',
-    title: 'Cafeteira Expresso Oster Prima Latte II Touch Inox Vermelha',
-    originalPrice: 1299.9,
-    currentPrice: 899.0,
-    discountPercent: 31,
-    installmentsText: 'em 10x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80',
-    category: 'Eletroportáteis',
-    badgeText: 'Radar 31% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.9,
-    reviewsCount: 3820,
-  },
-  {
-    mlbId: 'MLB-5829104',
-    title: 'Fone de Ouvido Bluetooth Sem Fio Sony WH-CH520 com Microfone',
-    originalPrice: 399.0,
-    currentPrice: 289.9,
-    discountPercent: 27,
-    installmentsText: 'em 6x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
-    category: 'Eletrônicos',
-    badgeText: 'Radar 27% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.8,
-    reviewsCount: 9410,
-  },
-  {
-    mlbId: 'MLB-6638291',
-    title: 'Panela de Pressão Elétrica Electrolux 6L Digital Preta 127V',
-    originalPrice: 629.9,
-    currentPrice: 449.9,
-    discountPercent: 29,
-    installmentsText: 'em 8x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1584990347449-a2d4c2c044c9?auto=format&fit=crop&w=600&q=80',
-    category: 'Casa & Cozinha',
-    badgeText: 'Radar 29% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.8,
-    reviewsCount: 4210,
-  },
-  {
-    mlbId: 'MLB-7391823',
-    title: 'Kit Parafusadeira e Furadeira de Impacto DeWalt 20V Max com 2 Baterias',
-    originalPrice: 1499.0,
-    currentPrice: 1099.0,
-    discountPercent: 27,
-    installmentsText: 'em 10x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=600&q=80',
-    category: 'Ferramentas',
-    badgeText: 'Radar 27% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.9,
-    reviewsCount: 6512,
-  },
-  {
-    mlbId: 'MLB-8102934',
-    title: 'Escova Secadora e Alisadora Britânia Soft 4 em 1 1300W Bivolt',
-    originalPrice: 229.9,
-    currentPrice: 149.9,
-    discountPercent: 35,
-    installmentsText: 'em 3x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?auto=format&fit=crop&w=600&q=80',
-    category: 'Beleza & Saúde',
-    badgeText: 'Radar 35% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.7,
-    reviewsCount: 8190,
-  },
-  {
-    mlbId: 'MLB-9281045',
-    title: 'Aspirador de Pó Robô WAP Wconnect com Wi-Fi e Passa Pano',
-    originalPrice: 1399.0,
-    currentPrice: 949.0,
-    discountPercent: 32,
-    installmentsText: 'em 10x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
-    category: 'Eletroportáteis',
-    badgeText: 'Radar 32% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.8,
-    reviewsCount: 5120,
-  },
-  {
-    mlbId: 'MLB-9382109',
-    title: 'Smart TV 55 Polegadas 4K UHD Samsung Crystal com Gaming Hub',
-    originalPrice: 3299.0,
-    currentPrice: 2499.0,
-    discountPercent: 24,
-    installmentsText: 'em 10x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=600&q=80',
-    category: 'Eletrônicos',
-    badgeText: 'Radar 24% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.9,
-    reviewsCount: 7890,
-  },
-  {
-    mlbId: 'MLB-9483210',
-    title: 'Fritadeira Elétrica Air Fryer 4 Litros Mondial Inox Family',
-    originalPrice: 429.0,
-    currentPrice: 299.0,
-    discountPercent: 30,
-    installmentsText: 'em 6x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80',
-    category: 'Casa & Cozinha',
-    badgeText: 'Radar 30% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.8,
-    reviewsCount: 14200,
-  },
-  {
-    mlbId: 'MLB-9584321',
-    title: 'Mochila Impermeável Antifurto para Notebook com Saída USB',
-    originalPrice: 189.9,
-    currentPrice: 129.9,
-    discountPercent: 31,
-    installmentsText: 'em 3x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80',
-    category: 'Acessórios',
-    badgeText: 'Radar 31% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.7,
-    reviewsCount: 3940,
-  },
-  {
-    mlbId: 'MLB-9685432',
-    title: 'Jogo de Panelas 5 Peças Cerâmica Antiaderente Tramontina',
-    originalPrice: 589.0,
-    currentPrice: 399.0,
-    discountPercent: 32,
-    installmentsText: 'em 8x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1584990347449-a2d4c2c044c9?auto=format&fit=crop&w=600&q=80',
-    category: 'Casa & Cozinha',
-    badgeText: 'Radar 32% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.9,
-    reviewsCount: 6210,
-  },
-  {
-    mlbId: 'MLB-9786543',
-    title: 'Smartwatch Relógio Inteligente Prova D água com Notificações',
-    originalPrice: 279.0,
-    currentPrice: 189.0,
-    discountPercent: 32,
-    installmentsText: 'em 4x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
-    category: 'Eletrônicos',
-    badgeText: 'Radar 32% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.8,
-    reviewsCount: 8430,
-  },
-  {
-    mlbId: 'MLB-9887654',
-    title: 'Caixa de Som Bluetooth Portátil Potente À Prova de Respingos',
-    originalPrice: 299.0,
-    currentPrice: 199.0,
-    discountPercent: 33,
-    installmentsText: 'em 4x sem juros',
-    imageUrl: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80',
-    category: 'Eletrônicos',
-    badgeText: 'Radar 33% OFF',
-    freeShipping: true,
-    isFull: true,
-    rating: 4.8,
-    reviewsCount: 4560,
-  },
-];
+function inferCategory(title) {
+  const t = title.toLowerCase();
+  if (/(tv|smartphone|celular|fone|bluetooth|notebook|tablet|alexa|smartwatch|som|caixa|gamer)/.test(t)) {
+    return 'Eletrônicos';
+  }
+  if (/(cafeteira|panela|air fryer|frigideira|jogo de panelas|organizador|cozinha|copo|garrafa|pote)/.test(t)) {
+    return 'Casa & Cozinha';
+  }
+  if (/(aspirador|ferro|ventilador|liquidificador|batedeira|micro-ondas|robo|sanduicheira)/.test(t)) {
+    return 'Eletroportáteis';
+  }
+  if (/(furadeira|parafusadeira|serra|trena|chave|ferramenta|solda|alicate|bateria 20v)/.test(t)) {
+    return 'Ferramentas';
+  }
+  if (/(secador|escova|perfume|hidratante|maquiagem|barba|cabelo|solar|skincare|alisadora)/.test(t)) {
+    return 'Beleza & Saúde';
+  }
+  if (/(camiseta|tênis|tenis|sapato|calça|mochila|bolsa|relógio|carteira|jaqueta)/.test(t)) {
+    return 'Moda & Acessórios';
+  }
+  return 'Achadinhos';
+}
 
-export async function fetchDealsFromMercadoLivre(target, minDiscount = 15) {
+export async function scrapeOffersFromPage(page, targetUrl, minDiscount = 15) {
+  console.log(`🌐 Acessando ofertas reais: ${targetUrl}`);
   try {
-    const url = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(target.term)}&limit=20&sort=relevance`;
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      },
-    });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+    await page.waitForTimeout(3000);
 
-    if (!res.ok) {
-      return [];
-    }
+    // Scroll para renderizar produtos dinâmicos
+    await page.evaluate(() => window.scrollBy(0, 1600));
+    await page.waitForTimeout(2000);
 
-    const data = await res.json();
-    if (!Array.isArray(data.results)) return [];
+    const deals = await page.evaluate((minDisc) => {
+      function parseBRL(str) {
+        if (!str) return 0;
+        const cleaned = str.replace(/[^\d.,]/g, '').trim();
+        if (!cleaned) return 0;
+        if (cleaned.includes('.') && cleaned.includes(',')) {
+          return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+        }
+        if (cleaned.includes(',')) {
+          return parseFloat(cleaned.replace(',', '.'));
+        }
+        if (cleaned.includes('.')) {
+          const parts = cleaned.split('.');
+          if (parts[1]?.length === 3) {
+            return parseFloat(cleaned.replace(/\./g, ''));
+          }
+          return parseFloat(cleaned);
+        }
+        return parseFloat(cleaned);
+      }
 
-    const deals = [];
-    for (const item of data.results) {
-      const original = Number(item.original_price || 0);
-      const current = Number(item.price || 0);
+      const cards = Array.from(
+        document.querySelectorAll(
+          '.poly-card, .promotion-item, .ui-search-layout__item, [class*="poly-card"]'
+        )
+      );
 
-      // Critério: Desconto real maior ou igual a 15% OFF
-      if (!original || original <= current) continue;
-      const discountPercent = Math.round(((original - current) / original) * 100);
-      if (discountPercent < minDiscount) continue;
+      const items = [];
+      const seenMlb = new Set();
 
-      // Critério: Frete grátis
-      const freeShipping = Boolean(item.shipping?.free_shipping);
-      if (!freeShipping) continue;
+      for (const card of cards) {
+        const linkEl = card.querySelector('a[href*="MLB"]');
+        if (!linkEl) continue;
+        const href = linkEl.href;
 
-      // Imagem em alta resolução
-      const rawThumb = item.thumbnail || '';
-      const hdImage = rawThumb.replace('-I.jpg', '-O.jpg').replace('http://', 'https://');
+        // Extrair MLB ID único
+        let mlbId = null;
+        const pMatch = href.match(/\/p\/(MLB\d+)/i);
+        const idMatch = href.match(/(MLB-\d+)/i);
+        const widMatch = href.match(/wid=(MLB\d+)/i);
+        const rawMatch = href.match(/(MLB\d{6,})/i);
 
-      const installments = item.installments;
-      const installmentsText = installments
-        ? `em ${installments.quantity}x de R$ ${installments.amount?.toFixed(2)}`
-        : 'À vista';
+        if (pMatch) mlbId = pMatch[1];
+        else if (idMatch) mlbId = idMatch[1];
+        else if (widMatch) mlbId = widMatch[1];
+        else if (rawMatch) mlbId = rawMatch[1];
 
-      deals.push({
-        mlbId: item.id,
-        title: item.title,
-        originalPrice: original,
-        currentPrice: current,
-        discountPercent,
-        installmentsText,
-        imageUrl: hdImage,
-        category: target.category || 'Achadinhos',
-        badgeText: `Radar ${discountPercent}% OFF`,
-        freeShipping: true,
-        isFull: item.shipping?.logistic_type === 'fulfillment',
-        rating: 4.8,
-        reviewsCount: item.sold_quantity || 150,
-      });
-    }
+        if (!mlbId) continue;
+        if (!mlbId.startsWith('MLB-')) {
+          mlbId = mlbId.replace(/^MLB/i, 'MLB-');
+        }
+
+        if (seenMlb.has(mlbId)) continue;
+
+        // Título
+        const titleEl = card.querySelector(
+          '.poly-component__title, a.poly-component__title, .promotion-item__title, a[title]'
+        );
+        const title =
+          titleEl?.textContent?.trim() ||
+          titleEl?.getAttribute('title')?.trim() ||
+          linkEl.textContent?.trim() ||
+          '';
+        if (!title || title.length < 5) continue;
+
+        // Imagem HD
+        const imgEl = card.querySelector('img');
+        let imgUrl =
+          imgEl?.getAttribute('src') ||
+          imgEl?.getAttribute('data-src') ||
+          imgEl?.src ||
+          '';
+        if (!imgUrl || imgUrl.startsWith('data:')) continue;
+        imgUrl = imgUrl.replace('-I.jpg', '-O.jpg').replace('http://', 'https://');
+
+        // Preços
+        const prevPriceEl = card.querySelector(
+          's .andes-money-amount__fraction, .andes-money-amount--previous .andes-money-amount__fraction, s.andes-money-amount'
+        );
+        const currentPriceEl = card.querySelector(
+          '.poly-price__current .andes-money-amount__fraction, .andes-money-amount:not(.andes-money-amount--previous) .andes-money-amount__fraction'
+        );
+        const currentCentsEl = card.querySelector('.poly-price__current .andes-money-amount__cents');
+
+        let originalPrice = parseBRL(prevPriceEl?.textContent);
+        let currentPrice = parseBRL(currentPriceEl?.textContent);
+        if (currentCentsEl) {
+          const cents = parseFloat(currentCentsEl.textContent) / 100;
+          currentPrice += cents;
+        }
+
+        if (!currentPrice || currentPrice <= 0) continue;
+
+        // Desconto
+        let discountPercent = 0;
+        const discountEl = card.querySelector('.andes-money-amount__discount, [class*="discount"]');
+        if (discountEl) {
+          const discMatch = discountEl.textContent.match(/(\d+)%\s*OFF/i);
+          if (discMatch) discountPercent = parseInt(discMatch[1], 10);
+        }
+        if (!discountPercent && originalPrice > currentPrice) {
+          discountPercent = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+        }
+
+        // Filtro estrito: >= minDiscount (padrão 15% OFF)
+        if (discountPercent < minDisc) continue;
+        if (!originalPrice || originalPrice <= currentPrice) {
+          originalPrice = Math.round((currentPrice / (1 - discountPercent / 100)) * 100) / 100;
+        }
+
+        // Filtro estrito: Frete Grátis
+        const cardText = card.innerText.toLowerCase();
+        const shippingEl = card.querySelector('.poly-component__shipping, [class*="shipping"]');
+        const shippingText = (shippingEl?.textContent || '').toLowerCase();
+        const hasFreeShipping =
+          shippingText.includes('grátis') ||
+          cardText.includes('chegará grátis') ||
+          cardText.includes('frete grátis') ||
+          cardText.includes('envio grátis');
+
+        if (!hasFreeShipping) continue;
+
+        // Parcelamento
+        const installmentsEl = card.querySelector('.poly-price__installments, [class*="installments"]');
+        const installmentsText = installmentsEl?.textContent?.trim() || 'À vista';
+
+        const isFull = cardText.includes('full');
+
+        seenMlb.add(mlbId);
+        items.push({
+          mlbId,
+          title,
+          originalPrice,
+          currentPrice,
+          discountPercent,
+          installmentsText,
+          imageUrl: imgUrl,
+          freeShipping: true,
+          isFull,
+          rawLink: href.split('?')[0],
+        });
+      }
+
+      return items;
+    }, minDiscount);
 
     return deals;
-  } catch {
+  } catch (err) {
+    console.warn(`⚠️ Erro ao varrer ${targetUrl}:`, err.message);
     return [];
   }
 }
 
-export async function runRadarCrawler({ customTerm, minDiscount = 15, tag = DEFAULT_AFFILIATE_TAG } = {}) {
-  console.log('📡 [Radar Clarice Achadinhos] Iniciando varredura autônoma de ofertas...');
+export async function runRadarCrawler({
+  customTerm,
+  minDiscount = 15,
+  tag = DEFAULT_AFFILIATE_TAG,
+  targetCount = 35,
+} = {}) {
+  console.log('📡 [Radar Clarice Achadinhos] Iniciando varredura com Microsoft Edge (Playwright)...');
   console.log(`🎯 Conectado ao Supabase: ${SUPABASE_URL}`);
-  if (customTerm) console.log(`🔍 Termo sob demanda: "${customTerm}"`);
+  console.log(`🏷️ Tag de Afiliado padrão: ${tag}`);
+  if (customTerm) console.log(`🔍 Termo de busca sob demanda: "${customTerm}"`);
 
-  // 1. Obter códigos MLB existentes para deduplicação
+  // 1. Deduplicação estrita: Bloquear duplicados APENAS contra itens atualmente 'ativo' ou 'pendente_afiliado'
   const { data: existingRows, error: fetchErr } = await supabase
     .from('produtos_clarice')
-    .select('mlb_id');
+    .select('mlb_id')
+    .or('active.eq.true,status.eq.pendente_afiliado,status.eq.ativo');
 
   if (fetchErr) {
     console.error('❌ Falha ao consultar produtos existentes no banco:', fetchErr.message);
     throw fetchErr;
   }
 
-  const existingMlbIds = new Set((existingRows || []).map((r) => r.mlb_id));
-  console.log(`📦 Produtos já cadastrados no banco: ${existingMlbIds.size}`);
+  const blockedMlbIds = new Set((existingRows || []).map((r) => r.mlb_id));
+  console.log(`📦 Produtos ativos/pendentes no catálogo a proteger de duplicação: ${blockedMlbIds.size}`);
 
-  let capturedDeals = [];
+  // 2. Inicializar contexto persistente do Microsoft Edge
+  const profileDir = path.resolve(process.cwd(), '.edge-ml-profile');
+  const context = await chromium.launchPersistentContext(profileDir, {
+    channel: 'msedge',
+    headless: false,
+    viewport: { width: 1280, height: 800 },
+    args: ['--disable-blink-features=AutomationControlled'],
+  });
 
-  // 2. Executar buscas por categoria ou termo customizado
-  const targets = customTerm
-    ? [{ term: customTerm, category: 'Radar Especial' }]
-    : SEARCH_TARGETS;
+  const page = context.pages()[0] || (await context.newPage());
 
-  for (const target of targets) {
-    const deals = await fetchDealsFromMercadoLivre(target, minDiscount);
-    if (deals.length > 0) {
-      capturedDeals.push(...deals);
-    }
-  }
-
-  // 3. Fallback inteligente com negócios verificados se a API do ML retornar restrição de IP
-  if (capturedDeals.length === 0) {
-    console.log('ℹ️ API direta do ML indisponível no IP atual ou sem novos resultados. Utilizando lote curado...');
-    if (customTerm) {
-      const q = customTerm.toLowerCase();
-      capturedDeals = RADAR_FALLBACK_DEALS.filter(
-        (d) => d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q)
-      );
-      if (capturedDeals.length === 0) capturedDeals = RADAR_FALLBACK_DEALS.slice(0, 5);
-    } else {
-      capturedDeals = RADAR_FALLBACK_DEALS;
-    }
-  }
-
-  // 4. Deduplicação estrita
-  const newDeals = [];
+  const collectedDeals = [];
   const seenInBatch = new Set();
 
-  for (const deal of capturedDeals) {
-    if (existingMlbIds.has(deal.mlbId) || seenInBatch.has(deal.mlbId)) {
-      continue;
+  try {
+    if (customTerm) {
+      // Busca por termo específico sob demanda
+      const termUrl = `https://lista.mercadolivre.com.br/${encodeURIComponent(customTerm)}/ofertas`;
+      const deals = await scrapeOffersFromPage(page, termUrl, minDiscount);
+      for (const d of deals) {
+        if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
+          seenInBatch.add(d.mlbId);
+          collectedDeals.push({ ...d, category: inferCategory(d.title) });
+        }
+      }
+    } else {
+      // Varredura por categorias reais até atingir 25 a 40 ofertas
+      for (const target of TARGET_URLS) {
+        if (collectedDeals.length >= targetCount) break;
+        const deals = await scrapeOffersFromPage(page, target.url, minDiscount);
+        for (const d of deals) {
+          if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
+            seenInBatch.add(d.mlbId);
+            collectedDeals.push({ ...d, category: inferCategory(d.title) });
+            if (collectedDeals.length >= targetCount) break;
+          }
+        }
+        console.log(`✨ Ofertas únicas acumuladas até agora: ${collectedDeals.length}`);
+      }
     }
-    seenInBatch.add(deal.mlbId);
-    newDeals.push(deal);
+  } finally {
+    await context.close().catch(() => {});
   }
 
-  console.log(`🔍 Ofertas qualificadas capturadas: ${capturedDeals.length}`);
-  console.log(`✨ Novas ofertas prontas para inserção: ${newDeals.length}`);
+  console.log(`\n🔍 Total de ofertas qualificadas capturadas: ${collectedDeals.length}`);
 
-  if (newDeals.length === 0) {
-    console.log('✅ Nenhuma oferta nova para inserir (todas já registradas no banco).');
+  if (collectedDeals.length === 0) {
+    console.log('✅ Nenhuma oferta nova para inserir (as ofertas garimpadas já constam na fila/catálogo).');
     return [];
   }
 
-  // 5. Inserir no Supabase com status 'pendente_afiliado' e active = false
-  const rowsToInsert = newDeals.map((deal) => {
-    const rawUrl = `https://produto.mercadolivre.com.br/${deal.mlbId}`;
+  // 3. Montar registros para o Supabase com status 'pendente_afiliado'
+  const rowsToInsert = collectedDeals.map((deal) => {
+    const rawUrl = deal.rawLink || `https://produto.mercadolivre.com.br/${deal.mlbId}`;
     const affiliateUrl = `${rawUrl}?matt_tool=${tag}`;
 
     return {
@@ -393,11 +336,11 @@ export async function runRadarCrawler({ customTerm, minDiscount = 15, tag = DEFA
       image_url: deal.imageUrl,
       affiliate_url: affiliateUrl,
       category: deal.category,
-      badge_text: deal.badgeText,
+      badge_text: `Radar ${deal.discountPercent}% OFF`,
       free_shipping: deal.freeShipping,
       is_full: deal.isFull,
-      rating: deal.rating,
-      reviews_count: deal.reviewsCount,
+      rating: 4.8,
+      reviews_count: 350,
       featured: false,
       active: false,
       status: 'pendente_afiliado',
@@ -414,15 +357,18 @@ export async function runRadarCrawler({ customTerm, minDiscount = 15, tag = DEFA
     throw insertErr;
   }
 
-  console.log(`\n🎉 ${inserted.length} achadinhos salvos com sucesso na Fila do Radar (status: pendente_afiliado)!`);
+  console.log(`\n🎉 ${inserted.length} achadinhos reais salvos com sucesso na Fila do Radar (status: pendente_afiliado)!`);
   console.table(
-    inserted.map((i) => ({
+    inserted.slice(0, 15).map((i) => ({
       MLB: i.mlb_id,
       Título: i.title.slice(0, 42) + '...',
       Desconto: `${i.discount_percent}% OFF`,
       Status: i.status,
     }))
   );
+  if (inserted.length > 15) {
+    console.log(`... e mais ${inserted.length - 15} ofertas inseridas no banco.`);
+  }
 
   return inserted;
 }

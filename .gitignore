@@ -39,5 +39,6 @@ supabase/.temp/
 *.sw?
 
 # Playwright & Automations
+.edge-ml-profile/
 .ml-profile/
 .ml-browser-session/
