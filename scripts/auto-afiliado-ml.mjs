@@ -319,17 +319,18 @@ async function main() {
 
   const USER_DATA_DIR = path.resolve(process.cwd(), '.edge-ml-profile');
 
-  // Limpeza preventiva de processos órfãos do perfil de automação
+  // Limpeza cirúrgica: encerra EXCLUSIVAMENTE processos órfãos vinculados à pasta .edge-ml-profile
+  // O navegador Edge pessoal e as janelas do usuário NUNCA são fechados
   try {
     if (process.platform === 'win32') {
       execSync(
-        'powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name = \'msedge.exe\'\\" | Where-Object { $_.CommandLine -like \'*edge-ml-profile*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"',
+        'powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name = \'msedge.exe\'\\" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like \'*edge-ml-profile*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"',
         { stdio: 'ignore' }
       );
     }
   } catch (_) {}
 
-  // Limpeza de travas residuais de execuções anteriores
+  // Limpeza de travas residuais exclusivas da pasta .edge-ml-profile
   try {
     if (fs.existsSync(USER_DATA_DIR)) {
       const files = fs.readdirSync(USER_DATA_DIR);

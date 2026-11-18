@@ -8,10 +8,18 @@ Write-Host "  CLARICE ACHADINHOS - AUTO-AFILIADO COM MICROSOFT EDGE   " -Foregro
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Limpeza preventiva de processos residuais e travas de sessão
-Write-Host "[1/3] Limpando processos residuais e travas de sessao..." -ForegroundColor White
+# 1. Limpeza preventiva cirúrgica: encerra APENAS processos órfãos que usam .edge-ml-profile
+#    (O Microsoft Edge pessoal e janelas de navegação do usuário NUNCA são fechados)
+Write-Host "[1/3] Limpeza cirurgica de processos travados da automacao..." -ForegroundColor White
 
-Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" | Where-Object { $_.CommandLine -like "*edge-ml-profile*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+$automationEdgeProcs = Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -like "*edge-ml-profile*" }
+
+if ($automationEdgeProcs) {
+  $automationEdgeProcs | ForEach-Object {
+    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+}
 
 $profileDir = Join-Path $PSScriptRoot ".edge-ml-profile"
 if (Test-Path $profileDir) {
