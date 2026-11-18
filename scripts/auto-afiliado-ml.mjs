@@ -235,8 +235,20 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
   if (inputField) {
     try {
       await inputField.focus();
-      await inputField.fill('');
-      await inputField.fill(batchText);
+
+      // Define o valor via prototype setter para garantir compatibilidade total com React/Andes
+      await inputField.evaluate((el, val) => {
+        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (setter) {
+          setter.call(el, val);
+        } else {
+          el.value = val;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, batchText);
+
       await page.waitForTimeout(300);
 
       // Disparar eventos reais de teclado e input para o React/Andes habilitar o botão Gerar
@@ -251,15 +263,15 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      console.log('✓ Links colados e eventos de input/teclado disparados com sucesso!');
+      console.log('✓ Links colados e eventos nativos de input/teclado disparados!');
       await page.waitForTimeout(600);
 
       // Localizar o botão "Gerar" habilitado
       const btnSelectors = [
-        'button:has-text("Gerar"):not([disabled])',
-        'button:has-text("Gerar link"):not([disabled])',
-        'button:has-text("Criar link"):not([disabled])',
-        'button[type="submit"]:not([disabled])',
+        'button:has-text("Gerar"):not([disabled]):not([aria-disabled="true"])',
+        'button:has-text("Gerar link"):not([disabled]):not([aria-disabled="true"])',
+        'button:has-text("Criar link"):not([disabled]):not([aria-disabled="true"])',
+        'button[type="submit"]:not([disabled]):not([aria-disabled="true"])',
         'button.andes-button--loud:not([disabled])',
       ];
 
@@ -311,12 +323,13 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
   // Polling automático dos links curtos sem travar o usuário
   console.log('⏳ Aguardando renderização automática dos links curtos oficiais na página...');
   let extracted = [];
-  const maxAttempts = 12; // 12 segundos de polling automático
+  const maxAttempts = 15; // 15 segundos de polling automático
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     extracted = await page.evaluate(() => {
       const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/g;
+      const html = document.documentElement.innerHTML || '';
       const text = document.body.innerText || '';
-      const matches = text.match(regex) || [];
+      const matches = [...(html.match(regex) || []), ...(text.match(regex) || [])];
 
       const hrefs = Array.from(document.querySelectorAll('a[href]'))
         .map((a) => a.getAttribute('href'))
@@ -500,7 +513,10 @@ async function main() {
 
     for (let i = 0; i < pending.length; i++) {
       const item = pending[i];
-      const finalAffiliateUrl = shortLinks[i] || item.affiliate_url;
+      const fallbackMonetized = (item.affiliate_url || '').includes('?')
+        ? `${item.affiliate_url}&matt_tool=${AFFILIATE_TAG}&matt_word=${AFFILIATE_SUBTAG}`
+        : `${item.affiliate_url}?matt_tool=${AFFILIATE_TAG}&matt_word=${AFFILIATE_SUBTAG}`;
+      const finalAffiliateUrl = shortLinks[i] || fallbackMonetized;
 
       const { error: updErr } = await supabase
         .from('produtos_clarice')
