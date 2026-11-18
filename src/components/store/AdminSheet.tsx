@@ -16,6 +16,26 @@ const field =
 const primary =
   'flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:opacity-50';
 
+export function isValidMercadoLivreUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim().toLowerCase();
+  const isHttp = trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  const isMlDomain = trimmed.includes('mercadolivre.com') || trimmed.includes('meli.la');
+  return isHttp && isMlDomain;
+}
+
+export function isMonetizedUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('meli.la') ||
+    lower.includes('matt_tool') ||
+    lower.includes('tracking_id') ||
+    lower.includes('tag=') ||
+    lower.includes('afiliado')
+  );
+}
+
 export interface AdminSheetProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -49,16 +69,33 @@ function MagicTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
   const [preview, setPreview] = useState<AffiliateProduct | null>(null);
 
   const publish = () => {
-    const p = productFromUrl(url, cat, aff, ai);
+    if (!url.trim()) {
+      toast.error('Informe a URL do produto no Mercado Livre.');
+      return;
+    }
+    if (!isValidMercadoLivreUrl(url)) {
+      toast.error('URL do produto inválida. Deve ser um link oficial do Mercado Livre (mercadolivre.com ou meli.la).');
+      return;
+    }
+    if (!aff.trim()) {
+      toast.error('🔒 Trava de Monetização: O link de afiliado é obrigatório para não perder comissões!');
+      return;
+    }
+    if (!isValidMercadoLivreUrl(aff)) {
+      toast.error('Link de afiliado inválido. Deve ser uma URL do Mercado Livre (mercadolivre.com ou meli.la).');
+      return;
+    }
+
+    const p = productFromUrl(url, cat, aff.trim(), ai);
     if (!p) {
-      toast.error('Cole uma URL válida do Mercado Livre.');
+      toast.error('Não foi possível processar a URL informada.');
       return;
     }
     setPreview(p);
     onAdd([p]);
     setUrl('');
     setAff('');
-    toast.success('Produto publicado com sucesso no catálogo!');
+    toast.success('Produto monetizado e publicado com sucesso no catálogo!');
   };
 
   return (
@@ -74,13 +111,24 @@ function MagicTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Link de Afiliado Customizado (opcional)</label>
+          <label className="flex items-center justify-between text-xs font-semibold text-zinc-300 mb-1.5">
+            <span>
+              <span className="text-amber-400 mr-1 font-bold">*</span>Link de Afiliado (Obrigatório)
+            </span>
+            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20">
+              🔒 Trava Ativa
+            </span>
+          </label>
           <input
-            className={field}
+            className={cn(field, !aff.trim() && 'border-amber-400/40 focus:border-amber-400')}
             value={aff}
             onChange={(e) => setAff(e.target.value)}
-            placeholder="Deixe em branco para usar a tag padrão oficial"
+            placeholder="https://meli.la/... ou link com matt_tool"
+            required
           />
+          <p className="text-[11px] text-zinc-400 mt-1">
+            Cole seu link de afiliado oficial do Mercado Livre (ex: meli.la ou com seu tracking_id) para garantir o comissionamento.
+          </p>
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Categoria do Produto</label>
@@ -92,7 +140,7 @@ function MagicTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
           </span>
           <Switch checked={ai} onCheckedChange={setAi} />
         </label>
-        <button type="button" className={primary} onClick={publish} disabled={!url.trim()}>
+        <button type="button" className={primary} onClick={publish} disabled={!url.trim() || !aff.trim()}>
           <Zap className="h-4 w-4" /> Processar e Publicar Imediatamente
         </button>
       </div>
@@ -124,8 +172,19 @@ function BulkTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
     .filter(Boolean);
 
   const run = () => {
+    if (lines.length === 0) {
+      toast.error('Cole ao menos um link do Mercado Livre para importar.');
+      return;
+    }
+
+    const invalid = lines.filter((l) => !isValidMercadoLivreUrl(l));
+    if (invalid.length > 0) {
+      toast.error(`🔒 Trava de Monetização: ${invalid.length} link(s) inválido(s). Todos os links no lote devem ser URLs do Mercado Livre (mercadolivre.com ou meli.la).`);
+      return;
+    }
+
     const items = lines
-      .map((l) => productFromUrl(l, cat))
+      .map((l) => productFromUrl(l, cat, l))
       .filter((p): p is AffiliateProduct => p !== null);
     onAdd(items);
     setText('');
@@ -136,17 +195,22 @@ function BulkTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
     <div className="space-y-4 max-w-2xl mx-auto">
       <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4 sm:p-5 space-y-3.5">
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-            Cole as URLs do Mercado Livre (uma por linha):
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-semibold text-zinc-300">
+              <span className="text-amber-400 mr-1 font-bold">*</span>Cole as URLs de Afiliado (uma por linha):
+            </label>
+            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20">
+              🔒 Trava Ativa
+            </span>
+          </div>
           <textarea
             rows={8}
             className={cn(field, 'font-mono text-xs leading-relaxed')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={'https://produto.mercadolivre.com.br/MLB-1234567-...\nhttps://produto.mercadolivre.com.br/MLB-7654321-...'}
+            placeholder={'https://meli.la/123456\nhttps://produto.mercadolivre.com.br/MLB-...?matt_tool=...'}
           />
-          <p className="text-xs text-zinc-400 mt-1.5">{lines.length} link(s) válido(s) identificado(s)</p>
+          <p className="text-xs text-zinc-400 mt-1.5">{lines.length} link(s) válido(s) identificado(s) • Obrigatório ser URL oficial ML</p>
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Categoria Padrão do Lote</label>
@@ -201,11 +265,20 @@ function ManageTab({ products, onRemove, onToggleFeatured, onReset }: Omit<Admin
             >
               <img src={p.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-contain bg-white/5 p-1" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] font-bold text-cyan-300 bg-cyan-400/10 px-1.5 py-0.5 rounded">
                     {p.mlbId}
                   </span>
                   <span className="text-[10px] text-zinc-400">{p.category}</span>
+                  {isMonetizedUrl(p.affiliateUrl) ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                      ✓ Monetizado
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-400 border border-rose-500/30">
+                      ⚠ Sem Afiliado
+                    </span>
+                  )}
                 </div>
                 <p className="truncate text-xs font-medium text-zinc-100 mt-1">{p.title}</p>
                 <p className="mt-1 text-xs text-zinc-400">

@@ -8,6 +8,7 @@ import { HeroBanner } from '@/components/store/HeroBanner';
 import { ProductCard } from '@/components/store/ProductCard';
 import { ConciergeDialog, openWhatsApp } from '@/components/store/ConciergeDialog';
 import { AdminSheet } from '@/components/store/AdminSheet';
+import { AdminPinDialog } from '@/components/store/AdminPinDialog';
 import { askClariceAi } from '@/services/clariceAiService';
 import { useCatalog } from '@/hooks/use-catalog';
 import { filterProducts, type CategoryFilter, type SortKey } from '@/lib/catalog';
@@ -22,7 +23,9 @@ export const Route = createFileRoute('/')({
       { property: 'og:title', content: 'Clarice Achadinhos — Achadinhos do Dia com Desconto Real' },
       { property: 'og:description', content: 'Ofertas verificadas no Mercado Livre com desconto real, frete grátis e compra garantida.' },
       { property: 'og:type', content: 'website' },
+      { property: 'og:image', content: 'https://clarice-variedades.vercel.app/og-image.png' },
       { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:image', content: 'https://clarice-variedades.vercel.app/og-image.png' },
     ],
   }),
   component: Storefront,
@@ -107,6 +110,7 @@ function Storefront() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [concierge, setConcierge] = useState(false);
   const [admin, setAdmin] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
@@ -122,6 +126,21 @@ function Storefront() {
   const openSearch = () => {
     setSearchOpen(true);
     window.setTimeout(() => document.getElementById('mobile-search')?.focus(), 0);
+  };
+
+  const handleOpenAdmin = () => {
+    let isAuthed = false;
+    try {
+      isAuthed = sessionStorage.getItem('clarice_admin_authenticated') === 'true';
+    } catch {
+      isAuthed = false;
+    }
+
+    if (isAuthed) {
+      setAdmin(true);
+    } else {
+      setPinOpen(true);
+    }
   };
 
   const runAiSearch = async (event?: FormEvent) => {
@@ -155,8 +174,12 @@ function Storefront() {
         </div>
         <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
-            <a href="/" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-promo text-ml ring-2 ring-ml/30"><ShoppingBag className="h-5 w-5" /></span>
+            <a href="/" className="flex items-center gap-2.5">
+              <img
+                src="/icon-192.png"
+                alt="Clarice Achadinhos"
+                className="h-10 w-10 rounded-full object-cover ring-2 ring-[#FFE600] shadow-sm bg-[#0F172A]"
+              />
               <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">Clarice Achadinhos</span>
               <BadgeCheck className="h-5 w-5 text-ml" aria-label="Loja verificada" />
             </a>
@@ -212,7 +235,7 @@ function Storefront() {
 
       <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-10 text-center text-xs text-muted-foreground">
         <p className="mx-auto max-w-2xl">A Clarice Achadinhos é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.</p>
-        <button type="button" onClick={() => setAdmin(true)} className="mt-4 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"><Lock className="h-3 w-3" /> Painel Clarice (Admin)</button>
+        <button type="button" onClick={handleOpenAdmin} className="mt-4 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"><Lock className="h-3 w-3" /> Painel Clarice (Admin)</button>
       </footer>
 
       <nav aria-label="Navegação principal" className="fixed inset-x-0 bottom-0 z-50 flex h-16 items-center justify-around border-t border-border bg-card/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl md:hidden">
@@ -228,6 +251,11 @@ function Storefront() {
       </div>
 
       <ConciergeDialog open={concierge} onOpenChange={setConcierge} />
+      <AdminPinDialog
+        open={pinOpen}
+        onOpenChange={setPinOpen}
+        onSuccess={() => setAdmin(true)}
+      />
       <AdminSheet
         open={admin}
         onOpenChange={setAdmin}

@@ -99,8 +99,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:locale", content: "pt_BR" },
       {
         property: "og:image",
-        content:
-          "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=1200&q=80",
+        content: "https://clarice-variedades.vercel.app/og-image.png",
       },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
@@ -109,6 +108,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Economize de verdade! Achadinhos verificados diariamente com frete rápido e compra 100% segura no Mercado Livre.",
       },
+      {
+        name: "twitter:image",
+        content: "https://clarice-variedades.vercel.app/og-image.png",
+      },
     ],
     links: [
       {
@@ -116,6 +119,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),

@@ -18,10 +18,12 @@ export function StoreHeader({ query, onQuery, favCount, favoritesOnly, onToggleF
       </div>
       <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
-          <a href="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-promo text-ml ring-2 ring-ml/30">
-              <ShoppingBag className="h-5 w-5" />
-            </span>
+          <a href="/" className="flex items-center gap-2.5">
+            <img
+              src="/icon-192.png"
+              alt="Clarice Achadinhos"
+              className="h-10 w-10 rounded-full object-cover ring-2 ring-[#FFE600] shadow-sm bg-[#0F172A]"
+            />
             <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">Clarice Achadinhos</span>
             <BadgeCheck className="h-5 w-5 text-ml" aria-label="Loja verificada" />
           </a>
