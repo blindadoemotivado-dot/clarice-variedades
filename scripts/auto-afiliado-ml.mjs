@@ -137,6 +137,28 @@ async function ensureEtiquetaSelected(page, etiquetaName = AFFILIATE_SUBTAG) {
 }
 
 /**
+ * Normaliza qualquer URL ou código MLB para o formato limpo de anúncio:
+ * https://produto.mercadolivre.com.br/MLB-XXXXX (sem query strings ou parâmetros)
+ */
+export function normalizeProductUrl(urlOrMlb) {
+  if (!urlOrMlb) return '';
+  const match = String(urlOrMlb).match(/(MLB-?\d+)/i);
+  if (match) {
+    let id = match[1];
+    if (!id.startsWith('MLB-')) {
+      id = id.replace(/^MLB/i, 'MLB-');
+    }
+    return `https://produto.mercadolivre.com.br/${id}`;
+  }
+  try {
+    const u = new URL(urlOrMlb);
+    return `${u.origin}${u.pathname}`;
+  } catch {
+    return String(urlOrMlb).split('?')[0].split('#')[0];
+  }
+}
+
+/**
  * Converte um lote de até 10 produtos no Gerador de Produtos Recomendados do Mercado Livre
  */
 async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches) {
@@ -183,9 +205,10 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
   // Garantir a etiqueta 'clariceachadinhos' selecionada
   await ensureEtiquetaSelected(page, AFFILIATE_SUBTAG);
 
-  // Inserir os links reais dos produtos (até 10 por vez)
-  console.log(`📝 Inserindo ${batchUrls.length} link(s) de anúncios no formulário...`);
-  const batchText = batchUrls.join('\n');
+  // Normalizar URLs para o formato limpo: https://produto.mercadolivre.com.br/MLB-XXXXX
+  const cleanUrls = batchUrls.map(normalizeProductUrl).filter(Boolean);
+  console.log(`📝 Inserindo ${cleanUrls.length} link(s) limpos de anúncios no formulário...`);
+  const batchText = cleanUrls.join('\n');
 
   const selectors = [
     'textarea',
@@ -211,56 +234,112 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
 
   if (inputField) {
     try {
+      await inputField.focus();
       await inputField.fill('');
       await inputField.fill(batchText);
-      console.log('✓ Links colados no formulário com sucesso!');
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(300);
 
-      // Clicar no botão de gerar links
+      // Disparar eventos reais de teclado e input para o React/Andes habilitar o botão Gerar
+      await inputField.focus();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' ');
+      await page.waitForTimeout(100);
+      await page.keyboard.press('Backspace');
+      await page.waitForTimeout(200);
+
+      await inputField.evaluate((el) => {
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      console.log('✓ Links colados e eventos de input/teclado disparados com sucesso!');
+      await page.waitForTimeout(600);
+
+      // Localizar o botão "Gerar" habilitado
       const btnSelectors = [
-        'button:has-text("Gerar link")',
-        'button:has-text("Gerar")',
-        'button:has-text("Criar link")',
-        'button:has-text("Criar")',
-        'button[type="submit"]',
+        'button:has-text("Gerar"):not([disabled])',
+        'button:has-text("Gerar link"):not([disabled])',
+        'button:has-text("Criar link"):not([disabled])',
+        'button[type="submit"]:not([disabled])',
+        'button.andes-button--loud:not([disabled])',
       ];
 
+      let btn = null;
       for (const bSel of btnSelectors) {
-        const btn = page.locator(bSel).first();
-        if ((await btn.count()) > 0 && (await btn.isVisible())) {
-          await btn.click();
-          console.log('✓ Botão de gerar links acionado.');
+        const el = page.locator(bSel).first();
+        if ((await el.count()) > 0 && (await el.isVisible())) {
+          btn = el;
           break;
         }
+      }
+
+      if (!btn) {
+        // Se ainda com disabled, aguardar até 6s pela atualização de estado do React
+        const genericBtn = page.locator(
+          'button:has-text("Gerar"), button:has-text("Gerar link"), button[type="submit"]'
+        ).first();
+        if ((await genericBtn.count()) > 0) {
+          try {
+            await page.waitForFunction(
+              () => {
+                const b = Array.from(document.querySelectorAll('button')).find(
+                  (el) => /gerar/i.test(el.innerText) || el.type === 'submit'
+                );
+                return b && !b.disabled && !b.getAttribute('aria-disabled');
+              },
+              { timeout: 6000 }
+            );
+            btn = genericBtn;
+          } catch {
+            btn = genericBtn;
+          }
+        }
+      }
+
+      if (btn) {
+        await btn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+        await btn.click({ force: true });
+        console.log('✓ Botão "Gerar" acionado com sucesso!');
+      } else {
+        console.warn('⚠️ Botão "Gerar" acionado via tecla Enter.');
+        await page.keyboard.press('Enter').catch(() => {});
       }
     } catch (err) {
       console.warn('⚠️ Aviso ao interagir com campos do formulário:', err.message);
     }
   }
 
-  console.log('⏳ Aguardando links curtos oficiais na página...');
-  await page.waitForTimeout(4000);
+  // Polling automático dos links curtos sem travar o usuário
+  console.log('⏳ Aguardando renderização automática dos links curtos oficiais na página...');
+  let extracted = [];
+  const maxAttempts = 12; // 12 segundos de polling automático
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    extracted = await page.evaluate(() => {
+      const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/g;
+      const text = document.body.innerText || '';
+      const matches = text.match(regex) || [];
 
-  // Extrair links curtos gerados
-  let extracted = await page.evaluate(() => {
-    const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/g;
-    const text = document.body.innerText || '';
-    const matches = text.match(regex) || [];
+      const hrefs = Array.from(document.querySelectorAll('a[href]'))
+        .map((a) => a.getAttribute('href'))
+        .filter((h) => h && (h.includes('meli.la') || h.includes('mercadolivre.com/sec')));
 
-    const hrefs = Array.from(document.querySelectorAll('a[href]'))
-      .map((a) => a.getAttribute('href'))
-      .filter((h) => h && (h.includes('meli.la') || h.includes('mercadolivre.com/sec')));
+      const inputs = Array.from(document.querySelectorAll('input, textarea'))
+        .map((i) => i.value)
+        .filter((v) => v && (v.includes('meli.la') || v.includes('mercadolivre.com/sec')));
 
-    const inputs = Array.from(document.querySelectorAll('input, textarea'))
-      .map((i) => i.value)
-      .filter((v) => v && (v.includes('meli.la') || v.includes('mercadolivre.com/sec')));
+      return Array.from(new Set([...matches, ...hrefs, ...inputs]));
+    });
 
-    return Array.from(new Set([...matches, ...hrefs, ...inputs]));
-  });
+    if (extracted.length > 0) {
+      console.log(`✓ ${extracted.length} link(s) curto(s) gerados detectados automaticamente no DOM (tentativa ${attempt})!`);
+      break;
+    }
+    await page.waitForTimeout(1000);
+  }
 
-  // Se não extraiu automaticamente, dar oportunidade de confirmar ou colar no terminal
+  // Fallback de emergência caso nada tenha surgido automaticamente
   if (extracted.length === 0) {
-    console.log('\n💡 Clique em "Gerar" na janela do Edge caso ainda não tenha sido gerado.');
+    console.warn('\n⚠️ Links curtos não detectados após 12s de polling.');
+    console.log('💡 Clique em "Gerar" na janela do Edge caso necessário.');
     await askQuestion('Pressione [ENTER] quando os links curtos (meli.la / mercadolivre.com/sec) estiverem na tela...');
 
     extracted = await page.evaluate(() => {
@@ -435,7 +514,7 @@ async function main() {
 
     console.log(`🎯 Encontradas ${pending.length} oferta(s) na fila do Radar aguardando link oficial.`);
 
-    const productUrls = pending.map((p) => `https://produto.mercadolivre.com.br/${p.mlb_id}`);
+    const productUrls = pending.map((p) => normalizeProductUrl(p.mlb_id || p.affiliate_url));
 
     const shortLinks = await convertLinksInBatches(page, productUrls);
     console.log(`\n🔎 Total de links curtos obtidos: ${shortLinks.length} para ${pending.length} produto(s).`);

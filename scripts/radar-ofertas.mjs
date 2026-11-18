@@ -49,25 +49,67 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-// a) Infantil & Bebês 1+ ano
+// a) Infantil & Bebês 1+ ano (termos variados e rotativos)
 const BABY_TARGETS = [
   { term: 'brinquedos educativos 1 ano', category: 'Infantil & Bebês' },
+  { term: 'brinquedo montessori 1 ano', category: 'Infantil & Bebês' },
   { term: 'cadeira alimentacao bebe', category: 'Infantil & Bebês' },
   { term: 'copo transicao bebe', category: 'Infantil & Bebês' },
   { term: 'carrinho passeio bebe', category: 'Infantil & Bebês' },
-  { term: 'fralda', category: 'Infantil & Bebês' },
-  { term: 'tenis bebe', category: 'Infantil & Bebês' },
+  { term: 'fralda pampers confort sec', category: 'Infantil & Bebês' },
+  { term: 'tenis bebe menina menino', category: 'Infantil & Bebês' },
+  { term: 'andador infantil bebe', category: 'Infantil & Bebês' },
+  { term: 'mordedor bebe sensorial', category: 'Infantil & Bebês' },
+  { term: 'tapete atividades bebe infantil', category: 'Infantil & Bebês' },
+  { term: 'prato termico infantil bebe', category: 'Infantil & Bebês' },
+  { term: 'kit mamadeira anti colica', category: 'Infantil & Bebês' },
 ];
 
-// b) Achadinhos Gerais de alta conversão
+// b) Achadinhos Gerais de alta conversão (termos variados e rotativos)
 const GENERAL_TARGETS = [
   { url: 'https://www.mercadolivre.com.br/ofertas', category: 'Ofertas do Dia' },
   { term: 'air fryer 4l', category: 'Casa & Cozinha' },
-  { term: 'parafusadeira furadeira', category: 'Ferramentas' },
-  { term: 'fone bluetooth', category: 'Eletrônicos' },
-  { term: 'panela eletrica', category: 'Eletroportáteis' },
+  { term: 'air fryer 5l', category: 'Casa & Cozinha' },
+  { term: 'parafusadeira furadeira bateria', category: 'Ferramentas' },
+  { term: 'jogo de ferramentas maleta', category: 'Ferramentas' },
+  { term: 'fone bluetooth cancelamento ruido', category: 'Eletrônicos' },
+  { term: 'caixa de som bluetooth prova d agua', category: 'Eletrônicos' },
+  { term: 'panela eletrica de arroz', category: 'Eletroportáteis' },
   { term: 'aspirador robo', category: 'Eletroportáteis' },
+  { term: 'aspirador de po vertical 2 em 1', category: 'Eletroportáteis' },
+  { term: 'mop giratorio limpeza', category: 'Casa & Cozinha' },
+  { term: 'escova secadora modeladora', category: 'Beleza & Saúde' },
+  { term: 'cafeteira espresso eletrica', category: 'Eletroportáteis' },
+  { term: 'organizador geladeira armarios', category: 'Casa & Cozinha' },
+  { term: 'liquidificador potente 1000w', category: 'Eletroportáteis' },
 ];
+
+// Embaralha array para garantir rotação dinâmica a cada execução
+export function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// Constrói URLs paginadas (_Desde_49, _Desde_97) para cada alvo
+export function buildPaginatedUrls(target) {
+  if (target.url) {
+    return [
+      target.url,
+      `${target.url}?page=2`,
+      `${target.url}?page=3`,
+    ];
+  }
+  const slug = encodeURIComponent(target.term).replace(/%20/g, '-');
+  return [
+    `https://lista.mercadolivre.com.br/${slug}/ofertas`,
+    `https://lista.mercadolivre.com.br/${slug}/ofertas_Desde_49`,
+    `https://lista.mercadolivre.com.br/${slug}/ofertas_Desde_97`,
+  ];
+}
 
 export function inferCategory(title, defaultCategory = 'Achadinhos') {
   const t = title.toLowerCase();
@@ -269,11 +311,10 @@ export async function runRadarCrawler({
   console.log(`🏷️ Tag de Afiliado: ${tag}`);
   if (customTerm) console.log(`🔍 Garimpo sob demanda para: "${customTerm}"`);
 
-  // 1. Deduplicação estrita: Ignora itens descartados, checa APENAS contra 'ativo' ou 'pendente_afiliado'
+  // 1. Deduplicação Global: consulta TODOS os mlb_id já existentes na tabela produtos_clarice (qualquer status)
   const { data: existingRows, error: fetchErr } = await supabase
     .from('produtos_clarice')
-    .select('mlb_id')
-    .or('active.eq.true,status.eq.pendente_afiliado,status.eq.ativo');
+    .select('mlb_id');
 
   if (fetchErr) {
     console.error('❌ Falha ao consultar produtos existentes no banco:', fetchErr.message);
@@ -281,7 +322,7 @@ export async function runRadarCrawler({
   }
 
   const blockedMlbIds = new Set((existingRows || []).map((r) => r.mlb_id));
-  console.log(`📦 Produtos ativos/pendentes protegidos de duplicação: ${blockedMlbIds.size}`);
+  console.log(`📦 Deduplicação global ativada: ${blockedMlbIds.size} anúncio(s) existentes protegidos de repetição.`);
 
   // 2. Inicializar Edge Playwright com perfil persistente (ou reaproveitar se já fornecido)
   let context = null;
@@ -304,60 +345,75 @@ export async function runRadarCrawler({
 
   try {
     if (customTerm) {
-      // Garimpo sob demanda por termo livre
-      const searchUrl = `https://lista.mercadolivre.com.br/${encodeURIComponent(customTerm).replace(/%20/g, '-')}/ofertas`;
-      const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
-      for (const d of deals) {
-        if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
-          seenInBatch.add(d.mlbId);
-          collectedDeals.push({
-            ...d,
-            category: inferCategory(d.title, 'Achadinhos'),
-          });
-          if (collectedDeals.length >= targetCount) break;
-        }
-      }
-    } else {
-      // 2.A: Garimpo Infantil & Bebês 1+ ano (~18 itens)
-      const babyTargetLimit = Math.floor(targetCount / 2);
-      console.log(`\n🍼 [Grupo A] Garimpando achadinhos para Infantil & Bebês 1+ ano (meta: ${babyTargetLimit})...`);
-      for (const target of BABY_TARGETS) {
-        if (collectedDeals.length >= babyTargetLimit) break;
-        const searchUrl = `https://lista.mercadolivre.com.br/${encodeURIComponent(target.term).replace(/%20/g, '-')}/ofertas`;
-        const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
-        for (const d of deals) {
-          if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
-            seenInBatch.add(d.mlbId);
-            collectedDeals.push({
-              ...d,
-              category: 'Infantil & Bebês',
-            });
-            if (collectedDeals.length >= babyTargetLimit) break;
-          }
-        }
-        console.log(`🍼 Achadinhos infantis coletados: ${collectedDeals.length}`);
-      }
-
-      // 2.B: Garimpo Achadinhos Gerais de alta conversão (~18 itens)
-      console.log(`\n⚡ [Grupo B] Garimpando achadinhos gerais de alta conversão (meta total: ${targetCount})...`);
-      for (const target of GENERAL_TARGETS) {
+      // Garimpo sob demanda por termo livre com rotação de páginas
+      const slug = encodeURIComponent(customTerm).replace(/%20/g, '-');
+      const searchUrls = [
+        `https://lista.mercadolivre.com.br/${slug}/ofertas`,
+        `https://lista.mercadolivre.com.br/${slug}/ofertas_Desde_49`,
+        `https://lista.mercadolivre.com.br/${slug}/ofertas_Desde_97`,
+      ];
+      for (const searchUrl of searchUrls) {
         if (collectedDeals.length >= targetCount) break;
-        const searchUrl = target.url
-          ? target.url
-          : `https://lista.mercadolivre.com.br/${encodeURIComponent(target.term).replace(/%20/g, '-')}/ofertas`;
-
         const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
         for (const d of deals) {
           if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
             seenInBatch.add(d.mlbId);
             collectedDeals.push({
               ...d,
-              category: inferCategory(d.title, target.category),
+              category: inferCategory(d.title, 'Achadinhos'),
             });
             if (collectedDeals.length >= targetCount) break;
           }
         }
-        console.log(`⚡ Total de achadinhos acumulados: ${collectedDeals.length}`);
+      }
+    } else {
+      // 2.A: Garimpo Infantil & Bebês 1+ ano (~18 itens) com rotação e paginação
+      const babyTargetLimit = Math.floor(targetCount / 2);
+      console.log(`\n🍼 [Grupo A] Garimpando achadinhos para Infantil & Bebês 1+ ano (meta: ${babyTargetLimit})...`);
+      const rotatedBabyTargets = shuffleArray(BABY_TARGETS);
+      for (const target of rotatedBabyTargets) {
+        if (collectedDeals.length >= babyTargetLimit) break;
+        const paginatedUrls = buildPaginatedUrls(target);
+        for (const searchUrl of paginatedUrls) {
+          if (collectedDeals.length >= babyTargetLimit) break;
+          const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
+          for (const d of deals) {
+            if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
+              seenInBatch.add(d.mlbId);
+              collectedDeals.push({
+                ...d,
+                category: 'Infantil & Bebês',
+              });
+              if (collectedDeals.length >= babyTargetLimit) break;
+            }
+          }
+          if (collectedDeals.length >= babyTargetLimit) break;
+        }
+        console.log(`🍼 Achadinhos infantis inéditos acumulados: ${collectedDeals.length}`);
+      }
+
+      // 2.B: Garimpo Achadinhos Gerais de alta conversão (~18 itens) com rotação e paginação
+      console.log(`\n⚡ [Grupo B] Garimpando achadinhos gerais de alta conversão (meta total: ${targetCount})...`);
+      const rotatedGeneralTargets = shuffleArray(GENERAL_TARGETS);
+      for (const target of rotatedGeneralTargets) {
+        if (collectedDeals.length >= targetCount) break;
+        const paginatedUrls = buildPaginatedUrls(target);
+        for (const searchUrl of paginatedUrls) {
+          if (collectedDeals.length >= targetCount) break;
+          const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
+          for (const d of deals) {
+            if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
+              seenInBatch.add(d.mlbId);
+              collectedDeals.push({
+                ...d,
+                category: inferCategory(d.title, target.category),
+              });
+              if (collectedDeals.length >= targetCount) break;
+            }
+          }
+          if (collectedDeals.length >= targetCount) break;
+        }
+        console.log(`⚡ Total de achadinhos inéditos acumulados: ${collectedDeals.length}`);
       }
     }
   } finally {
