@@ -1,13 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState, type FormEvent } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { BadgeCheck, Heart, Home, Lock, MessageCircle, PackageSearch, Search, ShoppingBag, Sparkles, X } from 'lucide-react';
+import { BadgeCheck, ExternalLink, Heart, Home, Lock, MessageCircle, PackageSearch, Search, ShoppingBag, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { HeroBanner } from '@/components/store/HeroBanner';
 import { ProductCard } from '@/components/store/ProductCard';
 import { ConciergeDialog, openWhatsApp } from '@/components/store/ConciergeDialog';
-import { openVipGroup } from '@/lib/store-settings';
+import { openVipGroup, useStoreSettings } from '@/lib/store-settings';
 import { AdminSheet } from '@/components/store/AdminSheet';
 import { AdminPinDialog } from '@/components/store/AdminPinDialog';
 import { askClariceAi } from '@/services/clariceAiService';
@@ -105,6 +105,7 @@ function AiSearchPanel({ result, loading, onClear }: { result: AiResult | null; 
 
 function Storefront() {
   const c = useCatalog();
+  const [settings] = useStoreSettings();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('Todos');
   const [sort, setSort] = useState<SortKey>('relevance');
@@ -259,6 +260,25 @@ function Storefront() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Botão Amarelo de Afiliado Geral Mercado Livre */}
+        <div className="mx-auto mb-6 max-w-md px-2">
+          <a
+            href={
+              settings.generalAffiliateUrl ||
+              `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-sm px-5 py-3.5 shadow-lg shadow-amber-400/20 transition transform active:scale-[0.98]"
+          >
+            <span>Vai comprar outro produto? Abrir Mercado Livre</span>
+            <ExternalLink className="h-4 w-4 shrink-0 text-slate-950" />
+          </a>
+          <p className="mt-2 text-[11px] text-muted-foreground/80">
+            🔒 Redirecionado com segurança para o ambiente oficial do Mercado Livre
+          </p>
         </div>
 
         <p className="mx-auto max-w-2xl">A Clarice Achadinhos é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.</p>

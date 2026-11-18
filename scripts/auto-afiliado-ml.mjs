@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { chromium } from 'playwright';
 import { runRadarCrawler } from './radar-ofertas.mjs';
 
-// 1. Carregar variáveis de ambiente de .env.local
+// 1. Carrega variáveis de ambiente
 function loadEnvLocal() {
   const envPath = path.resolve(process.cwd(), '.env.local');
   if (fs.existsSync(envPath)) {
@@ -63,57 +63,9 @@ function askQuestion(query) {
   );
 }
 
-async function main() {
-  console.log('\n=============================================================');
-  console.log('🤖 [Clarice Achadinhos] Robô Autônomo com Microsoft Edge');
-  console.log('=============================================================\n');
-
-  // ETAPA 1: Executar Garimpo Real de Ofertas via Edge
-  console.log('📡 [ETAPA 1/3] Executando garimpo de ofertas reais no Mercado Livre...');
-  try {
-    await runRadarCrawler({ minDiscount: 15, tag: AFFILIATE_TAG });
-  } catch (err) {
-    console.warn('⚠️ Aviso na execução do garimpo:', err.message);
-  }
-
-  // ETAPA 2: Obter achadinhos pendentes de monetização no Supabase
-  console.log('\n📋 [ETAPA 2/3] Consultando ofertas pendentes no Supabase...');
-  const { data: pending, error: fetchErr } = await supabase
-    .from('produtos_clarice')
-    .select('id, mlb_id, title, discount_percent, affiliate_url')
-    .eq('status', 'pendente_afiliado')
-    .order('created_at', { ascending: false });
-
-  if (fetchErr) {
-    console.error('❌ Erro ao buscar produtos pendentes:', fetchErr.message);
-    process.exit(1);
-  }
-
-  if (!pending || pending.length === 0) {
-    console.log('✅ Nenhuma oferta pendente no Radar. Todos os achadinhos estão monetizados e ativos!');
-    return;
-  }
-
-  console.log(`🎯 Encontradas ${pending.length} oferta(s) na fila do Radar aguardando link oficial.`);
-
-  // Preparar os links diretos dos produtos
-  const productLinks = pending.map((p) => `https://produto.mercadolivre.com.br/${p.mlb_id}`);
-
-  // ETAPA 3: Automação no Gerador de Links com Microsoft Edge e Perfil Persistente
-  console.log('\n🌐 [ETAPA 3/3] Abrindo Microsoft Edge com perfil persistente (.edge-ml-profile)...');
-  const USER_DATA_DIR = path.resolve(process.cwd(), '.edge-ml-profile');
-
-  const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
-    channel: 'msedge',
-    headless: false,
-    viewport: { width: 1280, height: 800 },
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
-
-  const page = context.pages()[0] || (await context.newPage());
-
+async function convertLinksInLinkBuilder(page, urlsToConvert) {
   const LINKBUILDER_URL = 'https://www.mercadolivre.com.br/afiliados/linkbuilder';
-  console.log(`🔗 Acessando Gerador de Links oficial: ${LINKBUILDER_URL}`);
+  console.log(`🔗 Acessando Gerador de Links: ${LINKBUILDER_URL}`);
 
   await page.goto(LINKBUILDER_URL, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForTimeout(3000);
@@ -124,18 +76,16 @@ async function main() {
     console.log('\n=============================================================');
     console.log(`🔑 LOGIN NO MERCADO LIVRE AFILIADOS (${AFFILIATE_TAG})`);
     console.log('=============================================================');
-    console.log('👉 Por favor, faça login na sua conta de Afiliado na janela do Microsoft Edge que se abriu.');
+    console.log('👉 Por favor, conclua o login na sua conta de Afiliado na janela do Microsoft Edge.');
     console.log('👉 Sua sessão ficará salva permanentemente em .edge-ml-profile.');
-    console.log('👉 Após concluir o login e estar no Gerador de Links, pressione [ENTER] para continuar...');
+    console.log('👉 Após concluir o login e estar no Gerador de Links, pressione [ENTER] aqui no terminal...');
     await askQuestion('> ');
+    await page.waitForTimeout(2000);
   }
 
-  await page.waitForTimeout(2000);
+  console.log(`📝 Inserindo ${urlsToConvert.length} link(s) no formulário do Link Builder...`);
+  const batchText = urlsToConvert.join('\n');
 
-  console.log(`\n📝 Preenchendo ${productLinks.length} links no Gerador de Links...`);
-  const batchText = productLinks.join('\n');
-
-  // Preencher no formulário do Link Builder
   const selectors = [
     'textarea',
     'input[type="text"]',
@@ -156,17 +106,16 @@ async function main() {
   if (inputField) {
     try {
       await inputField.fill(batchText);
-      console.log('✓ Links inseridos com sucesso no formulário!');
+      console.log('✓ Links colados no formulário com sucesso!');
       await page.waitForTimeout(1000);
 
-      // Tentar preencher tag de afiliado se houver campo específico
+      // Preencher tag personalizada se houver campo
       const tagInput = page.locator('input[name*="tag"], input[placeholder*="tag"], input[name*="subid"]').first();
       if ((await tagInput.count()) > 0 && (await tagInput.isVisible())) {
         await tagInput.fill(AFFILIATE_TAG);
-        console.log(`✓ Tag de afiliado ${AFFILIATE_TAG} preenchida.`);
       }
 
-      // Clicar no botão Gerar Links
+      // Clicar em Gerar link
       const btnSelectors = [
         'button:has-text("Gerar")',
         'button:has-text("Criar")',
@@ -182,19 +131,16 @@ async function main() {
           break;
         }
       }
-    } catch (fillErr) {
-      console.warn('⚠️ Aviso ao preencher formulário:', fillErr.message);
+    } catch (err) {
+      console.warn('⚠️ Aviso ao interagir com campos do Link Builder:', err.message);
     }
   }
 
-  console.log('\n-------------------------------------------------------------');
-  console.log('💡 EXTRAÇÃO DE LINKS CURTOS:');
-  console.log('O robô vai escanear a tela em busca dos links curtos oficiais (meli.la / mercadolivre.com/sec).');
-  console.log('Se necessário, clique no botão "Gerar" na janela do Microsoft Edge.');
-  await askQuestion('Pressione [ENTER] quando os links curtos gerados estiverem na tela...');
+  console.log('⏳ Aguardando renderização dos links curtos oficiais na página...');
+  await page.waitForTimeout(4000);
 
-  // Extrair links curtos oficiais (meli.la ou mercadolivre.com/sec)
-  const extractedLinks = await page.evaluate(() => {
+  // Extrair links curtos gerados
+  let extracted = await page.evaluate(() => {
     const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/g;
     const text = document.body.innerText || '';
     const matches = text.match(regex) || [];
@@ -210,24 +156,146 @@ async function main() {
     return Array.from(new Set([...matches, ...hrefs, ...inputs]));
   });
 
-  console.log(`\n🔎 Links curtos identificados: ${extractedLinks.length}`);
-  let shortLinks = extractedLinks;
+  // Se não extraiu automaticamente, dar oportunidade de confirmar ou colar no terminal
+  if (extracted.length === 0) {
+    console.log('\n💡 Clique em "Gerar" na janela do Edge caso ainda não tenha sido gerado.');
+    await askQuestion('Pressione [ENTER] quando os links curtos (meli.la / mercadolivre.com/sec) estiverem na tela...');
 
-  // Se nenhum link curto for detectado automaticamente, permitir colar no terminal
-  if (shortLinks.length === 0) {
-    console.log('\n⚠️ Links curtos não detectados automaticamente no DOM.');
-    console.log('👉 Se você copiou os links curtos do Mercado Livre, cole-os abaixo (um por linha) ou pressione [ENTER] para aplicar a tag diretamente:');
-    const pasted = await askQuestion('> ');
-    if (pasted.trim()) {
-      shortLinks = pasted
-        .split(/[\s\n]+/)
-        .map((s) => s.trim())
-        .filter((s) => s.includes('mercadolivre.com') || s.includes('meli.la'));
+    extracted = await page.evaluate(() => {
+      const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/g;
+      const text = document.body.innerText || '';
+      const matches = text.match(regex) || [];
+      const hrefs = Array.from(document.querySelectorAll('a[href]'))
+        .map((a) => a.getAttribute('href'))
+        .filter((h) => h && (h.includes('meli.la') || h.includes('mercadolivre.com/sec')));
+      return Array.from(new Set([...matches, ...hrefs]));
+    });
+
+    if (extracted.length === 0) {
+      console.log('👉 Se você copiou os links curtos do Mercado Livre, cole-os aqui abaixo (separados por espaço ou quebra de linha):');
+      const pasted = await askQuestion('> ');
+      if (pasted.trim()) {
+        extracted = pasted
+          .split(/[\s\n]+/)
+          .map((s) => s.trim())
+          .filter((s) => s.includes('mercadolivre.com') || s.includes('meli.la'));
+      }
     }
   }
 
-  // Atualizar produtos no Supabase para 'ativo'
-  console.log('\n💾 Atualizando produtos no Supabase para status "ativo" e monetizado...');
+  return extracted;
+}
+
+async function main() {
+  console.log('\n=============================================================');
+  console.log('🚀 [Clarice Achadinhos] Automação Completa via Microsoft Edge');
+  console.log(`🏷️ Conta Afiliado: ${AFFILIATE_TAG}`);
+  console.log('=============================================================\n');
+
+  // Inicializar Edge com perfil persistente
+  const USER_DATA_DIR = path.resolve(process.cwd(), '.edge-ml-profile');
+  const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+    channel: 'msedge',
+    headless: false,
+    viewport: { width: 1280, height: 800 },
+    args: ['--disable-blink-features=AutomationControlled'],
+  });
+
+  const page = context.pages()[0] || (await context.newPage());
+
+  // --------------------------------------------------------------------------
+  // ROTINA 1: Verificação e Encurtamento do Link Geral de Afiliado (Home ML)
+  // --------------------------------------------------------------------------
+  console.log('🔍 [ROTINA 1/3] Verificando Link Geral de Afiliado (Botão Amarelo)...');
+  const { data: storeSettingsRow } = await supabase
+    .from('store_settings')
+    .select('*')
+    .eq('id', 'default')
+    .maybeSingle();
+
+  const currentGeneral = storeSettingsRow?.general_affiliate_url || '';
+  const isGeneralShort =
+    currentGeneral.includes('mercadolivre.com/sec/') ||
+    currentGeneral.includes('meli.la/');
+
+  if (!isGeneralShort) {
+    console.log('⚠️ Link Geral ainda não é um link curto oficial. Convertendo "https://www.mercadolivre.com.br/ofertas"...');
+    try {
+      const generated = await convertLinksInLinkBuilder(page, [
+        'https://www.mercadolivre.com.br/ofertas',
+      ]);
+      const shortUrl = generated[0];
+
+      if (shortUrl) {
+        await supabase
+          .from('store_settings')
+          .update({
+            general_affiliate_url: shortUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', 'default');
+        console.log(`🎉 Link Geral encurtado e salvo no Supabase com sucesso: ${shortUrl}`);
+      } else {
+        console.log('ℹ️ Mantido link geral com tag de afiliado padrão.');
+      }
+    } catch (err) {
+      console.warn('⚠️ Aviso na conversão do link geral:', err.message);
+    }
+  } else {
+    console.log(`✅ Link Geral de Afiliado já configurado com link curto oficial: ${currentGeneral}`);
+  }
+
+  // --------------------------------------------------------------------------
+  // ROTINA 2: Garimpo Misto no Edge (Infantil & Bebês + Achadinhos Gerais)
+  // --------------------------------------------------------------------------
+  console.log('\n📡 [ROTINA 2/3] Executando garimpo misto de ofertas reais no Mercado Livre...');
+  // Fecha contexto temporário para rodar o crawler ou reutiliza
+  await context.close().catch(() => {});
+
+  try {
+    await runRadarCrawler({ minDiscount: 15, tag: AFFILIATE_TAG, targetCount: 36 });
+  } catch (err) {
+    console.warn('⚠️ Aviso no garimpo:', err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // ROTINA 3: Monetização em Lote de Itens Pendentes no Link Builder
+  // --------------------------------------------------------------------------
+  console.log('\n📋 [ROTINA 3/3] Buscando achadinhos pendentes de monetização no Supabase...');
+  const { data: pending, error: fetchErr } = await supabase
+    .from('produtos_clarice')
+    .select('id, mlb_id, title, category, discount_percent, affiliate_url')
+    .eq('status', 'pendente_afiliado')
+    .order('created_at', { ascending: false });
+
+  if (fetchErr) {
+    console.error('❌ Erro ao buscar produtos pendentes:', fetchErr.message);
+    process.exit(1);
+  }
+
+  if (!pending || pending.length === 0) {
+    console.log('✅ Nenhum produto pendente no Radar. Todos os achadinhos estão ativos e monetizados!');
+    return;
+  }
+
+  console.log(`🎯 Encontradas ${pending.length} oferta(s) na fila do Radar aguardando link oficial.`);
+
+  // Reabrir contexto persistente do Edge para converter a fila
+  const convertContext = await chromium.launchPersistentContext(USER_DATA_DIR, {
+    channel: 'msedge',
+    headless: false,
+    viewport: { width: 1280, height: 800 },
+    args: ['--disable-blink-features=AutomationControlled'],
+  });
+
+  const convertPage = convertContext.pages()[0] || (await convertContext.newPage());
+
+  const productUrls = pending.map((p) => `https://produto.mercadolivre.com.br/${p.mlb_id}`);
+
+  const shortLinks = await convertLinksInLinkBuilder(convertPage, productUrls);
+  console.log(`\n🔎 Total de links curtos obtidos: ${shortLinks.length}`);
+
+  console.log('💾 Atualizando produtos no Supabase para status "ativo" e monetizado...');
   let updatedCount = 0;
 
   for (let i = 0; i < pending.length; i++) {
@@ -253,7 +321,7 @@ async function main() {
   console.log(`\n🎉 SUCESSO: ${updatedCount} achadinhos aprovados, monetizados e publicados na vitrine!`);
   console.log('👉 Acesse a vitrine oficial: https://clarice-variedades.vercel.app\n');
 
-  await context.close().catch(() => {});
+  await convertContext.close().catch(() => {});
 }
 
 main().catch((err) => {

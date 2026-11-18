@@ -49,37 +49,50 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-// URLs alvo para varredura real de ofertas
-const TARGET_URLS = [
-  { url: 'https://www.mercadolivre.com.br/ofertas', name: 'Ofertas Principais' },
-  { url: 'https://lista.mercadolivre.com.br/eletrodomesticos/ofertas', name: 'Eletroportáteis' },
-  { url: 'https://lista.mercadolivre.com.br/casa-moveis-decoracao/ofertas', name: 'Casa & Cozinha' },
-  { url: 'https://lista.mercadolivre.com.br/ferramentas/ofertas', name: 'Ferramentas' },
-  { url: 'https://lista.mercadolivre.com.br/eletronicos-audio-video/ofertas', name: 'Eletrônicos' },
-  { url: 'https://lista.mercadolivre.com.br/beleza-cuidado-pessoal/ofertas', name: 'Beleza & Saúde' },
+// a) Infantil & Bebês 1+ ano
+const BABY_TARGETS = [
+  { term: 'brinquedos educativos 1 ano', category: 'Infantil & Bebês' },
+  { term: 'cadeira alimentacao bebe', category: 'Infantil & Bebês' },
+  { term: 'copo transicao bebe', category: 'Infantil & Bebês' },
+  { term: 'carrinho passeio bebe', category: 'Infantil & Bebês' },
+  { term: 'fralda', category: 'Infantil & Bebês' },
+  { term: 'tenis bebe', category: 'Infantil & Bebês' },
 ];
 
-function inferCategory(title) {
+// b) Achadinhos Gerais de alta conversão
+const GENERAL_TARGETS = [
+  { url: 'https://www.mercadolivre.com.br/ofertas', category: 'Ofertas do Dia' },
+  { term: 'air fryer 4l', category: 'Casa & Cozinha' },
+  { term: 'parafusadeira furadeira', category: 'Ferramentas' },
+  { term: 'fone bluetooth', category: 'Eletrônicos' },
+  { term: 'panela eletrica', category: 'Eletroportáteis' },
+  { term: 'aspirador robo', category: 'Eletroportáteis' },
+];
+
+export function inferCategory(title, defaultCategory = 'Achadinhos') {
   const t = title.toLowerCase();
-  if (/(tv|smartphone|celular|fone|bluetooth|notebook|tablet|alexa|smartwatch|som|caixa|gamer)/.test(t)) {
-    return 'Eletrônicos';
-  }
-  if (/(cafeteira|panela|air fryer|frigideira|jogo de panelas|organizador|cozinha|copo|garrafa|pote)/.test(t)) {
-    return 'Casa & Cozinha';
-  }
-  if (/(aspirador|ferro|ventilador|liquidificador|batedeira|micro-ondas|robo|sanduicheira)/.test(t)) {
-    return 'Eletroportáteis';
+  if (
+    defaultCategory === 'Infantil & Bebês' ||
+    /(brinquedo|montessori|bebê|bebe|infantil|alimentacao|mamadeira|fralda|carrinho|chupeta|berço|berco|copo transicao|mordedor|andador|maternidade)/.test(t)
+  ) {
+    return 'Infantil & Bebês';
   }
   if (/(furadeira|parafusadeira|serra|trena|chave|ferramenta|solda|alicate|bateria 20v)/.test(t)) {
     return 'Ferramentas';
   }
+  if (/(tv|smartphone|celular|fone|bluetooth|notebook|tablet|alexa|smartwatch|som|caixa|gamer)/.test(t)) {
+    return 'Eletrônicos';
+  }
+  if (/(aspirador|ferro|ventilador|liquidificador|batedeira|micro-ondas|robo|sanduicheira|panela eletrica)/.test(t)) {
+    return 'Eletroportáteis';
+  }
+  if (/(cafeteira|panela|air fryer|frigideira|jogo de panelas|organizador|cozinha|copo|garrafa|pote)/.test(t)) {
+    return 'Casa & Cozinha';
+  }
   if (/(secador|escova|perfume|hidratante|maquiagem|barba|cabelo|solar|skincare|alisadora)/.test(t)) {
     return 'Beleza & Saúde';
   }
-  if (/(camiseta|tênis|tenis|sapato|calça|mochila|bolsa|relógio|carteira|jaqueta)/.test(t)) {
-    return 'Moda & Acessórios';
-  }
-  return 'Achadinhos';
+  return defaultCategory === 'Ofertas do Dia' ? 'Casa & Cozinha' : defaultCategory;
 }
 
 export async function scrapeOffersFromPage(page, targetUrl, minDiscount = 15) {
@@ -88,7 +101,7 @@ export async function scrapeOffersFromPage(page, targetUrl, minDiscount = 15) {
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
     await page.waitForTimeout(3000);
 
-    // Scroll para renderizar produtos dinâmicos
+    // Scroll para carregar dinamicamente mais cards
     await page.evaluate(() => window.scrollBy(0, 1600));
     await page.waitForTimeout(2000);
 
@@ -231,7 +244,6 @@ export async function scrapeOffersFromPage(page, targetUrl, minDiscount = 15) {
           imageUrl: imgUrl,
           freeShipping: true,
           isFull,
-          rawLink: href.split('?')[0],
         });
       }
 
@@ -249,14 +261,14 @@ export async function runRadarCrawler({
   customTerm,
   minDiscount = 15,
   tag = DEFAULT_AFFILIATE_TAG,
-  targetCount = 35,
+  targetCount = 36,
 } = {}) {
-  console.log('📡 [Radar Clarice Achadinhos] Iniciando varredura com Microsoft Edge (Playwright)...');
-  console.log(`🎯 Conectado ao Supabase: ${SUPABASE_URL}`);
-  console.log(`🏷️ Tag de Afiliado padrão: ${tag}`);
-  if (customTerm) console.log(`🔍 Termo de busca sob demanda: "${customTerm}"`);
+  console.log('📡 [Radar Clarice Achadinhos] Iniciando garimpo misto com Microsoft Edge...');
+  console.log(`🎯 Supabase: ${SUPABASE_URL}`);
+  console.log(`🏷️ Tag de Afiliado: ${tag}`);
+  if (customTerm) console.log(`🔍 Garimpo sob demanda para: "${customTerm}"`);
 
-  // 1. Deduplicação estrita: Bloquear duplicados APENAS contra itens atualmente 'ativo' ou 'pendente_afiliado'
+  // 1. Deduplicação estrita: Ignora itens descartados, checa APENAS contra 'ativo' ou 'pendente_afiliado'
   const { data: existingRows, error: fetchErr } = await supabase
     .from('produtos_clarice')
     .select('mlb_id')
@@ -268,9 +280,9 @@ export async function runRadarCrawler({
   }
 
   const blockedMlbIds = new Set((existingRows || []).map((r) => r.mlb_id));
-  console.log(`📦 Produtos ativos/pendentes no catálogo a proteger de duplicação: ${blockedMlbIds.size}`);
+  console.log(`📦 Produtos ativos/pendentes protegidos de duplicação: ${blockedMlbIds.size}`);
 
-  // 2. Inicializar contexto persistente do Microsoft Edge
+  // 2. Inicializar Edge Playwright com perfil persistente
   const profileDir = path.resolve(process.cwd(), '.edge-ml-profile');
   const context = await chromium.launchPersistentContext(profileDir, {
     channel: 'msedge',
@@ -286,44 +298,76 @@ export async function runRadarCrawler({
 
   try {
     if (customTerm) {
-      // Busca por termo específico sob demanda
-      const termUrl = `https://lista.mercadolivre.com.br/${encodeURIComponent(customTerm)}/ofertas`;
-      const deals = await scrapeOffersFromPage(page, termUrl, minDiscount);
+      // Garimpo sob demanda por termo livre
+      const searchUrl = `https://lista.mercadolivre.com.br/${encodeURIComponent(customTerm).replace(/%20/g, '-')}/ofertas`;
+      const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
       for (const d of deals) {
         if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
           seenInBatch.add(d.mlbId);
-          collectedDeals.push({ ...d, category: inferCategory(d.title) });
+          collectedDeals.push({
+            ...d,
+            category: inferCategory(d.title, 'Achadinhos'),
+          });
+          if (collectedDeals.length >= targetCount) break;
         }
       }
     } else {
-      // Varredura por categorias reais até atingir 25 a 40 ofertas
-      for (const target of TARGET_URLS) {
-        if (collectedDeals.length >= targetCount) break;
-        const deals = await scrapeOffersFromPage(page, target.url, minDiscount);
+      // 2.A: Garimpo Infantil & Bebês 1+ ano (~18 itens)
+      const babyTargetLimit = Math.floor(targetCount / 2);
+      console.log(`\n🍼 [Grupo A] Garimpando achadinhos para Infantil & Bebês 1+ ano (meta: ${babyTargetLimit})...`);
+      for (const target of BABY_TARGETS) {
+        if (collectedDeals.length >= babyTargetLimit) break;
+        const searchUrl = `https://lista.mercadolivre.com.br/${encodeURIComponent(target.term).replace(/%20/g, '-')}/ofertas`;
+        const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
         for (const d of deals) {
           if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
             seenInBatch.add(d.mlbId);
-            collectedDeals.push({ ...d, category: inferCategory(d.title) });
+            collectedDeals.push({
+              ...d,
+              category: 'Infantil & Bebês',
+            });
+            if (collectedDeals.length >= babyTargetLimit) break;
+          }
+        }
+        console.log(`🍼 Achadinhos infantis coletados: ${collectedDeals.length}`);
+      }
+
+      // 2.B: Garimpo Achadinhos Gerais de alta conversão (~18 itens)
+      console.log(`\n⚡ [Grupo B] Garimpando achadinhos gerais de alta conversão (meta total: ${targetCount})...`);
+      for (const target of GENERAL_TARGETS) {
+        if (collectedDeals.length >= targetCount) break;
+        const searchUrl = target.url
+          ? target.url
+          : `https://lista.mercadolivre.com.br/${encodeURIComponent(target.term).replace(/%20/g, '-')}/ofertas`;
+
+        const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
+        for (const d of deals) {
+          if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
+            seenInBatch.add(d.mlbId);
+            collectedDeals.push({
+              ...d,
+              category: inferCategory(d.title, target.category),
+            });
             if (collectedDeals.length >= targetCount) break;
           }
         }
-        console.log(`✨ Ofertas únicas acumuladas até agora: ${collectedDeals.length}`);
+        console.log(`⚡ Total de achadinhos acumulados: ${collectedDeals.length}`);
       }
     }
   } finally {
     await context.close().catch(() => {});
   }
 
-  console.log(`\n🔍 Total de ofertas qualificadas capturadas: ${collectedDeals.length}`);
+  console.log(`\n🔍 Total de ofertas qualificadas garimpadas no Mercado Livre: ${collectedDeals.length}`);
 
   if (collectedDeals.length === 0) {
-    console.log('✅ Nenhuma oferta nova para inserir (as ofertas garimpadas já constam na fila/catálogo).');
+    console.log('✅ Nenhuma oferta nova para inserir (todas as encontradas já constam na fila ou catálogo).');
     return [];
   }
 
-  // 3. Montar registros para o Supabase com status 'pendente_afiliado'
+  // 3. Persistência no Supabase com status 'pendente_afiliado'
   const rowsToInsert = collectedDeals.map((deal) => {
-    const rawUrl = deal.rawLink || `https://produto.mercadolivre.com.br/${deal.mlbId}`;
+    const rawUrl = `https://produto.mercadolivre.com.br/${deal.mlbId}`;
     const affiliateUrl = `${rawUrl}?matt_tool=${tag}`;
 
     return {
@@ -340,7 +384,7 @@ export async function runRadarCrawler({
       free_shipping: deal.freeShipping,
       is_full: deal.isFull,
       rating: 4.8,
-      reviews_count: 350,
+      reviews_count: 420,
       featured: false,
       active: false,
       status: 'pendente_afiliado',
@@ -350,18 +394,19 @@ export async function runRadarCrawler({
   const { data: inserted, error: insertErr } = await supabase
     .from('produtos_clarice')
     .insert(rowsToInsert)
-    .select('id, mlb_id, title, discount_percent, status');
+    .select('id, mlb_id, title, category, discount_percent, status');
 
   if (insertErr) {
     console.error('❌ Erro ao salvar ofertas no Supabase:', insertErr.message);
     throw insertErr;
   }
 
-  console.log(`\n🎉 ${inserted.length} achadinhos reais salvos com sucesso na Fila do Radar (status: pendente_afiliado)!`);
+  console.log(`\n🎉 ${inserted.length} achadinhos reais salvos na Fila do Radar (status: pendente_afiliado)!`);
   console.table(
     inserted.slice(0, 15).map((i) => ({
       MLB: i.mlb_id,
-      Título: i.title.slice(0, 42) + '...',
+      Categoria: i.category,
+      Título: i.title.slice(0, 36) + '...',
       Desconto: `${i.discount_percent}% OFF`,
       Status: i.status,
     }))

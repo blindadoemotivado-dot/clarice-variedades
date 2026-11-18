@@ -1,4 +1,4 @@
-export type ProductCategory = 'Todos' | 'Casa & Cozinha' | 'Eletroportáteis' | 'Eletrônicos' | 'Ferramentas' | 'Beleza & Saúde';
+export type ProductCategory = 'Todos' | 'Infantil & Bebês' | 'Casa & Cozinha' | 'Eletroportáteis' | 'Eletrônicos' | 'Ferramentas' | 'Beleza & Saúde';
 
 export interface AffiliateProduct {
   id: string;
@@ -20,4 +20,4 @@ export interface AffiliateProduct {
   status?: string;
 }
 
-export const CATEGORIES: ProductCategory[] = ['Todos', 'Casa & Cozinha', 'Eletroportáteis', 'Eletrônicos', 'Ferramentas', 'Beleza & Saúde'];
+export const CATEGORIES: ProductCategory[] = ['Todos', 'Infantil & Bebês', 'Casa & Cozinha', 'Eletroportáteis', 'Eletrônicos', 'Ferramentas', 'Beleza & Saúde'];

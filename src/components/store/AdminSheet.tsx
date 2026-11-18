@@ -1188,6 +1188,7 @@ function SettingsTab({
   const [whatsNum, setWhatsNum] = useState(settings.whatsappNumber);
   const [vipUrl, setVipUrl] = useState(settings.whatsappVipGroupUrl);
   const [pin, setPin] = useState(settings.adminPin);
+  const [genAffUrl, setGenAffUrl] = useState(settings.generalAffiliateUrl || '');
   const [showPin, setShowPin] = useState(false);
 
   const [testingSupabase, setTestingSupabase] = useState(false);
@@ -1202,6 +1203,7 @@ function SettingsTab({
     setWhatsNum(settings.whatsappNumber);
     setVipUrl(settings.whatsappVipGroupUrl);
     setPin(settings.adminPin);
+    setGenAffUrl(settings.generalAffiliateUrl || '');
   }, [settings]);
 
   // Alerta Poka-Yoke de Placeholders
@@ -1224,6 +1226,7 @@ function SettingsTab({
     const cleanNum = whatsNum.replace(/\D/g, '') || '5511999999999';
     const cleanVip = vipUrl.trim();
     const cleanPin = pin.trim() || 'clarice2026';
+    const cleanGenUrl = genAffUrl.trim();
 
     try {
       await updateSettings({
@@ -1231,6 +1234,7 @@ function SettingsTab({
         whatsappNumber: cleanNum,
         whatsappVipGroupUrl: cleanVip,
         adminPin: cleanPin,
+        generalAffiliateUrl: cleanGenUrl,
       });
 
       toast.success('Configurações salvas e sincronizadas globalmente no Supabase!');
@@ -1247,6 +1251,7 @@ function SettingsTab({
     setWhatsNum(DEFAULT_STORE_SETTINGS.whatsappNumber);
     setVipUrl(DEFAULT_STORE_SETTINGS.whatsappVipGroupUrl);
     setPin(DEFAULT_STORE_SETTINGS.adminPin);
+    setGenAffUrl(DEFAULT_STORE_SETTINGS.generalAffiliateUrl);
     toast.success('Configurações restauradas para os padrões oficiais!');
   };
 
@@ -1364,6 +1369,41 @@ function SettingsTab({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Bloco Geral: Link Geral de Afiliado (Home ML / Ofertas) */}
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 space-y-3 md:col-span-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-amber-200 flex items-center gap-1.5">
+              <Link2 className="h-4 w-4 text-amber-400" />
+              Link Geral de Afiliado (Home ML / Ofertas)
+            </label>
+            <span className="text-[10px] font-extrabold text-slate-950 bg-amber-400 px-2.5 py-0.5 rounded-full shadow-sm">
+              Botão Amarelo do Rodapé
+            </span>
+          </div>
+          <input
+            className={cn(field, 'font-mono text-xs bg-zinc-950/80 border-amber-500/30')}
+            value={genAffUrl}
+            onChange={(e) => setGenAffUrl(e.target.value)}
+            placeholder="ex: https://mercadolivre.com/sec/xyz ou https://meli.la/xyz"
+          />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
+            <p className="text-[11px] text-amber-200/80 leading-relaxed">
+              Vinculado diretamente ao botão <strong>"Vai comprar outro produto? Abrir Mercado Livre"</strong>. O robô Edge autônomo converte e salva automaticamente os links curtos oficiais aqui.
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                const clean = genAffUrl.trim();
+                await updateSettings({ generalAffiliateUrl: clean });
+                toast.success('Link Geral de Afiliado salvo no Supabase!');
+              }}
+              className="shrink-0 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3.5 py-1.5 text-xs transition shadow-md"
+            >
+              Salvar Link Geral
+            </button>
+          </div>
+        </div>
+
         {/* Bloco 1: Tag de Afiliado Mercado Livre */}
         <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between">

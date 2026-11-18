@@ -6,6 +6,7 @@ export interface StoreSettings {
   whatsappNumber: string;
   whatsappVipGroupUrl: string;
   adminPin: string;
+  generalAffiliateUrl: string;
 }
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
@@ -13,6 +14,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   whatsappNumber: '5511999999999',
   whatsappVipGroupUrl: 'https://chat.whatsapp.com/ClariceAchadinhosVIP',
   adminPin: 'clarice2026',
+  generalAffiliateUrl: 'https://www.mercadolivre.com.br/ofertas?matt_tool=clarice-achadinhos',
 };
 
 const STORAGE_KEY = 'clarice_store_settings_v1';
@@ -35,6 +37,7 @@ export function getStoreSettings(): StoreSettings {
       whatsappNumber: parsed.whatsappNumber?.trim() || DEFAULT_STORE_SETTINGS.whatsappNumber,
       whatsappVipGroupUrl: parsed.whatsappVipGroupUrl?.trim() || DEFAULT_STORE_SETTINGS.whatsappVipGroupUrl,
       adminPin: parsed.adminPin?.trim() || fallbackPin,
+      generalAffiliateUrl: parsed.generalAffiliateUrl?.trim() || DEFAULT_STORE_SETTINGS.generalAffiliateUrl,
     };
   } catch {
     return DEFAULT_STORE_SETTINGS;
@@ -80,6 +83,7 @@ export async function fetchStoreSettingsFromSupabase(): Promise<StoreSettings> {
         whatsappNumber: data.whatsapp_number?.trim() || DEFAULT_STORE_SETTINGS.whatsappNumber,
         whatsappVipGroupUrl: data.whatsapp_group_url?.trim() || '',
         adminPin: data.admin_pin_hash?.trim() || DEFAULT_STORE_SETTINGS.adminPin,
+        generalAffiliateUrl: data.general_affiliate_url?.trim() || DEFAULT_STORE_SETTINGS.generalAffiliateUrl,
       };
 
       if (typeof window !== 'undefined') {
@@ -106,6 +110,7 @@ export async function saveStoreSettingsToSupabase(partial: Partial<StoreSettings
         whatsapp_number: next.whatsappNumber,
         whatsapp_group_url: next.whatsappVipGroupUrl,
         admin_pin_hash: next.adminPin,
+        general_affiliate_url: next.generalAffiliateUrl,
         updated_at: new Date().toISOString(),
       });
 
