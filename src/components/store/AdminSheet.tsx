@@ -106,7 +106,7 @@ export function AdminSheet({ open, onOpenChange, ...rest }: AdminSheetProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto border-l border-admin-border bg-admin text-admin-foreground sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle className="text-admin-foreground">🔒 Painel Zizi — Backstage</SheetTitle>
+          <SheetTitle className="text-admin-foreground">🔒 Painel Clarice — Backstage</SheetTitle>
           <SheetDescription className="text-admin-muted">Input Mágico & Processador em Lote • {rest.products.length} produtos ativos</SheetDescription>
         </SheetHeader>
         <Tabs defaultValue="magic" className="px-4 pb-6">

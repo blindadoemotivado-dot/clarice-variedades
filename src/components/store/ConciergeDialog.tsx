@@ -16,11 +16,11 @@ export function ConciergeDialog({ open, onOpenChange }: { open: boolean; onOpenC
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Procurando algo específico?</DialogTitle>
-          <DialogDescription>Peça o link com desconto para a Zizi no WhatsApp!</DialogDescription>
+          <DialogDescription>Peça o link com desconto para a Clarice no WhatsApp!</DialogDescription>
         </DialogHeader>
         <Textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Ex.: Quero uma cafeteira elétrica até R$ 200,00" rows={4} />
         <button type="button" disabled={!msg.trim()}
-          onClick={() => { openWhatsApp(`Olá, Zizi! Estou procurando: ${msg.trim()}`); onOpenChange(false); setMsg(''); }}
+          onClick={() => { openWhatsApp(`Olá, Clarice! Estou procurando: ${msg.trim()}`); onOpenChange(false); setMsg(''); }}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-whatsapp py-2.5 text-sm font-semibold text-on-brand hover:bg-whatsapp-hover disabled:opacity-50">
           <MessageCircle className="h-4 w-4" /> Enviar no WhatsApp
         </button>

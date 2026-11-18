@@ -16,9 +16,9 @@ import { cn } from '@/lib/utils';
 export const Route = createFileRoute('/')({
   head: () => ({
     meta: [
-      { title: 'Zizi Variedades — Achadinhos com Desconto no Mercado Livre' },
+      { title: 'Clarice Variedades — Achadinhos com Desconto no Mercado Livre' },
       { name: 'description', content: 'Curadoria diária de ofertas verificadas do Mercado Livre: eletrônicos, casa, cozinha, ferramentas e beleza com frete grátis e parcelamento sem juros.' },
-      { property: 'og:title', content: 'Zizi Variedades — Achadinhos do Dia' },
+      { property: 'og:title', content: 'Clarice Variedades — Achadinhos do Dia' },
       { property: 'og:description', content: 'Ofertas verificadas do Mercado Livre com desconto real, frete grátis e compra garantida.' },
       { property: 'og:type', content: 'website' },
       { name: 'twitter:card', content: 'summary_large_image' },
@@ -45,7 +45,7 @@ function Storefront() {
   return (
     <div className="min-h-screen bg-background">
       <StoreHeader query={query} onQuery={setQuery} favCount={c.favorites.length} favoritesOnly={favoritesOnly}
-        onToggleFavorites={() => setFavoritesOnly((v) => !v)} onVip={() => openWhatsApp('Olá! Quero entrar no Grupo VIP da Zizi Variedades 🛍️')} />
+        onToggleFavorites={() => setFavoritesOnly((v) => !v)} onVip={() => openWhatsApp('Olá! Quero entrar no Grupo VIP da Clarice Variedades 🛍️')} />
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
         <HeroBanner />
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -81,13 +81,13 @@ function Storefront() {
       </main>
       <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-24 text-center text-xs text-muted-foreground">
         <p className="mx-auto max-w-2xl">
-          A Zizi Variedades é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.
+          A Clarice Variedades é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.
         </p>
         <button type="button" onClick={() => setAdmin(true)} className="mt-4 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground">
-          <Lock className="h-3 w-3" /> Painel Zizi (Admin)
+          <Lock className="h-3 w-3" /> Painel Clarice (Admin)
         </button>
       </footer>
-      <button type="button" onClick={() => setConcierge(true)} aria-label="Falar com a Zizi no WhatsApp"
+      <button type="button" onClick={() => setConcierge(true)} aria-label="Falar com a Clarice no WhatsApp"
         className="fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full bg-whatsapp p-3.5 text-on-brand shadow-lg hover:bg-whatsapp-hover">
         <MessageCircle className="h-5 w-5" /> <span className="hidden text-sm font-semibold sm:inline">Peça um achadinho</span>
       </button>

@@ -9,7 +9,7 @@ export function extractMlbId(url: string): string | null {
 }
 
 export function buildWhatsAppCopy(p: AffiliateProduct): string {
-  return `🔥 *ACHADINHO ZIZI VARIEDADES*\n\n🛍️ *${p.title}*\n~De: ${formatBRL(p.originalPrice)}~\n✅ *Por apenas: ${formatBRL(p.currentPrice)}* (${p.discountPercent}% OFF)\n💳 ${p.installmentsText}\n\n👉 *Compre no Mercado Livre pelo link oficial:* ${p.affiliateUrl}`;
+  return `🔥 *ACHADINHO CLARICE VARIEDADES*\n\n🛍️ *${p.title}*\n~De: ${formatBRL(p.originalPrice)}~\n✅ *Por apenas: ${formatBRL(p.currentPrice)}* (${p.discountPercent}% OFF)\n💳 ${p.installmentsText}\n\n👉 *Compre no Mercado Livre pelo link oficial:* ${p.affiliateUrl}`;
 }
 
 export type SortKey = 'relevance' | 'price' | 'discount';

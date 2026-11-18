@@ -2,11 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AffiliateProduct } from '@/types/product';
 import { MOCK_PRODUCTS } from '@/data/mockProducts';
 
-const KEY = 'zizi:catalog:v1';
-const FAV_KEY = 'zizi:favorites:v1';
+const KEY = 'clarice:catalog:v1';
+const FAV_KEY = 'clarice:favorites:v1';
+const LEGACY_KEY = 'zizi:catalog:v1';
+const LEGACY_FAV_KEY = 'zizi:favorites:v1';
 
 function read<T>(key: string, fallback: T): T {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback; } catch { return fallback; }
+}
+
+/** Reads the current key, falling back to the pre-rename key so existing data survives. */
+function readWithLegacy<T>(key: string, legacyKey: string, fallback: T): T {
+  const current = read<T | null>(key, null);
+  return current === null ? read(legacyKey, fallback) : current;
 }
 
 export function useCatalog() {
@@ -14,7 +22,11 @@ export function useCatalog() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => { setProducts(read(KEY, MOCK_PRODUCTS)); setFavorites(read(FAV_KEY, [])); setLoaded(true); }, []);
+  useEffect(() => {
+    setProducts(readWithLegacy(KEY, LEGACY_KEY, MOCK_PRODUCTS));
+    setFavorites(readWithLegacy(FAV_KEY, LEGACY_FAV_KEY, []));
+    setLoaded(true);
+  }, []);
   useEffect(() => { if (loaded) localStorage.setItem(KEY, JSON.stringify(products)); }, [products, loaded]);
   useEffect(() => { if (loaded) localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); }, [favorites, loaded]);
 
