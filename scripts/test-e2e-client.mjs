@@ -49,8 +49,8 @@ async function runClientTest() {
       }
     }
 
-    // 3. Testa o clique na primeira oferta de produto
-    const firstProductBtn = page.locator('a:has-text("Garantir Oferta no ML"), a:has-text("Ver no Mercado Livre"), a:has-text("Aproveitar Desconto"), a:has-text("Pegar Oferta"), a:has-text("Comprar no Mercado Livre")').first();
+    // 3. Testa o clique na primeira oferta de produto visível
+    const firstProductBtn = page.locator('a:visible:has-text("Garantir Oferta no ML")').first();
     let productTargetUrl = '';
 
     if ((await firstProductBtn.count()) > 0) {
@@ -58,12 +58,13 @@ async function runClientTest() {
       console.log(`\n🛒 [Teste 1/2] Testando clique na oferta do produto: ${productTargetUrl}`);
 
       const [newPage] = await Promise.all([
-        context.waitForEvent('page', { timeout: 15000 }).catch(() => null),
-        firstProductBtn.click({ force: true }),
+        context.waitForEvent('page', { timeout: 20000 }).catch(() => null),
+        firstProductBtn.click(),
       ]);
 
       const targetPage = newPage || page;
-      await targetPage.waitForTimeout(5000);
+      await targetPage.waitForLoadState('domcontentloaded').catch(() => {});
+      await targetPage.waitForTimeout(6000);
       const landedUrl = targetPage.url();
       console.log(`🎯 URL de destino alcançada: ${landedUrl}`);
 

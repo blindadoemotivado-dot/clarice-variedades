@@ -332,14 +332,21 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
       const matches = [...(html.match(regex) || []), ...(text.match(regex) || [])];
 
       const hrefs = Array.from(document.querySelectorAll('a[href]'))
-        .map((a) => a.getAttribute('href'))
-        .filter((h) => h && (h.includes('meli.la') || h.includes('mercadolivre.com/sec')));
+        .map((a) => a.getAttribute('href') || '')
+        .flatMap((h) => h.match(regex) || []);
 
       const inputs = Array.from(document.querySelectorAll('input, textarea'))
-        .map((i) => i.value)
-        .filter((v) => v && (v.includes('meli.la') || v.includes('mercadolivre.com/sec')));
+        .map((i) => i.value || '')
+        .flatMap((v) => v.match(regex) || []);
 
-      return Array.from(new Set([...matches, ...hrefs, ...inputs]));
+      const all = [...matches, ...hrefs, ...inputs]
+        .map((u) => {
+          const m = String(u).match(/(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/);
+          return m ? m[1].trim() : null;
+        })
+        .filter(Boolean);
+
+      return Array.from(new Set(all));
     });
 
     if (extracted.length > 0) {
@@ -513,10 +520,20 @@ async function main() {
 
     for (let i = 0; i < pending.length; i++) {
       const item = pending[i];
-      const fallbackMonetized = (item.affiliate_url || '').includes('?')
-        ? `${item.affiliate_url}&matt_tool=${AFFILIATE_TAG}&matt_word=${AFFILIATE_SUBTAG}`
-        : `${item.affiliate_url}?matt_tool=${AFFILIATE_TAG}&matt_word=${AFFILIATE_SUBTAG}`;
-      const finalAffiliateUrl = shortLinks[i] || fallbackMonetized;
+      const cleanDigits = String(item.mlb_id || '').replace(/\D/g, '');
+      const cleanProductUrl = `https://produto.mercadolivre.com.br/MLB-${cleanDigits}`;
+      const fallbackMonetized = `${cleanProductUrl}?matt_tool=${AFFILIATE_TAG}&matt_word=${AFFILIATE_SUBTAG}`;
+
+      let candidateUrl = shortLinks[i] || '';
+      if (!candidateUrl.startsWith('http://') && !candidateUrl.startsWith('https://')) {
+        candidateUrl = '';
+      }
+      if (candidateUrl.includes('\n') || candidateUrl.includes('Este URL')) {
+        const match = candidateUrl.match(/(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/);
+        candidateUrl = match ? match[1] : '';
+      }
+
+      const finalAffiliateUrl = candidateUrl || fallbackMonetized;
 
       const { error: updErr } = await supabase
         .from('produtos_clarice')
