@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, FileText, Link2, RotateCcw, Sparkles, Star, Trash2, WandSparkles, Zap } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, FileText, Link2, Radar, RotateCcw, Sparkles, Star, Trash2, WandSparkles, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,6 +24,9 @@ export interface AdminSheetProps {
   onRemove: (id: string) => void;
   onToggleFeatured: (id: string) => void;
   onReset: () => void;
+  pendingProducts?: AffiliateProduct[];
+  onApprovePending?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
+  onRejectPending?: (id: string) => Promise<void> | void;
 }
 
 function CategorySelect({ value, onChange }: { value: Cat; onChange: (c: Cat) => void }) {
@@ -292,10 +295,156 @@ Basta clicar no produto que você deseja e finalizar sua compra diretamente no a
   );
 }
 
+function RadarTab({
+  pendingProducts = [],
+  onApprove,
+  onReject,
+}: {
+  pendingProducts?: AffiliateProduct[];
+  onApprove?: (id: string, customAffiliateUrl?: string) => Promise<void> | void;
+  onReject?: (id: string) => Promise<void> | void;
+}) {
+  const [affiliateUrls, setAffiliateUrls] = useState<Record<string, string>>({});
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const handleApprove = async (p: AffiliateProduct) => {
+    if (!onApprove) return;
+    setApprovingId(p.id);
+    try {
+      const url = affiliateUrls[p.id] ?? p.affiliateUrl;
+      await onApprove(p.id, url);
+      toast.success(`"${p.title.slice(0, 32)}..." aprovado e publicado com sucesso!`);
+    } catch {
+      toast.error('Erro ao aprovar produto.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (p: AffiliateProduct) => {
+    if (!onReject) return;
+    try {
+      await onReject(p.id);
+      toast('Oferta removida da fila do radar.');
+    } catch {
+      toast.error('Erro ao descartar produto.');
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-4xl mx-auto">
+      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-4 sm:p-5">
+        <div className="flex items-center gap-2">
+          <Radar className="h-5 w-5 text-cyan-400 animate-pulse" />
+          <h2 className="font-semibold text-zinc-100">Radar de Ofertas do Mercado Livre</h2>
+        </div>
+        <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+          Garimpados automaticamente com descontos reais de no mínimo <strong>20% OFF</strong>, imagem em alta resolução e frete grátis. Revise o link de afiliado e publique na vitrine com 1 clique.
+        </p>
+      </div>
+
+      {pendingProducts.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-zinc-900/40 p-8 text-center text-zinc-400">
+          <Radar className="h-10 w-10 mx-auto text-zinc-600 mb-2" />
+          <p className="text-sm font-semibold text-zinc-300">Fila do Radar Vazia</p>
+          <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
+            Todas as ofertas encontradas já foram aprovadas ou descartadas. O radar roda automaticamente a cada 6 horas via GitHub Actions ou manualmente via terminal com <code className="bg-zinc-800 px-1 py-0.5 rounded text-cyan-300">node scripts/radar-ofertas.mjs</code>.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3.5">
+          {pendingProducts.map((p) => {
+            const currentAff = affiliateUrls[p.id] ?? p.affiliateUrl;
+            const isApproving = approvingId === p.id;
+            return (
+              <div
+                key={p.id}
+                className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4 transition hover:border-cyan-400/30 flex flex-col gap-3.5"
+              >
+                <div className="flex flex-col sm:flex-row gap-3.5 items-start sm:items-center">
+                  <img
+                    src={p.imageUrl}
+                    alt={p.title}
+                    className="h-16 w-16 shrink-0 rounded-xl object-contain bg-white/5 p-1 border border-white/10"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-bold text-cyan-300 bg-cyan-400/10 px-2 py-0.5 rounded-md">
+                        {p.mlbId}
+                      </span>
+                      <span className="text-[10px] text-zinc-400">{p.category}</span>
+                      {p.freeShipping && (
+                        <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">
+                          Frete Grátis
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-md">
+                        {p.discountPercent}% OFF
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-zinc-100 mt-1 line-clamp-2">{p.title}</p>
+                    <div className="mt-1 flex items-baseline gap-2">
+                      <span className="text-sm font-extrabold text-zinc-100">{formatBRL(p.currentPrice)}</span>
+                      {p.originalPrice > p.currentPrice && (
+                        <span className="text-xs text-zinc-500 line-through">{formatBRL(p.originalPrice)}</span>
+                      )}
+                      <span className="text-[11px] text-zinc-400">({p.installmentsText})</span>
+                    </div>
+                  </div>
+                  <a
+                    href={p.affiliateUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-400 hover:text-cyan-300 self-start sm:self-center"
+                  >
+                    Ver no ML <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/5">
+                  <div className="flex-1">
+                    <input
+                      className={cn(field, 'text-xs font-mono py-1.5')}
+                      value={currentAff}
+                      onChange={(e) => setAffiliateUrls((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                      placeholder="Link de afiliado final (ex: https://mercadolivre.com/...)"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApprove(p)}
+                      disabled={isApproving}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-3.5 py-2 text-xs font-bold transition disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {isApproving ? 'Publicando...' : 'Aprovar e Publicar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReject(p)}
+                      title="Descartar produto da fila"
+                      className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-zinc-800/80 p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 transition"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminSheet({ open, onOpenChange, ...rest }: AdminSheetProps) {
-  const [activeTab, setActiveTab] = useState('catalog');
+  const [activeTab, setActiveTab] = useState('radar');
   const tabClass =
     'rounded-lg text-xs font-semibold text-zinc-400 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-300 transition';
+
+  const pendingCount = rest.pendingProducts?.length ?? 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -309,13 +458,20 @@ export function AdminSheet({ open, onOpenChange, ...rest }: AdminSheetProps) {
             Painel de Controle — Clarice Achadinhos
           </SheetTitle>
           <SheetDescription className="text-xs text-zinc-400">
-            Gestão simplificada do catálogo, importação em lote e copies de venda • {rest.products.length} ofertas ativas
+            Gestão simplificada do catálogo, radar de ofertas e copies de venda • {rest.products.length} ativas • {pendingCount} no radar
           </SheetDescription>
         </SheetHeader>
 
         <div className="mt-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-4 bg-zinc-900 border border-white/10 p-1 rounded-xl gap-1">
+            <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-5 bg-zinc-900 border border-white/10 p-1 rounded-xl gap-1">
+              <TabsTrigger value="radar" className={cn(tabClass, 'relative')}>
+                <Radar className="h-3.5 w-3.5 mr-1 text-cyan-400" />
+                Radar ({pendingCount})
+                {pendingCount > 0 && (
+                  <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-cyan-400" />
+                )}
+              </TabsTrigger>
               <TabsTrigger value="catalog" className={tabClass}>
                 Catálogo ({rest.products.length})
               </TabsTrigger>
@@ -331,6 +487,13 @@ export function AdminSheet({ open, onOpenChange, ...rest }: AdminSheetProps) {
             </TabsList>
 
             <div className="mt-5 pb-6">
+              <TabsContent value="radar" className="mt-0 focus-visible:outline-none">
+                <RadarTab
+                  pendingProducts={rest.pendingProducts}
+                  onApprove={rest.onApprovePending}
+                  onReject={rest.onRejectPending}
+                />
+              </TabsContent>
               <TabsContent value="catalog" className="mt-0 focus-visible:outline-none">
                 <ManageTab {...rest} />
               </TabsContent>

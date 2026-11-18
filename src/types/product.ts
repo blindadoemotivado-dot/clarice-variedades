@@ -17,6 +17,7 @@ export interface AffiliateProduct {
   rating: number;
   reviewsCount: number;
   featured: boolean;
+  status?: string;
 }
 
 export const CATEGORIES: ProductCategory[] = ['Todos', 'Casa & Cozinha', 'Eletroportáteis', 'Eletrônicos', 'Ferramentas', 'Beleza & Saúde'];

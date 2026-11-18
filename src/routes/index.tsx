@@ -228,7 +228,18 @@ function Storefront() {
       </div>
 
       <ConciergeDialog open={concierge} onOpenChange={setConcierge} />
-      <AdminSheet open={admin} onOpenChange={setAdmin} products={c.products} onAdd={c.add} onRemove={c.remove} onToggleFeatured={c.toggleFeatured} onReset={c.reset} />
+      <AdminSheet
+        open={admin}
+        onOpenChange={setAdmin}
+        products={c.products}
+        pendingProducts={c.pendingProducts}
+        onAdd={c.add}
+        onRemove={c.remove}
+        onToggleFeatured={c.toggleFeatured}
+        onReset={c.reset}
+        onApprovePending={c.approveProduct}
+        onRejectPending={c.rejectPending}
+      />
       <Toaster position="bottom-center" richColors />
     </div>
   );

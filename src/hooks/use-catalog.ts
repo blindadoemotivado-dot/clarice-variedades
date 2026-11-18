@@ -40,6 +40,7 @@ interface SupabaseProductRow {
   reviews_count: number | null;
   featured: boolean | null;
   active: boolean | null;
+  status?: string | null;
 }
 
 function mapRowToProduct(row: SupabaseProductRow): AffiliateProduct {
@@ -60,14 +61,52 @@ function mapRowToProduct(row: SupabaseProductRow): AffiliateProduct {
     rating: Number(row.rating ?? 4.8),
     reviewsCount: Number(row.reviews_count ?? 0),
     featured: Boolean(row.featured),
+    status: row.status ?? (row.active ? 'ativo' : 'pendente_afiliado'),
   };
 }
 
 export function useCatalog() {
   const [products, setProducts] = useState<AffiliateProduct[]>(MOCK_PRODUCTS);
+  const [pendingProducts, setPendingProducts] = useState<AffiliateProduct[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const fetchCatalog = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    setIsSyncing(true);
+    try {
+      const [activeRes, pendingRes] = await Promise.all([
+        supabase
+          .from('produtos_clarice')
+          .select('*')
+          .eq('active', true)
+          .order('featured', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('produtos_clarice')
+          .select('*')
+          .eq('status', 'pendente_afiliado')
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (!activeRes.error && activeRes.data && activeRes.data.length > 0) {
+        setProducts((activeRes.data as SupabaseProductRow[]).map(mapRowToProduct));
+      } else if (activeRes.error) {
+        console.warn('[useCatalog] Aviso ao buscar produtos ativos:', activeRes.error.message);
+      }
+
+      if (!pendingRes.error && pendingRes.data) {
+        setPendingProducts((pendingRes.data as SupabaseProductRow[]).map(mapRowToProduct));
+      } else if (pendingRes.error) {
+        console.warn('[useCatalog] Aviso ao buscar produtos pendentes:', pendingRes.error.message);
+      }
+    } catch (err) {
+      console.warn('[useCatalog] Conexão com Supabase indisponível, usando catálogo local/mock:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
 
   useEffect(() => {
     // 1. Carrega inicial do cache local ou produtos mockados
@@ -77,30 +116,8 @@ export function useCatalog() {
     setLoaded(true);
 
     // 2. Conecta ao Supabase para carregar produtos_clarice caso configurado
-    if (isSupabaseConfigured) {
-      setIsSyncing(true);
-      supabase
-        .from('produtos_clarice')
-        .select('*')
-        .eq('active', true)
-        .order('featured', { ascending: false })
-        .order('created_at', { ascending: false })
-        .then(({ data, error }) => {
-          if (!error && data && data.length > 0) {
-            const mapped = (data as SupabaseProductRow[]).map(mapRowToProduct);
-            setProducts(mapped);
-          } else if (error) {
-            console.warn('[useCatalog] Aviso ao buscar produtos_clarice do Supabase, mantendo catálogo local/mock:', error.message);
-          }
-        })
-        .catch((err) => {
-          console.warn('[useCatalog] Conexão com Supabase indisponível, usando catálogo local/mock:', err);
-        })
-        .finally(() => {
-          setIsSyncing(false);
-        });
-    }
-  }, []);
+    fetchCatalog();
+  }, [fetchCatalog]);
 
   useEffect(() => {
     if (loaded) localStorage.setItem(KEY, JSON.stringify(products));
@@ -110,10 +127,67 @@ export function useCatalog() {
     if (loaded) localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
   }, [favorites, loaded]);
 
+  const approveProduct = useCallback(async (id: string, customAffiliateUrl?: string) => {
+    const target = pendingProducts.find((p) => p.id === id);
+    if (!target) return;
+
+    const finalUrl = customAffiliateUrl?.trim() || target.affiliateUrl;
+    const approvedProduct: AffiliateProduct = {
+      ...target,
+      affiliateUrl: finalUrl,
+      status: 'ativo',
+    };
+
+    setPendingProducts((prev) => prev.filter((p) => p.id !== id));
+    setProducts((prev) => [approvedProduct, ...prev]);
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('produtos_clarice')
+          .update({
+            active: true,
+            status: 'ativo',
+            affiliate_url: finalUrl,
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error('[useCatalog] Erro ao aprovar produto:', error.message);
+        }
+      } catch (err) {
+        console.error('[useCatalog] Falha de conexão ao aprovar:', err);
+      }
+    }
+  }, [pendingProducts]);
+
+  const rejectPending = useCallback(async (id: string) => {
+    setPendingProducts((prev) => prev.filter((p) => p.id !== id));
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('produtos_clarice')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          console.error('[useCatalog] Erro ao rejeitar produto pendente:', error.message);
+        }
+      } catch (err) {
+        console.error('[useCatalog] Falha de conexão ao excluir:', err);
+      }
+    }
+  }, []);
+
   return {
     products,
+    pendingProducts,
     favorites,
     isSyncing,
+    fetchCatalog,
+    approveProduct,
+    rejectPending,
     add: useCallback((items: AffiliateProduct[]) => {
       setProducts((p) => [...items, ...p]);
     }, []),
