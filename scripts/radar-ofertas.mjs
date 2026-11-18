@@ -262,6 +262,7 @@ export async function runRadarCrawler({
   minDiscount = 15,
   tag = DEFAULT_AFFILIATE_TAG,
   targetCount = 36,
+  existingPage = null,
 } = {}) {
   console.log('📡 [Radar Clarice Achadinhos] Iniciando garimpo misto com Microsoft Edge...');
   console.log(`🎯 Supabase: ${SUPABASE_URL}`);
@@ -282,16 +283,21 @@ export async function runRadarCrawler({
   const blockedMlbIds = new Set((existingRows || []).map((r) => r.mlb_id));
   console.log(`📦 Produtos ativos/pendentes protegidos de duplicação: ${blockedMlbIds.size}`);
 
-  // 2. Inicializar Edge Playwright com perfil persistente
-  const profileDir = path.resolve(process.cwd(), '.edge-ml-profile');
-  const context = await chromium.launchPersistentContext(profileDir, {
-    channel: 'msedge',
-    headless: false,
-    viewport: { width: 1280, height: 800 },
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  // 2. Inicializar Edge Playwright com perfil persistente (ou reaproveitar se já fornecido)
+  let context = null;
+  let page = existingPage;
+  const isSelfManaged = !existingPage;
 
-  const page = context.pages()[0] || (await context.newPage());
+  if (isSelfManaged) {
+    const profileDir = path.resolve(process.cwd(), '.edge-ml-profile');
+    context = await chromium.launchPersistentContext(profileDir, {
+      channel: 'msedge',
+      headless: false,
+      viewport: { width: 1280, height: 800 },
+      args: ['--disable-blink-features=AutomationControlled'],
+    });
+    page = context.pages()[0] || (await context.newPage());
+  }
 
   const collectedDeals = [];
   const seenInBatch = new Set();
@@ -355,7 +361,9 @@ export async function runRadarCrawler({
       }
     }
   } finally {
-    await context.close().catch(() => {});
+    if (isSelfManaged && context) {
+      await context.close().catch(() => {});
+    }
   }
 
   console.log(`\n🔍 Total de ofertas qualificadas garimpadas no Mercado Livre: ${collectedDeals.length}`);
