@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { HeroBanner } from '@/components/store/HeroBanner';
 import { ProductCard } from '@/components/store/ProductCard';
 import { ConciergeDialog, openWhatsApp } from '@/components/store/ConciergeDialog';
+import { openVipGroup } from '@/lib/store-settings';
 import { AdminSheet } from '@/components/store/AdminSheet';
 import { AdminPinDialog } from '@/components/store/AdminPinDialog';
 import { askClariceAi } from '@/services/clariceAiService';
@@ -188,7 +189,7 @@ function Storefront() {
                 <Heart className={cn('h-5 w-5', favoritesOnly && 'fill-current')} />
                 {c.favorites.length > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-on-brand">{c.favorites.length}</span>}
               </button>
-              <button type="button" onClick={() => openWhatsApp('Olá! Quero entrar no Grupo VIP da Clarice Achadinhos 🛍️')} className="flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover">
+              <button type="button" onClick={() => openVipGroup()} className="flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover">
                 <MessageCircle className="h-4 w-4" /> <span className="hidden sm:inline">Grupo VIP</span> WhatsApp
               </button>
             </div>
@@ -293,6 +294,7 @@ function Storefront() {
         onReset={c.reset}
         onApprovePending={c.approveProduct}
         onRejectPending={c.rejectPending}
+        onSyncRadar={c.syncRadar}
       />
       <Toaster position="bottom-center" richColors />
     </div>

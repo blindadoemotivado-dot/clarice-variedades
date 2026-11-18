@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { extractMlbId, filterProducts, formatBRL, productFromUrl, buildWhatsAppCopy } from './catalog';
 import { isValidMercadoLivreUrl, isMonetizedUrl } from '@/components/store/AdminSheet';
+import { applyAffiliateTag, getStoreSettings } from '@/lib/store-settings';
 import { MOCK_PRODUCTS } from '@/data/mockProducts';
 
 const base = { query: '', category: 'Todos' as const, favoritesOnly: false, favorites: [], sort: 'relevance' as const };
@@ -23,5 +24,11 @@ describe('catalog', () => {
     expect(isMonetizedUrl('https://mercadolivre.com.br/p/MLB123?matt_tool=clarice')).toBe(true);
     expect(isMonetizedUrl('https://meli.la/abcde')).toBe(true);
     expect(isMonetizedUrl('https://produto.mercadolivre.com.br/MLB-123')).toBe(false);
+  });
+  it('aplica tag de afiliado configurada via applyAffiliateTag', () => {
+    const url = 'https://produto.mercadolivre.com.br/MLB-123456';
+    const monetized = applyAffiliateTag(url, 'clarice-achadinhos');
+    expect(monetized).toContain('matt_tool=clarice-achadinhos');
+    expect(getStoreSettings().mlAffiliateTag).toBe('clarice-achadinhos');
   });
 });

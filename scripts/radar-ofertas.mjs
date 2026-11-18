@@ -32,7 +32,7 @@ const SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY ||
   '';
-const ML_AFFILIATE_TAG = process.env.ML_AFFILIATE_TAG || 'clarice-variedades';
+const ML_AFFILIATE_TAG = process.env.ML_AFFILIATE_TAG || 'clarice-achadinhos';
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('❌ Erro: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios.');

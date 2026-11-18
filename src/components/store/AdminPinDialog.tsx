@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { KeyRound, Lock, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { getStoreSettings } from '@/lib/store-settings';
 import {
   Dialog,
   DialogContent,
@@ -21,8 +22,11 @@ export function AdminPinDialog({ open, onOpenChange, onSuccess }: AdminPinDialog
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
 
-  const envPin = import.meta.env.VITE_ADMIN_PIN?.trim();
-  const validPins = envPin ? [envPin, ...DEFAULT_PINS] : DEFAULT_PINS;
+  const configuredPin = getStoreSettings().adminPin?.trim();
+  const envPin = (import.meta.env.VITE_ADMIN_PIN as string | undefined)?.trim();
+  const validPins = Array.from(
+    new Set([configuredPin, envPin, ...DEFAULT_PINS].filter(Boolean) as string[])
+  );
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

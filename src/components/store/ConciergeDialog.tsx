@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { getStoreSettings, openOrderWhatsApp } from '@/lib/store-settings';
 
-export const WHATSAPP_NUMBER = '5511999999999';
+export const WHATSAPP_NUMBER = getStoreSettings().whatsappNumber;
 
 export function openWhatsApp(text: string) {
-  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  openOrderWhatsApp(text);
 }
 
 export function ConciergeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {

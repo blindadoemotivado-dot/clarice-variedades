@@ -29,7 +29,18 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
     <motion.article layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.25 }} whileHover={{ y: -4 }}
       className="flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-all duration-200 hover:shadow-lg">
       <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden border-b border-slate-100 bg-white p-4 group">
-        <img src={p.imageUrl} alt={p.title} loading="lazy" width={600} height={600} className="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105" />
+        <img
+          src={p.imageUrl}
+          alt={p.title}
+          loading="lazy"
+          width={600}
+          height={600}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/icon-192.png';
+          }}
+          className="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105"
+        />
         {p.badgeText && <span className="absolute left-2 top-2 rounded-md bg-badge px-2 py-0.5 text-[10px] font-extrabold uppercase text-on-brand shadow-2xs">{p.badgeText}</span>}
         <div className="absolute right-2 top-2 flex flex-col gap-1.5">
           <button type="button" onClick={() => onToggleFavorite(p.id)} aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'} aria-pressed={isFavorite} className={cn(floatBtn, isFavorite ? 'text-destructive' : 'text-muted-foreground hover:text-destructive')}>

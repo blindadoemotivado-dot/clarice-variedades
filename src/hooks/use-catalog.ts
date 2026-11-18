@@ -180,12 +180,35 @@ export function useCatalog() {
     }
   }, []);
 
+  const syncRadar = useCallback(async (): Promise<number> => {
+    setIsSyncing(true);
+    try {
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('produtos_clarice')
+          .select('*')
+          .eq('status', 'pendente_afiliado')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          const mapped = (data as SupabaseProductRow[]).map(mapRowToProduct);
+          setPendingProducts(mapped);
+          return mapped.length;
+        }
+      }
+      return pendingProducts.length;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [pendingProducts.length]);
+
   return {
     products,
     pendingProducts,
     favorites,
     isSyncing,
     fetchCatalog,
+    syncRadar,
     approveProduct,
     rejectPending,
     add: useCallback((items: AffiliateProduct[]) => {
