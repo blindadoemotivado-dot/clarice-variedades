@@ -234,6 +234,32 @@ function Storefront() {
       </main>
 
       <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-10 text-center text-xs text-muted-foreground">
+        <div className="mx-auto mb-6 max-w-md rounded-2xl border border-border/80 bg-background/80 p-4 shadow-sm backdrop-blur-sm sm:p-5">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 sm:text-left">
+            <picture className="shrink-0">
+              <source srcSet="/brand/selo-clarice-footer.webp" type="image/webp" />
+              <img
+                src="/brand/selo-clarice-footer.png"
+                alt="Selo Oficial Clarice Achadinhos com Plaquinha de Desconto"
+                width={80}
+                height={80}
+                loading="lazy"
+                className="h-20 w-20 rounded-2xl border border-border object-cover shadow-sm"
+              />
+            </picture>
+            <div className="flex-1 space-y-1">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-ml/10 px-2.5 py-0.5 text-[11px] font-bold text-ml">
+                <BadgeCheck className="h-3.5 w-3.5 text-ml" />
+                <span>Curadoria Oficial Verificada</span>
+              </div>
+              <h3 className="text-sm font-bold text-foreground">Clarice Achadinhos</h3>
+              <p className="text-[12px] leading-relaxed text-muted-foreground">
+                Garimpamos diariamente os melhores descontos do Mercado Livre com frete grátis e compra 100% segura.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <p className="mx-auto max-w-2xl">A Clarice Achadinhos é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.</p>
         <button type="button" onClick={handleOpenAdmin} className="mt-4 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"><Lock className="h-3 w-3" /> Painel Clarice (Admin)</button>
       </footer>
