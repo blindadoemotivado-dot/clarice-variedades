@@ -17,10 +17,10 @@ import { cn } from '@/lib/utils';
 export const Route = createFileRoute('/')({
   head: () => ({
     meta: [
-      { title: 'Clarice Variedades — Achadinhos com Desconto no Mercado Livre' },
-      { name: 'description', content: 'Curadoria diária de ofertas verificadas do Mercado Livre: eletrônicos, casa, cozinha, ferramentas e beleza com frete grátis e parcelamento sem juros.' },
-      { property: 'og:title', content: 'Clarice Variedades — Achadinhos do Dia' },
-      { property: 'og:description', content: 'Ofertas verificadas do Mercado Livre com desconto real, frete grátis e compra garantida.' },
+      { title: 'Clarice Achadinhos — Curadoria de Ofertas no Mercado Livre' },
+      { name: 'description', content: 'Curadoria diária de achadinhos verificados do Mercado Livre: eletrônicos, casa, cozinha, ferramentas e beleza com frete grátis e parcelamento sem juros.' },
+      { property: 'og:title', content: 'Clarice Achadinhos — Achadinhos do Dia com Desconto Real' },
+      { property: 'og:description', content: 'Ofertas verificadas no Mercado Livre com desconto real, frete grátis e compra garantida.' },
       { property: 'og:type', content: 'website' },
       { name: 'twitter:card', content: 'summary_large_image' },
     ],
@@ -88,7 +88,8 @@ function AiSearchPanel({ result, loading, onClear }: { result: AiResult | null; 
                     <p className="text-[11px] font-semibold text-emerald-600">{product.discountPercent}% OFF</p>
                   </div>
                 </div>
-                <button type="button" onClick={() => { toast.info('Ativando link de apoio...', { description: 'Redirecionando para o ambiente seguro do ML.' }); window.open(product.affiliateUrl, '_blank', 'noopener,noreferrer'); }} className="mt-3 flex w-full items-center justify-center rounded-lg bg-[#3483FA] px-3 py-2 text-xs font-bold text-white hover:bg-[#2968C8]">Ver no Mercado Livre</button>
+                <button type="button" onClick={() => { toast.info('Ativando link de apoio...', { description: 'Redirecionando para o ambiente seguro do ML.' }); window.open(product.affiliateUrl, '_blank', 'noopener,noreferrer'); }} className="mt-3 flex w-full items-center justify-center rounded-lg bg-[#3483FA] px-3 py-2 text-xs font-bold text-white hover:bg-[#2968C8]">Garantir Oferta no ML</button>
+                <p className="mt-1.5 text-center text-[10px] text-slate-500">Direcionado com segurança para o ambiente oficial do Mercado Livre</p>
               </article>
             ))}
           </div>
@@ -150,13 +151,13 @@ function Storefront() {
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <header className="sticky top-0 z-40">
         <div className="flex items-center justify-center gap-1.5 bg-promo px-3 py-1.5 text-center text-[11px] font-semibold text-promo-foreground sm:text-xs">
-          ⚡ Clarice Variedades • Ofertas selecionadas com redirecionamento 100% seguro para o Mercado Livre
+          ⚡ Clarice Achadinhos • Ofertas selecionadas com redirecionamento 100% seguro para o Mercado Livre
         </div>
         <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
             <a href="/" className="flex items-center gap-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-promo text-ml ring-2 ring-ml/30"><ShoppingBag className="h-5 w-5" /></span>
-              <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">Clarice Variedades</span>
+              <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">Clarice Achadinhos</span>
               <BadgeCheck className="h-5 w-5 text-ml" aria-label="Loja verificada" />
             </a>
             <div className="ml-auto flex items-center gap-2 md:order-3">
@@ -164,7 +165,7 @@ function Storefront() {
                 <Heart className={cn('h-5 w-5', favoritesOnly && 'fill-current')} />
                 {c.favorites.length > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-on-brand">{c.favorites.length}</span>}
               </button>
-              <button type="button" onClick={() => openWhatsApp('Olá! Quero entrar no Grupo VIP da Clarice Variedades 🛍️')} className="flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover">
+              <button type="button" onClick={() => openWhatsApp('Olá! Quero entrar no Grupo VIP da Clarice Achadinhos 🛍️')} className="flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover">
                 <MessageCircle className="h-4 w-4" /> <span className="hidden sm:inline">Grupo VIP</span> WhatsApp
               </button>
             </div>
@@ -210,7 +211,7 @@ function Storefront() {
       </main>
 
       <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-10 text-center text-xs text-muted-foreground">
-        <p className="mx-auto max-w-2xl">A Clarice Variedades é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.</p>
+        <p className="mx-auto max-w-2xl">A Clarice Achadinhos é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.</p>
         <button type="button" onClick={() => setAdmin(true)} className="mt-4 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"><Lock className="h-3 w-3" /> Painel Clarice (Admin)</button>
       </footer>
 

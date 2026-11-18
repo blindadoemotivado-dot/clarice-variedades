@@ -2,7 +2,7 @@ export function HeroBanner() {
   return (
     <section className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-r from-ml-deep via-ml-hover to-ml p-4 text-on-brand shadow-sm sm:p-6">
       <div aria-hidden className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-promo/25 blur-2xl" />
-      <h1 className="relative text-xl font-extrabold tracking-tight sm:text-3xl">Clarice Variedades: Ofertas Selecionadas do Mercado Livre</h1>
+      <h1 className="relative text-xl font-extrabold tracking-tight sm:text-3xl">Clarice Achadinhos: Ofertas Selecionadas do Mercado Livre</h1>
       <p className="relative mt-1.5 max-w-2xl text-xs text-on-brand/90 sm:text-sm">
         Garimpamos diariamente os melhores preços e descontos reais em produtos para sua casa, dia a dia e família. Clique na oferta desejada para finalizar sua compra com total segurança direto no site ou app oficial do Mercado Livre.
       </p>

@@ -313,7 +313,7 @@ serve(async (req: Request) => {
 
     if (nexxusApiKey && !nexxusApiKey.includes("COLE_")) {
       try {
-        const systemPrompt = `Você é a Clarice, curadora oficial e assistente inteligente da loja Clarice Variedades.
+        const systemPrompt = `Você é a Clarice, curadora oficial e assistente inteligente da loja Clarice Achadinhos.
 Seu trabalho é orientar o cliente sobre ofertas garimpadas no Mercado Livre com simpatia, autoridade e entusiasmo.
 Você DEVE responder ESTRITAMENTE em formato JSON com as chaves:
 - "conciergeMessage": string cordial em português destacando a melhor oportunidade

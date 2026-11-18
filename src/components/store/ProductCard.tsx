@@ -63,11 +63,14 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
             <ul className="mt-2 space-y-1.5 border-t border-border/70 pt-2 leading-relaxed">
               {analysisPoints.map((point) => <li key={point} className="flex gap-1.5"><span className="text-[#3483FA]">•</span><span>{point}</span></li>)}
             </ul>
-            <button type="button" onClick={open} className="mt-2.5 inline-flex items-center gap-1 font-semibold text-[#2968C8] hover:underline">Ver oferta no Mercado Livre <ExternalLink className="h-3 w-3" /></button>
+            <button type="button" onClick={open} className="mt-2.5 inline-flex items-center gap-1 font-semibold text-[#2968C8] hover:underline">Garantir Oferta no ML <ExternalLink className="h-3 w-3" /></button>
           </details>
           <button type="button" onClick={open} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-ml px-3 py-2 text-xs font-bold text-on-brand shadow-xs transition-all hover:bg-ml-hover active:scale-[0.98] sm:py-2.5 sm:text-sm">
-            Ver no Mercado Livre <ExternalLink className="h-3.5 w-3.5" />
+            Garantir Oferta no ML <ExternalLink className="h-3.5 w-3.5" />
           </button>
+          <p className="mt-1.5 text-center text-[10px] text-muted-foreground/80 leading-tight">
+            Direcionado com segurança para o ambiente oficial do Mercado Livre
+          </p>
         </div>
       </div>
     </motion.article>

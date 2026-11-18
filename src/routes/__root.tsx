@@ -81,14 +81,34 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Clarice Variedades" },
-      { name: "description", content: "Achadinhos verificados do Mercado Livre" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Clarice Variedades" },
-      { property: "og:description", content: "Achadinhos verificados do Mercado Livre" },
+      { title: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
+      {
+        name: "description",
+        content:
+          "Curadoria diária de achadinhos com desconto verificado no Mercado Livre com frete grátis e compra 100% segura.",
+      },
+      { name: "theme-color", content: "#FFE600" },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Clarice Achadinhos" },
+      { property: "og:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
+      {
+        property: "og:description",
+        content:
+          "Economize de verdade! Achadinhos verificados diariamente com frete rápido e compra 100% segura no Mercado Livre.",
+      },
+      { property: "og:locale", content: "pt_BR" },
+      {
+        property: "og:image",
+        content:
+          "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=1200&q=80",
+      },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
+      {
+        name: "twitter:description",
+        content:
+          "Economize de verdade! Achadinhos verificados diariamente com frete rápido e compra 100% segura no Mercado Livre.",
+      },
     ],
     links: [
       {
@@ -96,6 +116,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,

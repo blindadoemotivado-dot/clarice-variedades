@@ -14,7 +14,7 @@ export function StoreHeader({ query, onQuery, favCount, favoritesOnly, onToggleF
   return (
     <header className="sticky top-0 z-40">
       <div className="flex items-center justify-center gap-1.5 bg-promo px-3 py-1.5 text-center text-[11px] font-semibold text-promo-foreground sm:text-xs">
-        ⚡ Clarice Variedades • Ofertas selecionadas com redirecionamento 100% seguro para o Mercado Livre
+        ⚡ Clarice Achadinhos • Ofertas selecionadas com redirecionamento 100% seguro para o Mercado Livre
       </div>
       <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
@@ -22,7 +22,7 @@ export function StoreHeader({ query, onQuery, favCount, favoritesOnly, onToggleF
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-promo text-ml ring-2 ring-ml/30">
               <ShoppingBag className="h-5 w-5" />
             </span>
-            <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">Clarice Variedades</span>
+            <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">Clarice Achadinhos</span>
             <BadgeCheck className="h-5 w-5 text-ml" aria-label="Loja verificada" />
           </a>
           <div className="ml-auto flex items-center gap-2 md:order-3">
