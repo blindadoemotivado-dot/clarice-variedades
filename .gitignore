@@ -17,6 +17,12 @@ dist-ssr
 *.local
 .env.local
 
+# Supabase
+supabase/.temp/
+
+# Vercel
+.vercel
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
