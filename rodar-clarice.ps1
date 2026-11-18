@@ -11,7 +11,7 @@ Write-Host ""
 # 1. Limpeza preventiva de processos residuais e travas de sessão
 Write-Host "[1/3] Limpando processos residuais e travas de sessao..." -ForegroundColor White
 
-Get-Process msedge -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*msedge.exe*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" | Where-Object { $_.CommandLine -like "*edge-ml-profile*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
 $profileDir = Join-Path $PSScriptRoot ".edge-ml-profile"
 if (Test-Path $profileDir) {

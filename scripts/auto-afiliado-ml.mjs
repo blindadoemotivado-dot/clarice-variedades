@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
+import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import { chromium } from 'playwright';
 import { runRadarCrawler } from './radar-ofertas.mjs';
@@ -40,6 +41,8 @@ const SERVICE_KEY =
   '';
 const AFFILIATE_TAG =
   process.env.ML_AFFILIATE_TAG || 'kd20250113073553';
+const AFFILIATE_SUBTAG = 'clariceachadinhos';
+const LINKBUILDER_URL = 'https://www.mercadolivre.com.br/afiliados/linkbuilder';
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('❌ Erro: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios.');
@@ -63,15 +66,90 @@ function askQuestion(query) {
   );
 }
 
-async function convertLinksInLinkBuilder(page, urlsToConvert) {
-  const LINKBUILDER_URL = 'https://www.mercadolivre.com.br/afiliados/linkbuilder';
-  console.log(`🔗 Acessando Gerador de Links: ${LINKBUILDER_URL}`);
+/**
+ * Garante que a etiqueta oficial (ex: 'clariceachadinhos') esteja selecionada ou preenchida no Link Builder
+ */
+async function ensureEtiquetaSelected(page, etiquetaName = AFFILIATE_SUBTAG) {
+  console.log(`🏷️ Verificando e garantindo etiqueta oficial "${etiquetaName}"...`);
+  try {
+    // 1. Procurar dropdown ou select existente
+    const dropdownTrigger = page.locator(
+      'button:has-text("Etiqueta"), [aria-label*="etiqueta" i], .andes-dropdown__trigger, [role="combobox"]'
+    ).first();
+
+    if ((await dropdownTrigger.count()) > 0 && (await dropdownTrigger.isVisible())) {
+      const text = await dropdownTrigger.innerText().catch(() => '');
+      if (text.toLowerCase().includes(etiquetaName.toLowerCase())) {
+        console.log(`✓ Etiqueta "${etiquetaName}" já está ativa no seletor.`);
+        return;
+      }
+      await dropdownTrigger.click().catch(() => {});
+      await page.waitForTimeout(600);
+
+      const option = page.locator(
+        `[role="option"]:has-text("${etiquetaName}"), li:has-text("${etiquetaName}"), button:has-text("${etiquetaName}")`
+      ).first();
+
+      if ((await option.count()) > 0 && (await option.isVisible())) {
+        await option.click().catch(() => {});
+        console.log(`✓ Etiqueta "${etiquetaName}" selecionada no menu.`);
+        await page.waitForTimeout(500);
+        return;
+      }
+    }
+
+    // 2. Procurar campo de texto de etiqueta/tag
+    const tagInputSelectors = [
+      'input[placeholder*="etiqueta" i]',
+      'input[placeholder*="tag" i]',
+      'input[name*="tag" i]',
+      'input[name*="subid" i]',
+      'input[name*="label" i]',
+      '[data-testid*="etiqueta" i]',
+      '[data-testid*="tag" i]',
+    ];
+
+    for (const sel of tagInputSelectors) {
+      const el = page.locator(sel).first();
+      if ((await el.count()) > 0 && (await el.isVisible())) {
+        const val = await el.inputValue().catch(() => '');
+        if (!val || !val.toLowerCase().includes(etiquetaName.toLowerCase())) {
+          await el.fill(etiquetaName);
+          await page.keyboard.press('Enter').catch(() => {});
+          console.log(`✓ Etiqueta "${etiquetaName}" preenchida no formulário.`);
+          await page.waitForTimeout(500);
+        } else {
+          console.log(`✓ Etiqueta "${etiquetaName}" já confirmada no campo.`);
+        }
+        return;
+      }
+    }
+
+    // 3. Procurar radio, botão ou chip de etiqueta
+    const chip = page.locator(`button:has-text("${etiquetaName}"), label:has-text("${etiquetaName}")`).first();
+    if ((await chip.count()) > 0 && (await chip.isVisible())) {
+      await chip.click().catch(() => {});
+      console.log(`✓ Chip da etiqueta "${etiquetaName}" selecionado.`);
+    }
+  } catch (err) {
+    console.warn(`ℹ️ Detalhe ao verificar etiqueta "${etiquetaName}":`, err.message);
+  }
+}
+
+/**
+ * Converte um lote de até 10 produtos no Gerador de Produtos Recomendados do Mercado Livre
+ */
+async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches) {
+  console.log(`\n=============================================================`);
+  console.log(`🔗 [Lote ${batchNum}/${totalBatches}] Gerador de Produtos Recomendados`);
+  console.log(`📋 Total de produtos neste lote: ${batchUrls.length} (limite de 10)`);
+  console.log(`=============================================================`);
 
   await page.goto(LINKBUILDER_URL, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
   await page.waitForTimeout(3000);
 
-  // Verificar se precisa de login na conta de afiliado
-  let currentUrl = page.url();
+  // Tratar autenticação sem timeout caso caia em login
+  const currentUrl = page.url();
   const needsLogin =
     currentUrl.includes('login') ||
     currentUrl.includes('identification') ||
@@ -102,15 +180,24 @@ async function convertLinksInLinkBuilder(page, urlsToConvert) {
     }
   }
 
-  console.log(`📝 Inserindo ${urlsToConvert.length} link(s) no formulário do Link Builder...`);
-  const batchText = urlsToConvert.join('\n');
+  // Garantir a etiqueta 'clariceachadinhos' selecionada
+  await ensureEtiquetaSelected(page, AFFILIATE_SUBTAG);
+
+  // Inserir os links reais dos produtos (até 10 por vez)
+  console.log(`📝 Inserindo ${batchUrls.length} link(s) de anúncios no formulário...`);
+  const batchText = batchUrls.join('\n');
 
   const selectors = [
     'textarea',
-    'input[type="text"]',
+    'input[type="text"][placeholder*="http" i]',
+    'input[placeholder*="http" i]',
+    'input[placeholder*="link" i]',
+    'input[placeholder*="anúncio" i]',
+    'input[placeholder*="anuncio" i]',
+    'input[placeholder*="produto" i]',
     '[data-testid*="link"]',
     '[name*="link"]',
-    '[placeholder*="http"]',
+    'input[type="text"]',
   ];
 
   let inputField = null;
@@ -124,21 +211,17 @@ async function convertLinksInLinkBuilder(page, urlsToConvert) {
 
   if (inputField) {
     try {
+      await inputField.fill('');
       await inputField.fill(batchText);
       console.log('✓ Links colados no formulário com sucesso!');
       await page.waitForTimeout(1000);
 
-      // Preencher tag personalizada se houver campo
-      const tagInput = page.locator('input[name*="tag"], input[placeholder*="tag"], input[name*="subid"]').first();
-      if ((await tagInput.count()) > 0 && (await tagInput.isVisible())) {
-        await tagInput.fill(AFFILIATE_TAG);
-      }
-
-      // Clicar em Gerar link
+      // Clicar no botão de gerar links
       const btnSelectors = [
-        'button:has-text("Gerar")',
-        'button:has-text("Criar")',
         'button:has-text("Gerar link")',
+        'button:has-text("Gerar")',
+        'button:has-text("Criar link")',
+        'button:has-text("Criar")',
         'button[type="submit"]',
       ];
 
@@ -151,11 +234,11 @@ async function convertLinksInLinkBuilder(page, urlsToConvert) {
         }
       }
     } catch (err) {
-      console.warn('⚠️ Aviso ao interagir com campos do Link Builder:', err.message);
+      console.warn('⚠️ Aviso ao interagir com campos do formulário:', err.message);
     }
   }
 
-  console.log('⏳ Aguardando renderização dos links curtos oficiais na página...');
+  console.log('⏳ Aguardando links curtos oficiais na página...');
   await page.waitForTimeout(4000);
 
   // Extrair links curtos gerados
@@ -202,19 +285,51 @@ async function convertLinksInLinkBuilder(page, urlsToConvert) {
     }
   }
 
+  console.log(`✓ Lote ${batchNum}: ${extracted.length} link(s) curto(s) obtido(s).`);
   return extracted;
+}
+
+/**
+ * Converte toda a fila em lotes de até 10 produtos
+ */
+async function convertLinksInBatches(page, productUrls) {
+  const BATCH_SIZE = 10;
+  const batches = [];
+  for (let i = 0; i < productUrls.length; i += BATCH_SIZE) {
+    batches.push(productUrls.slice(i, i + BATCH_SIZE));
+  }
+
+  console.log(`\n🎯 Fila dividida em ${batches.length} lote(s) de até 10 produtos para o formulário oficial.`);
+
+  const allShortLinks = [];
+  for (let i = 0; i < batches.length; i++) {
+    const links = await convertBatchInLinkBuilder(page, batches[i], i + 1, batches.length);
+    allShortLinks.push(...links);
+  }
+
+  return allShortLinks;
 }
 
 async function main() {
   console.log('\n=============================================================');
   console.log('🚀 [Clarice Achadinhos] Automação Completa via Microsoft Edge');
   console.log(`🏷️ Conta Afiliado: ${AFFILIATE_TAG}`);
+  console.log(`🔖 Etiqueta: ${AFFILIATE_SUBTAG}`);
   console.log('=============================================================\n');
 
-  // Inicializar Edge com perfil persistente UMA ÚNICA VEZ
   const USER_DATA_DIR = path.resolve(process.cwd(), '.edge-ml-profile');
 
-  // Limpeza de travas residuais de execuções anteriores abortadas
+  // Limpeza preventiva de processos órfãos do perfil de automação
+  try {
+    if (process.platform === 'win32') {
+      execSync(
+        'powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name = \'msedge.exe\'\\" | Where-Object { $_.CommandLine -like \'*edge-ml-profile*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"',
+        { stdio: 'ignore' }
+      );
+    }
+  } catch (_) {}
+
+  // Limpeza de travas residuais de execuções anteriores
   try {
     if (fs.existsSync(USER_DATA_DIR)) {
       const files = fs.readdirSync(USER_DATA_DIR);
@@ -228,6 +343,7 @@ async function main() {
     }
   } catch (_) {}
 
+  // Inicializar Edge com perfil persistente UMA ÚNICA VEZ
   const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
     channel: 'msedge',
     headless: false,
@@ -239,9 +355,9 @@ async function main() {
     const page = context.pages()[0] || (await context.newPage());
 
     // --------------------------------------------------------------------------
-    // ROTINA 1: Verificação e Encurtamento do Link Geral de Afiliado (Home ML)
+    // ROTINA 1: Configuração do Link Geral de Afiliado (Botão Amarelo)
     // --------------------------------------------------------------------------
-    console.log('🔍 [ROTINA 1/3] Verificando Link Geral de Afiliado (Botão Amarelo)...');
+    console.log('🔍 [ROTINA 1/3] Configurando Link Geral de Afiliado (Botão Amarelo)...');
     const { data: storeSettingsRow } = await supabase
       .from('store_settings')
       .select('*')
@@ -249,35 +365,36 @@ async function main() {
       .maybeSingle();
 
     const currentGeneral = storeSettingsRow?.general_affiliate_url || '';
-    const isGeneralShort =
+    const hasShortGeneral =
       currentGeneral.includes('mercadolivre.com/sec/') ||
       currentGeneral.includes('meli.la/');
 
-    if (!isGeneralShort) {
-      console.log('⚠️ Link Geral ainda não é um link curto oficial. Convertendo "https://www.mercadolivre.com.br/ofertas"...');
-      try {
-        const generated = await convertLinksInLinkBuilder(page, [
-          'https://www.mercadolivre.com.br/ofertas',
-        ]);
-        const shortUrl = generated[0];
+    // Buscar se já existe um link curto oficial do primeiro produto ativo na vitrine
+    const { data: firstActiveProduct } = await supabase
+      .from('produtos_clarice')
+      .select('affiliate_url')
+      .eq('active', true)
+      .or('affiliate_url.ilike.%mercadolivre.com/sec/%,affiliate_url.ilike.%meli.la/%')
+      .limit(1)
+      .maybeSingle();
 
-        if (shortUrl) {
-          await supabase
-            .from('store_settings')
-            .update({
-              general_affiliate_url: shortUrl,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', 'default');
-          console.log(`🎉 Link Geral encurtado e salvo no Supabase com sucesso: ${shortUrl}`);
-        } else {
-          console.log('ℹ️ Mantido link geral com tag de afiliado padrão.');
-        }
-      } catch (err) {
-        console.warn('⚠️ Aviso na conversão do link geral:', err.message);
-      }
+    const officialOffersWithTag = `https://www.mercadolivre.com.br/ofertas#matt_tool=${AFFILIATE_TAG}&matt_word=${AFFILIATE_SUBTAG}`;
+
+    const targetGeneralUrl = hasShortGeneral
+      ? currentGeneral
+      : firstActiveProduct?.affiliate_url || officialOffersWithTag;
+
+    if (currentGeneral !== targetGeneralUrl) {
+      await supabase
+        .from('store_settings')
+        .upsert({
+          id: 'default',
+          general_affiliate_url: targetGeneralUrl,
+          updated_at: new Date().toISOString(),
+        });
+      console.log(`🎉 Link Geral do Botão Amarelo configurado no Supabase: ${targetGeneralUrl}`);
     } else {
-      console.log(`✅ Link Geral de Afiliado já configurado com link curto oficial: ${currentGeneral}`);
+      console.log(`✅ Link Geral de Afiliado já atualizado: ${targetGeneralUrl}`);
     }
 
     // --------------------------------------------------------------------------
@@ -296,7 +413,7 @@ async function main() {
     }
 
     // --------------------------------------------------------------------------
-    // ROTINA 3: Monetização em Lote de Itens Pendentes no Link Builder
+    // ROTINA 3: Monetização em Lote de Itens Pendentes no Link Builder (10 por lote)
     // --------------------------------------------------------------------------
     console.log('\n📋 [ROTINA 3/3] Buscando achadinhos pendentes de monetização no Supabase...');
     const { data: pending, error: fetchErr } = await supabase
@@ -319,10 +436,10 @@ async function main() {
 
     const productUrls = pending.map((p) => `https://produto.mercadolivre.com.br/${p.mlb_id}`);
 
-    const shortLinks = await convertLinksInLinkBuilder(page, productUrls);
-    console.log(`\n🔎 Total de links curtos obtidos: ${shortLinks.length}`);
+    const shortLinks = await convertLinksInBatches(page, productUrls);
+    console.log(`\n🔎 Total de links curtos obtidos: ${shortLinks.length} para ${pending.length} produto(s).`);
 
-    console.log('💾 Atualizando produtos no Supabase para status "ativo" e monetizado...');
+    console.log(`💾 Atualizando produtos no Supabase com etiqueta "${AFFILIATE_SUBTAG}" para status "ativo"...`);
     let updatedCount = 0;
 
     for (let i = 0; i < pending.length; i++) {
@@ -343,6 +460,18 @@ async function main() {
       } else {
         console.warn(`Erro ao atualizar item ${item.mlb_id}:`, updErr.message);
       }
+    }
+
+    // Se o botão amarelo ainda usava URL com hashtag e temos novos links curtos, promove o 1º link
+    if (shortLinks[0] && !hasShortGeneral) {
+      await supabase
+        .from('store_settings')
+        .update({
+          general_affiliate_url: shortLinks[0],
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', 'default');
+      console.log(`🔗 Link Geral do Botão Amarelo promovido para o 1º link curto: ${shortLinks[0]}`);
     }
 
     console.log(`\n🎉 SUCESSO: ${updatedCount} achadinhos aprovados, monetizados e publicados na vitrine!`);
