@@ -14,9 +14,8 @@ export async function copyText(text: string, success: string) {
 const floatBtn = 'flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card/90 shadow-2xs backdrop-blur-xs transition-colors';
 
 export function ProductCard({ product: p, isFavorite, onToggleFavorite }: ProductCardProps) {
-  const open = () => {
+  const handleLinkClick = () => {
     toast.info('Ativando link de apoio...', { description: 'Redirecionando para o ambiente seguro do ML.' });
-    window.open(p.affiliateUrl, '_blank', 'noopener,noreferrer');
   };
 
   const analysisPoints = [
@@ -74,11 +73,25 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
             <ul className="mt-2 space-y-1.5 border-t border-border/70 pt-2 leading-relaxed">
               {analysisPoints.map((point) => <li key={point} className="flex gap-1.5"><span className="text-[#3483FA]">•</span><span>{point}</span></li>)}
             </ul>
-            <button type="button" onClick={open} className="mt-2.5 inline-flex items-center gap-1 font-semibold text-[#2968C8] hover:underline">Garantir Oferta no ML <ExternalLink className="h-3 w-3" /></button>
+            <a
+              href={p.affiliateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleLinkClick}
+              className="mt-2.5 inline-flex items-center gap-1 font-semibold text-[#2968C8] hover:underline"
+            >
+              Garantir Oferta no ML <ExternalLink className="h-3 w-3" />
+            </a>
           </details>
-          <button type="button" onClick={open} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-ml px-3 py-2 text-xs font-bold text-on-brand shadow-xs transition-all hover:bg-ml-hover active:scale-[0.98] sm:py-2.5 sm:text-sm">
+          <a
+            href={p.affiliateUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleLinkClick}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-ml px-3 py-2 text-xs font-bold text-on-brand shadow-xs transition-all hover:bg-ml-hover active:scale-[0.98] sm:py-2.5 sm:text-sm"
+          >
             Garantir Oferta no ML <ExternalLink className="h-3.5 w-3.5" />
-          </button>
+          </a>
           <p className="mt-1.5 text-center text-[10px] text-muted-foreground/80 leading-tight">
             Direcionado com segurança para o ambiente oficial do Mercado Livre
           </p>

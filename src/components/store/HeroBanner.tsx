@@ -1,4 +1,11 @@
+import { useStoreSettings } from '@/lib/store-settings';
+
 export function HeroBanner() {
+  const [settings] = useStoreSettings();
+  const generalUrl =
+    settings.generalAffiliateUrl ||
+    `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`;
+
   return (
     <section className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-r from-ml-deep via-ml-hover to-ml p-4 text-on-brand shadow-sm sm:p-6">
       <div aria-hidden className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-promo/25 blur-2xl" />
@@ -12,8 +19,12 @@ export function HeroBanner() {
             <li key={b} className="rounded-full bg-on-brand/15 px-2.5 py-1 backdrop-blur-xs">{b}</li>
           ))}
         </ul>
-        <a href="https://www.mercadolivre.com.br" target="_blank" rel="noopener noreferrer"
-          className="bg-[#FFE600] hover:bg-amber-400 text-slate-900 font-extrabold text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-sm inline-flex items-center gap-2 mt-3">
+        <a
+          href={generalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-[#FFE600] hover:bg-amber-400 text-slate-900 font-extrabold text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-sm inline-flex items-center gap-2 mt-3"
+        >
           🚀 Vai comprar outro produto? Abrir Mercado Livre
         </a>
       </div>
