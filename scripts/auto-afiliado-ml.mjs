@@ -336,32 +336,8 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
     await page.waitForTimeout(1000);
   }
 
-  // Fallback de emergência caso nada tenha surgido automaticamente
   if (extracted.length === 0) {
-    console.warn('\n⚠️ Links curtos não detectados após 12s de polling.');
-    console.log('💡 Clique em "Gerar" na janela do Edge caso necessário.');
-    await askQuestion('Pressione [ENTER] quando os links curtos (meli.la / mercadolivre.com/sec) estiverem na tela...');
-
-    extracted = await page.evaluate(() => {
-      const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/g;
-      const text = document.body.innerText || '';
-      const matches = text.match(regex) || [];
-      const hrefs = Array.from(document.querySelectorAll('a[href]'))
-        .map((a) => a.getAttribute('href'))
-        .filter((h) => h && (h.includes('meli.la') || h.includes('mercadolivre.com/sec')));
-      return Array.from(new Set([...matches, ...hrefs]));
-    });
-
-    if (extracted.length === 0) {
-      console.log('👉 Se você copiou os links curtos do Mercado Livre, cole-os aqui abaixo (separados por espaço ou quebra de linha):');
-      const pasted = await askQuestion('> ');
-      if (pasted.trim()) {
-        extracted = pasted
-          .split(/[\s\n]+/)
-          .map((s) => s.trim())
-          .filter((s) => s.includes('mercadolivre.com') || s.includes('meli.la'));
-      }
-    }
+    console.warn(`⚠️ Lote ${batchNum}: links curtos não detectados no tempo limite.`);
   }
 
   console.log(`✓ Lote ${batchNum}: ${extracted.length} link(s) curto(s) obtido(s).`);

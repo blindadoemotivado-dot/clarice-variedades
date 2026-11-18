@@ -68,7 +68,7 @@ function mapRowToProduct(row: SupabaseProductRow): AffiliateProduct {
 }
 
 export function useCatalog() {
-  const [products, setProducts] = useState<AffiliateProduct[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<AffiliateProduct[]>([]);
   const [pendingProducts, setPendingProducts] = useState<AffiliateProduct[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -92,7 +92,7 @@ export function useCatalog() {
           .order('created_at', { ascending: false }),
       ]);
 
-      if (!activeRes.error && activeRes.data && activeRes.data.length > 0) {
+      if (!activeRes.error && activeRes.data) {
         setProducts((activeRes.data as SupabaseProductRow[]).map(mapRowToProduct));
       } else if (activeRes.error) {
         console.warn('[useCatalog] Aviso ao buscar produtos ativos:', activeRes.error.message);
@@ -104,20 +104,20 @@ export function useCatalog() {
         console.warn('[useCatalog] Aviso ao buscar produtos pendentes:', pendingRes.error.message);
       }
     } catch (err) {
-      console.warn('[useCatalog] Conexão com Supabase indisponível, usando catálogo local/mock:', err);
+      console.warn('[useCatalog] Conexão com Supabase indisponível:', err);
     } finally {
       setIsSyncing(false);
     }
   }, []);
 
   useEffect(() => {
-    // 1. Carrega inicial do cache local ou produtos mockados
-    const initialLocal = read<AffiliateProduct[]>(KEY, MOCK_PRODUCTS);
-    setProducts(initialLocal.length > 0 ? initialLocal : MOCK_PRODUCTS);
+    // 1. Carrega inicial do cache local sem fallback fictício
+    const initialLocal = read<AffiliateProduct[]>(KEY, []);
+    setProducts(initialLocal);
     setFavorites(readWithLegacy(FAV_KEY, LEGACY_FAV_KEY, []));
     setLoaded(true);
 
-    // 2. Conecta ao Supabase para carregar produtos_clarice caso configurado
+    // 2. Conecta ao Supabase para carregar produtos_clarice reais
     fetchCatalog();
   }, [fetchCatalog]);
 
@@ -251,16 +251,18 @@ export function useCatalog() {
     add: useCallback((items: AffiliateProduct[]) => {
       setProducts((p) => [...items, ...p]);
     }, []),
-    remove: useCallback((id: string) => {
+    remove: useCallback(async (id: string) => {
       setProducts((p) => p.filter((x) => x.id !== id));
       if (isSupabaseConfigured) {
-        supabase
-          .from('produtos_clarice')
-          .delete()
-          .eq('id', id)
-          .then(({ error }) => {
-            if (error) console.warn('[useCatalog] Erro ao remover do Supabase:', error.message);
-          });
+        try {
+          const { error } = await supabase
+            .from('produtos_clarice')
+            .delete()
+            .eq('id', id);
+          if (error) console.warn('[useCatalog] Erro ao remover do Supabase:', error.message);
+        } catch (err) {
+          console.warn('[useCatalog] Falha ao deletar item do Supabase:', err);
+        }
       }
     }, []),
     batchRemove: useCallback(async (ids: string[]) => {
@@ -285,7 +287,7 @@ export function useCatalog() {
           const { error } = await supabase
             .from('produtos_clarice')
             .delete()
-            .eq('active', true);
+            .or('active.eq.true,status.eq.ativo');
           if (error) console.warn('[useCatalog] Erro ao esvaziar catálogo:', error.message);
         } catch (err) {
           console.warn('[useCatalog] Falha de conexão ao esvaziar catálogo:', err);
@@ -361,6 +363,11 @@ export function useCatalog() {
     toggleFavorite: useCallback((id: string) => {
       setFavorites((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
     }, []),
-    reset: useCallback(() => setProducts(MOCK_PRODUCTS), []),
+    reset: useCallback(() => {
+      setProducts([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(KEY);
+      }
+    }, []),
   };
 }

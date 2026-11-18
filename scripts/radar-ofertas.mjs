@@ -178,28 +178,43 @@ export async function scrapeOffersFromPage(page, targetUrl, minDiscount = 15) {
       const seenMlb = new Set();
 
       for (const card of cards) {
-        const linkEl = card.querySelector('a[href*="MLB"]');
-        if (!linkEl) continue;
-        const href = linkEl.href;
-
-        // Extrair MLB ID único
+        // Encontrar links de anúncio de produto estritamente válidos (bloqueando mlstatic.com e imagens)
+        const candidateLinks = Array.from(card.querySelectorAll('a[href]'));
+        let linkEl = null;
         let mlbId = null;
-        const pMatch = href.match(/\/p\/(MLB\d+)/i);
-        const idMatch = href.match(/(MLB-\d+)/i);
-        const widMatch = href.match(/wid=(MLB\d+)/i);
-        const rawMatch = href.match(/(MLB\d{6,})/i);
 
-        if (pMatch) mlbId = pMatch[1];
-        else if (idMatch) mlbId = idMatch[1];
-        else if (widMatch) mlbId = widMatch[1];
-        else if (rawMatch) mlbId = rawMatch[1];
+        for (const a of candidateLinks) {
+          const h = (a.getAttribute('href') || a.href || '').trim();
+          // Bloquear estritamente qualquer URL de imagem ou estática
+          if (!h || h.includes('mlstatic.com') || /\.(webp|jpg|jpeg|png|gif)($|\?)/i.test(h)) {
+            continue;
+          }
+          if (
+            (h.includes('mercadolivre.com.br') || h.startsWith('/') || h.startsWith('http')) &&
+            (h.includes('MLB') || h.includes('/p/MLB') || h.includes('wid=MLB'))
+          ) {
+            const pMatch = h.match(/\/p\/(MLB\d+)/i);
+            const idMatch = h.match(/(MLB-?\d{6,})/i);
+            const widMatch = h.match(/wid=(MLB\d+)/i);
+            const rawMatch = h.match(/(MLB\d{6,})/i);
 
-        if (!mlbId) continue;
-        if (!mlbId.startsWith('MLB-')) {
-          mlbId = mlbId.replace(/^MLB/i, 'MLB-');
+            if (pMatch) mlbId = pMatch[1];
+            else if (idMatch) mlbId = idMatch[1];
+            else if (widMatch) mlbId = widMatch[1];
+            else if (rawMatch) mlbId = rawMatch[1];
+
+            if (mlbId) {
+              const digits = mlbId.replace(/\D/g, '');
+              if (digits.length >= 6) {
+                mlbId = `MLB-${digits}`;
+                linkEl = a;
+                break;
+              }
+            }
+          }
         }
 
-        if (seenMlb.has(mlbId)) continue;
+        if (!linkEl || !mlbId || seenMlb.has(mlbId)) continue;
 
         // Título
         const titleEl = card.querySelector(
@@ -431,8 +446,7 @@ export async function runRadarCrawler({
 
   // 3. Persistência no Supabase com status 'pendente_afiliado'
   const rowsToInsert = collectedDeals.map((deal) => {
-    const rawUrl = `https://produto.mercadolivre.com.br/${deal.mlbId}`;
-    const affiliateUrl = `${rawUrl}?matt_tool=${tag}`;
+    const cleanUrl = `https://produto.mercadolivre.com.br/${deal.mlbId}`;
 
     return {
       mlb_id: deal.mlbId,
@@ -442,7 +456,7 @@ export async function runRadarCrawler({
       discount_percent: deal.discountPercent,
       installments_text: deal.installmentsText,
       image_url: deal.imageUrl,
-      affiliate_url: affiliateUrl,
+      affiliate_url: cleanUrl,
       category: deal.category,
       badge_text: `Radar ${deal.discountPercent}% OFF`,
       free_shipping: deal.freeShipping,
