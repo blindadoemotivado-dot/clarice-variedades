@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AffiliateProduct } from '@/types/product';
 import { MOCK_PRODUCTS } from '@/data/mockProducts';
 
-const KEY = 'clarice:catalog:v1';
+const KEY = 'clarice_v2';
 const FAV_KEY = 'clarice:favorites:v1';
-const LEGACY_KEY = 'zizi:catalog:v1';
 const LEGACY_FAV_KEY = 'zizi:favorites:v1';
 
 function read<T>(key: string, fallback: T): T {
@@ -23,7 +22,7 @@ export function useCatalog() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setProducts(readWithLegacy(KEY, LEGACY_KEY, MOCK_PRODUCTS));
+    setProducts(read(KEY, MOCK_PRODUCTS));
     setFavorites(readWithLegacy(FAV_KEY, LEGACY_FAV_KEY, []));
     setLoaded(true);
   }, []);

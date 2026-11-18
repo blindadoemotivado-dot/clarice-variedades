@@ -14,7 +14,7 @@ export function StoreHeader({ query, onQuery, favCount, favoritesOnly, onToggleF
   return (
     <header className="sticky top-0 z-40">
       <div className="flex items-center justify-center gap-1.5 bg-promo px-3 py-1.5 text-center text-[11px] font-semibold text-promo-foreground sm:text-xs">
-        ⚡ Curadoria Oficial Clarice Variedades • Redirecionamento 100% Seguro para o Mercado Livre
+        💛 Clarice Variedades • Compre qualquer produto no Mercado Livre pelo nosso portal e apoie o futuro da pequena Clarice sem pagar nada a mais!
       </div>
       <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
