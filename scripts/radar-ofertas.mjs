@@ -216,6 +216,25 @@ export async function scrapeOffersFromPage(page, targetUrl, minDiscount = 15) {
 
         if (!linkEl || !mlbId || seenMlb.has(mlbId)) continue;
 
+        // URL real do produto preservando formato original (/p/MLB... ou produto.mercadolivre.com.br/MLB-...)
+        const titleAnchor = card.querySelector('a.poly-component__title, .poly-component__title a, a[title]');
+        const mainA = titleAnchor || linkEl;
+        let rawHref = (mainA?.getAttribute('href') || mainA?.href || '').trim();
+        if (!rawHref) continue;
+
+        let cleanUrl = rawHref.split('?')[0].split('#')[0];
+        if (cleanUrl.startsWith('//')) cleanUrl = 'https:' + cleanUrl;
+        else if (cleanUrl.startsWith('/')) cleanUrl = 'https://www.mercadolivre.com.br' + cleanUrl;
+
+        // Validação estrita: rejeita CDN, imagens ou URLs fora do Mercado Livre
+        if (
+          !cleanUrl.includes('mercadolivre.com.br') ||
+          cleanUrl.includes('mlstatic.com') ||
+          /\.(webp|jpg|jpeg|png|gif)($|\?)/i.test(cleanUrl)
+        ) {
+          continue;
+        }
+
         // Título
         const titleEl = card.querySelector(
           '.poly-component__title, a.poly-component__title, .promotion-item__title, a[title]'
@@ -293,6 +312,7 @@ export async function scrapeOffersFromPage(page, targetUrl, minDiscount = 15) {
         seenMlb.add(mlbId);
         items.push({
           mlbId,
+          cleanUrl,
           title,
           originalPrice,
           currentPrice,
@@ -444,9 +464,19 @@ export async function runRadarCrawler({
     return [];
   }
 
-  // 3. Persistência no Supabase com status 'pendente_afiliado'
-  const rowsToInsert = collectedDeals.map((deal) => {
-    const cleanUrl = `https://produto.mercadolivre.com.br/${deal.mlbId}`;
+  // 3. Persistência no Supabase com status 'pendente_afiliado' e URL real validada
+  const validDeals = collectedDeals.filter((deal) => {
+    const u = deal.cleanUrl || '';
+    return (
+      u.startsWith('https://') &&
+      u.includes('mercadolivre.com.br') &&
+      !u.includes('mlstatic.com') &&
+      !/\.(webp|jpg|jpeg|png|gif)($|\?)/i.test(u)
+    );
+  });
+
+  const rowsToInsert = validDeals.map((deal) => {
+    const cleanUrl = deal.cleanUrl || `https://produto.mercadolivre.com.br/${deal.mlbId}`;
 
     return {
       mlb_id: deal.mlbId,

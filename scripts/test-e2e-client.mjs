@@ -8,7 +8,7 @@ async function runClientTest() {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
     userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   });
 
   const page = await context.newPage();
@@ -24,63 +24,96 @@ async function runClientTest() {
     await page.waitForTimeout(4000);
 
     // 2. Verifica a contagem de produtos exibidos
-    const productCards = await page.locator('article, [class*="card"], [class*="product"]').count();
-    console.log(`📦 Cards de produtos detectados na vitrine: ${productCards}`);
+    const productArticles = page.locator('article');
+    const totalCards = await productArticles.count();
+    console.log(`📦 Cards de produtos detectados na vitrine: ${totalCards}`);
 
-    // Extrai links de ofertas dos produtos exibidos
-    const offerLinks = await page.evaluate(() => {
-      const anchors = Array.from(document.querySelectorAll('a[href]'));
-      return anchors
-        .map((a) => ({
-          text: a.innerText.trim(),
-          href: a.href,
-        }))
-        .filter((a) =>
-          a.href.includes('mercadolivre.com') ||
-          a.href.includes('meli.la')
-        );
-    });
-
-    console.log(`🔗 Links de afiliados encontrados na página: ${offerLinks.length}`);
-    if (offerLinks.length > 0) {
-      console.log('Amostra de 3 links de produtos na vitrine:');
-      for (const l of offerLinks.slice(0, 3)) {
-        console.log(`  - [${l.text.slice(0, 25)}] -> ${l.href}`);
-      }
+    if (totalCards === 0) {
+      console.warn('⚠️ Nenhum card de produto encontrado na vitrine.');
+      return;
     }
 
-    // 3. Testa o clique na primeira oferta de produto visível
-    const firstProductBtn = page.locator('a:visible:has-text("Garantir Oferta no ML")').first();
-    let productTargetUrl = '';
+    // 3. Testa a conferência de 5 produtos publicados diferentes
+    console.log('\n🔍 [Auditoria Produto x Destino] Testando 5 produtos publicados diferentes...');
+    const testCount = Math.min(5, totalCards);
+    const auditResults = [];
 
-    if ((await firstProductBtn.count()) > 0) {
-      productTargetUrl = await firstProductBtn.getAttribute('href');
-      console.log(`\n🛒 [Teste 1/2] Testando clique na oferta do produto: ${productTargetUrl}`);
+    for (let i = 0; i < testCount; i++) {
+      const card = productArticles.nth(i);
+      const cardTitle = (
+        (await card.locator('h3, [class*="title"]').first().innerText().catch(() => '')) ||
+        (await card.innerText()).slice(0, 40)
+      ).trim();
 
-      const [newPage] = await Promise.all([
+      const offerLinkEl = card.locator('a:visible:has-text("Garantir Oferta no ML")').first();
+      const shortUrl = await offerLinkEl.getAttribute('href');
+
+      console.log(`\n[Produto ${i + 1}/${testCount}]`);
+      console.log(`  Vitrine Card: "${cardTitle.slice(0, 45)}..."`);
+      console.log(`  Link Curto: ${shortUrl}`);
+
+      const [targetPage] = await Promise.all([
         context.waitForEvent('page', { timeout: 20000 }).catch(() => null),
-        firstProductBtn.click(),
+        offerLinkEl.click(),
       ]);
 
-      const targetPage = newPage || page;
-      await targetPage.waitForLoadState('domcontentloaded').catch(() => {});
-      await targetPage.waitForTimeout(6000);
-      const landedUrl = targetPage.url();
-      console.log(`🎯 URL de destino alcançada: ${landedUrl}`);
+      const testPage = targetPage || page;
+      await testPage.waitForLoadState('domcontentloaded').catch(() => {});
+      await testPage.waitForTimeout(4000);
+
+      const landedUrl = testPage.url();
+      const pageTitle = (await testPage.title()).trim();
+      const pageText = await testPage.locator('body').innerText().catch(() => '');
+
+      const is404 =
+        pageTitle.includes('Página não encontrada') ||
+        pageText.includes('Esta página não existe') ||
+        pageText.includes('Hubo un error') ||
+        landedUrl.includes('404');
 
       const hasTracking =
         landedUrl.includes('matt_tool') ||
         landedUrl.includes('kd20250113073553') ||
         landedUrl.includes('clarice') ||
-        productTargetUrl.includes('meli.la') ||
-        productTargetUrl.includes('mercadolivre.com/sec');
+        shortUrl.includes('meli.la') ||
+        shortUrl.includes('mercadolivre.com/sec');
 
-      console.log(`✅ Rastreamento de afiliado validado no produto: ${hasTracking ? 'SIM' : 'NÃO'}`);
-      if (newPage) await newPage.close().catch(() => {});
+      // Verifica correspondência de palavras-chave
+      const cardWords = cardTitle
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length > 3);
+
+      const matchWords = cardWords.filter((w) => pageTitle.toLowerCase().includes(w));
+      const matchRatio = cardWords.length > 0 ? matchWords.length / cardWords.length : 1;
+      const isProductMatch =
+        matchRatio >= 0.25 || (cardWords[0] && pageTitle.toLowerCase().includes(cardWords[0]));
+
+      auditResults.push({
+        item: `#${i + 1}`,
+        cardTitle: cardTitle.slice(0, 32) + '...',
+        mlPageTitle: pageTitle.slice(0, 32) + '...',
+        shortUrl,
+        destinoValido: !is404,
+        produtoCorrespondente: isProductMatch,
+        rastreioAtivo: hasTracking,
+      });
+
+      console.log(`  🎯 Destino: ${landedUrl.slice(0, 65)}...`);
+      console.log(`  🏷️ Título ML: "${pageTitle.slice(0, 45)}..."`);
+      console.log(`  ✅ 404 Detectado: ${is404 ? 'SIM (ERRO)' : 'NÃO (OK)'}`);
+      console.log(`  ✅ Correspondência de Produto: ${isProductMatch ? 'CONFIRMADA' : 'DIVERGENTE'}`);
+      console.log(`  ✅ Rastreamento: ${hasTracking ? 'ATIVO' : 'INATIVO'}`);
+
+      if (targetPage) await targetPage.close().catch(() => {});
     }
 
+    console.log('\n📊 TABELA DE CONFERÊNCIA PRODUTO x DESTINO:');
+    console.table(auditResults);
+
     // 4. Testa o botão amarelo do rodapé ("Vai comprar outro produto? Abrir Mercado Livre")
-    console.log('\n🟡 [Teste 2/2] Testando botão amarelo do rodapé...');
+    console.log('\n🟡 [Teste Botão Amarelo Geral] Testando botão amarelo do rodapé...');
     const yellowBtn = page.locator('a:has-text("Vai comprar outro produto")').first();
 
     if ((await yellowBtn.count()) > 0) {
@@ -93,7 +126,7 @@ async function runClientTest() {
       ]);
 
       const targetYellow = yellowPage || page;
-      await targetYellow.waitForTimeout(5000);
+      await targetYellow.waitForTimeout(4000);
       const yellowLanded = targetYellow.url();
       console.log(`🎯 URL de destino do botão amarelo: ${yellowLanded}`);
 
@@ -107,7 +140,7 @@ async function runClientTest() {
       if (yellowPage) await yellowPage.close().catch(() => {});
     }
 
-    console.log('\n🎉 Teste E2E concluído com sucesso!');
+    console.log('\n🎉 Auditoria e Teste E2E concluídos com sucesso!');
   } finally {
     await browser.close().catch(() => {});
   }

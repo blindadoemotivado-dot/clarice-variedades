@@ -142,33 +142,36 @@ async function ensureEtiquetaSelected(page, etiquetaName = AFFILIATE_SUBTAG) {
  */
 export function normalizeProductUrl(urlOrMlb) {
   if (!urlOrMlb) return '';
-  const match = String(urlOrMlb).match(/(MLB-?\d+)/i);
-  if (match) {
-    let id = match[1];
-    if (!id.startsWith('MLB-')) {
-      id = id.replace(/^MLB/i, 'MLB-');
-    }
-    return `https://produto.mercadolivre.com.br/${id}`;
+  const str = String(urlOrMlb).trim();
+  if (str.startsWith('http://') || str.startsWith('https://')) {
+    return str.split('?')[0].split('#')[0];
   }
-  try {
-    const u = new URL(urlOrMlb);
-    return `${u.origin}${u.pathname}`;
-  } catch {
-    return String(urlOrMlb).split('?')[0].split('#')[0];
+  const digits = str.replace(/\D/g, '');
+  if (digits.length <= 8) {
+    return `https://www.mercadolivre.com.br/p/MLB${digits}`;
   }
+  return `https://produto.mercadolivre.com.br/MLB-${digits}`;
 }
 
 /**
- * Converte um lote de até 10 produtos no Gerador de Produtos Recomendados do Mercado Livre
+ * Converte 1 produto de forma 1-para-1 no Link Builder oficial do Mercado Livre
+ * Elimina completamente deslocamento de índice ou pareamento trocado
  */
-async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches) {
-  console.log(`\n=============================================================`);
-  console.log(`🔗 [Lote ${batchNum}/${totalBatches}] Gerador de Produtos Recomendados`);
-  console.log(`📋 Total de produtos neste lote: ${batchUrls.length} (limite de 10)`);
-  console.log(`=============================================================`);
+async function convertSingleProductInLinkBuilder(page, item, index, total) {
+  const cleanUrl = normalizeProductUrl(item.affiliate_url || item.mlb_id);
+  console.log(`\n🔗 [${index}/${total}] Convertendo produto: "${item.title.slice(0, 36)}..."`);
+  console.log(`   URL Real de Origem: ${cleanUrl}`);
 
-  await page.goto(LINKBUILDER_URL, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
-  await page.waitForTimeout(3000);
+  if (!cleanUrl || !cleanUrl.includes('mercadolivre.com.br')) {
+    console.warn(`   ⚠️ URL inválida para conversão: ${cleanUrl}`);
+    return null;
+  }
+
+  // Garante que está na página do Link Builder
+  if (!page.url().includes('/afiliados/linkbuilder')) {
+    await page.goto(LINKBUILDER_URL, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+    await page.waitForTimeout(2500);
+  }
 
   // Tratar autenticação sem timeout caso caia em login
   const currentUrl = page.url();
@@ -183,206 +186,97 @@ async function convertBatchInLinkBuilder(page, batchUrls, batchNum, totalBatches
     console.log(`🔑 LOGIN NO MERCADO LIVRE AFILIADOS (${AFFILIATE_TAG})`);
     console.log('=============================================================');
     console.log('👉 Por favor, conclua o login na sua conta de Afiliado na janela do Microsoft Edge.');
-    console.log('👉 Sua sessão ficará salva permanentemente em .edge-ml-profile.');
-    console.log('👉 SEM TIMEOUT: Conclua com calma (login, senha, 2FA, SMS, etc.).');
-    console.log('👉 Quando estiver na página do Gerador de Links (/afiliados/linkbuilder), pressione [ENTER] aqui no terminal...');
+    console.log('👉 Quando estiver na página do Gerador de Links (/afiliados/linkbuilder), pressione [ENTER] aqui...');
 
     page.setDefaultTimeout(0);
     page.setDefaultNavigationTimeout(0);
-
     await askQuestion('> ');
-
     page.setDefaultTimeout(30000);
     page.setDefaultNavigationTimeout(35000);
 
     if (!page.url().includes('/afiliados/linkbuilder')) {
-      console.log('🔄 Redirecionando para o Gerador de Links...');
-      await page.goto(LINKBUILDER_URL, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
-      await page.waitForTimeout(3000);
+      await page.goto(LINKBUILDER_URL, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+      await page.waitForTimeout(2500);
     }
   }
 
   // Garantir a etiqueta 'clariceachadinhos' selecionada
   await ensureEtiquetaSelected(page, AFFILIATE_SUBTAG);
 
-  // Normalizar URLs para o formato limpo: https://produto.mercadolivre.com.br/MLB-XXXXX
-  const cleanUrls = batchUrls.map(normalizeProductUrl).filter(Boolean);
-  console.log(`📝 Inserindo ${cleanUrls.length} link(s) limpos de anúncios no formulário...`);
-  const batchText = cleanUrls.join('\n');
-
-  const selectors = [
-    'textarea',
-    'input[type="text"][placeholder*="http" i]',
-    'input[placeholder*="http" i]',
-    'input[placeholder*="link" i]',
-    'input[placeholder*="anúncio" i]',
-    'input[placeholder*="anuncio" i]',
-    'input[placeholder*="produto" i]',
-    '[data-testid*="link"]',
-    '[name*="link"]',
-    'input[type="text"]',
-  ];
-
-  let inputField = null;
-  for (const sel of selectors) {
-    const el = page.locator(sel).first();
-    if ((await el.count()) > 0 && (await el.isVisible())) {
-      inputField = el;
-      break;
-    }
+  const textarea = page.locator('textarea').first();
+  await textarea.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+  if ((await textarea.count()) === 0) {
+    console.warn('   ⚠️ Textarea do Link Builder não encontrado.');
+    return null;
   }
 
-  if (inputField) {
-    try {
-      await inputField.focus();
-
-      // Define o valor via prototype setter para garantir compatibilidade total com React/Andes
-      await inputField.evaluate((el, val) => {
-        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-        if (setter) {
-          setter.call(el, val);
-        } else {
-          el.value = val;
-        }
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }, batchText);
-
-      await page.waitForTimeout(300);
-
-      // Disparar eventos reais de teclado e input para o React/Andes habilitar o botão Gerar
-      await inputField.focus();
-      await page.keyboard.press('End');
-      await page.keyboard.type(' ');
-      await page.waitForTimeout(100);
-      await page.keyboard.press('Backspace');
-      await page.waitForTimeout(200);
-
-      await inputField.evaluate((el) => {
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-      console.log('✓ Links colados e eventos nativos de input/teclado disparados!');
-      await page.waitForTimeout(600);
-
-      // Localizar o botão "Gerar" habilitado
-      const btnSelectors = [
-        'button:has-text("Gerar"):not([disabled]):not([aria-disabled="true"])',
-        'button:has-text("Gerar link"):not([disabled]):not([aria-disabled="true"])',
-        'button:has-text("Criar link"):not([disabled]):not([aria-disabled="true"])',
-        'button[type="submit"]:not([disabled]):not([aria-disabled="true"])',
-        'button.andes-button--loud:not([disabled])',
-      ];
-
-      let btn = null;
-      for (const bSel of btnSelectors) {
-        const el = page.locator(bSel).first();
-        if ((await el.count()) > 0 && (await el.isVisible())) {
-          btn = el;
-          break;
-        }
-      }
-
-      if (!btn) {
-        // Se ainda com disabled, aguardar até 6s pela atualização de estado do React
-        const genericBtn = page.locator(
-          'button:has-text("Gerar"), button:has-text("Gerar link"), button[type="submit"]'
-        ).first();
-        if ((await genericBtn.count()) > 0) {
-          try {
-            await page.waitForFunction(
-              () => {
-                const b = Array.from(document.querySelectorAll('button')).find(
-                  (el) => /gerar/i.test(el.innerText) || el.type === 'submit'
-                );
-                return b && !b.disabled && !b.getAttribute('aria-disabled');
-              },
-              { timeout: 6000 }
-            );
-            btn = genericBtn;
-          } catch {
-            btn = genericBtn;
-          }
-        }
-      }
-
-      if (btn) {
-        await btn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-        await btn.click({ force: true });
-        console.log('✓ Botão "Gerar" acionado com sucesso!');
-      } else {
-        console.warn('⚠️ Botão "Gerar" acionado via tecla Enter.');
-        await page.keyboard.press('Enter').catch(() => {});
-      }
-    } catch (err) {
-      console.warn('⚠️ Aviso ao interagir com campos do formulário:', err.message);
+  // Preenche de forma 100% segura usando o prototype setter sem truncar caracteres
+  await textarea.focus();
+  await textarea.evaluate((el, val) => {
+    const proto = HTMLTextAreaElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+    if (setter) {
+      setter.call(el, val);
+    } else {
+      el.value = val;
     }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, cleanUrl);
+
+  await page.waitForTimeout(400);
+
+  // Se o botão Gerar estiver com disabled, faz um trigger com espaço e backspace controlado
+  let btn = page.locator('button:has-text("Gerar"):not([disabled]):not([aria-disabled="true"])').first();
+  if ((await btn.count()) === 0) {
+    await textarea.click();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(400);
+    btn = page.locator('button:has-text("Gerar"):not([disabled]):not([aria-disabled="true"])').first();
   }
 
-  // Polling automático dos links curtos sem travar o usuário
-  console.log('⏳ Aguardando renderização automática dos links curtos oficiais na página...');
-  let extracted = [];
-  const maxAttempts = 15; // 15 segundos de polling automático
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    extracted = await page.evaluate(() => {
-      const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/g;
+  if ((await btn.count()) === 0) {
+    console.warn(`   ⚠️ Botão "Gerar" não habilitou para ${item.mlb_id}.`);
+    return null;
+  }
+
+  await btn.click({ force: true });
+
+  // Polling automático dos links curtos gerados para este produto
+  let shortLink = null;
+  const regex = /(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/;
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    await page.waitForTimeout(600);
+    shortLink = await page.evaluate((reStr) => {
+      const re = new RegExp(reStr);
+      const inputs = Array.from(document.querySelectorAll('input, textarea')).map((i) => i.value || '');
+      for (const val of inputs) {
+        if (val.includes('Este URL não é do Mercado Livre')) continue;
+        const m = val.match(re);
+        if (m) return m[1].trim();
+      }
+      const anchors = Array.from(document.querySelectorAll('a[href]')).map((a) => a.href || '');
+      for (const href of anchors) {
+        const m = href.match(re);
+        if (m) return m[1].trim();
+      }
       const html = document.documentElement.innerHTML || '';
-      const text = document.body.innerText || '';
-      const matches = [...(html.match(regex) || []), ...(text.match(regex) || [])];
+      const htmlMatch = html.match(re);
+      if (htmlMatch) return htmlMatch[1].trim();
+      return null;
+    }, regex.source);
 
-      const hrefs = Array.from(document.querySelectorAll('a[href]'))
-        .map((a) => a.getAttribute('href') || '')
-        .flatMap((h) => h.match(regex) || []);
-
-      const inputs = Array.from(document.querySelectorAll('input, textarea'))
-        .map((i) => i.value || '')
-        .flatMap((v) => v.match(regex) || []);
-
-      const all = [...matches, ...hrefs, ...inputs]
-        .map((u) => {
-          const m = String(u).match(/(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/);
-          return m ? m[1].trim() : null;
-        })
-        .filter(Boolean);
-
-      return Array.from(new Set(all));
-    });
-
-    if (extracted.length > 0) {
-      console.log(`✓ ${extracted.length} link(s) curto(s) gerados detectados automaticamente no DOM (tentativa ${attempt})!`);
-      break;
-    }
-    await page.waitForTimeout(1000);
+    if (shortLink) break;
   }
 
-  if (extracted.length === 0) {
-    console.warn(`⚠️ Lote ${batchNum}: links curtos não detectados no tempo limite.`);
+  if (shortLink) {
+    console.log(`   ✅ Link Curto Oficial Gerado: ${shortLink}`);
+    return shortLink;
+  } else {
+    console.warn(`   ⚠️ Não foi possível obter o link curto oficial para este produto.`);
+    return null;
   }
-
-  console.log(`✓ Lote ${batchNum}: ${extracted.length} link(s) curto(s) obtido(s).`);
-  return extracted;
-}
-
-/**
- * Converte toda a fila em lotes de até 10 produtos
- */
-async function convertLinksInBatches(page, productUrls) {
-  const BATCH_SIZE = 10;
-  const batches = [];
-  for (let i = 0; i < productUrls.length; i += BATCH_SIZE) {
-    batches.push(productUrls.slice(i, i + BATCH_SIZE));
-  }
-
-  console.log(`\n🎯 Fila dividida em ${batches.length} lote(s) de até 10 produtos para o formulário oficial.`);
-
-  const allShortLinks = [];
-  for (let i = 0; i < batches.length; i++) {
-    const links = await convertBatchInLinkBuilder(page, batches[i], i + 1, batches.length);
-    allShortLinks.push(...links);
-  }
-
-  return allShortLinks;
 }
 
 async function main() {
@@ -481,7 +375,7 @@ async function main() {
       await runRadarCrawler({
         minDiscount: 15,
         tag: AFFILIATE_TAG,
-        targetCount: 36,
+        targetCount: 30,
         existingPage: page,
       });
     } catch (err) {
@@ -489,7 +383,7 @@ async function main() {
     }
 
     // --------------------------------------------------------------------------
-    // ROTINA 3: Monetização em Lote de Itens Pendentes no Link Builder (10 por lote)
+    // ROTINA 3: Monetização 1-para-1 no Link Builder oficial (Zero Deslocamento)
     // --------------------------------------------------------------------------
     console.log('\n📋 [ROTINA 3/3] Buscando achadinhos pendentes de monetização no Supabase...');
     const { data: pending, error: fetchErr } = await supabase
@@ -508,62 +402,51 @@ async function main() {
       return;
     }
 
-    console.log(`🎯 Encontradas ${pending.length} oferta(s) na fila do Radar aguardando link oficial.`);
+    console.log(`🎯 Encontradas ${pending.length} oferta(s) na fila do Radar aguardando monetização 1-para-1.`);
 
-    const productUrls = pending.map((p) => normalizeProductUrl(p.mlb_id || p.affiliate_url));
-
-    const shortLinks = await convertLinksInBatches(page, productUrls);
-    console.log(`\n🔎 Total de links curtos obtidos: ${shortLinks.length} para ${pending.length} produto(s).`);
-
-    console.log(`💾 Atualizando produtos no Supabase com etiqueta "${AFFILIATE_SUBTAG}" para status "ativo"...`);
     let updatedCount = 0;
+    let firstShortLink = null;
 
     for (let i = 0; i < pending.length; i++) {
       const item = pending[i];
-      const cleanDigits = String(item.mlb_id || '').replace(/\D/g, '');
-      const cleanProductUrl = `https://produto.mercadolivre.com.br/MLB-${cleanDigits}`;
-      const fallbackMonetized = `${cleanProductUrl}?matt_tool=${AFFILIATE_TAG}&matt_word=${AFFILIATE_SUBTAG}`;
+      const shortLink = await convertSingleProductInLinkBuilder(page, item, i + 1, pending.length);
 
-      let candidateUrl = shortLinks[i] || '';
-      if (!candidateUrl.startsWith('http://') && !candidateUrl.startsWith('https://')) {
-        candidateUrl = '';
-      }
-      if (candidateUrl.includes('\n') || candidateUrl.includes('Este URL')) {
-        const match = candidateUrl.match(/(https?:\/\/(?:meli\.la|mercadolivre\.com\/sec)\/[a-zA-Z0-9_-]+)/);
-        candidateUrl = match ? match[1] : '';
-      }
+      if (shortLink) {
+        if (!firstShortLink) firstShortLink = shortLink;
 
-      const finalAffiliateUrl = candidateUrl || fallbackMonetized;
+        // Publica apenas com link curto oficial validado!
+        const { error: updErr } = await supabase
+          .from('produtos_clarice')
+          .update({
+            affiliate_url: shortLink,
+            active: true,
+            status: 'ativo',
+          })
+          .eq('id', item.id);
 
-      const { error: updErr } = await supabase
-        .from('produtos_clarice')
-        .update({
-          affiliate_url: finalAffiliateUrl,
-          active: true,
-          status: 'ativo',
-        })
-        .eq('id', item.id);
-
-      if (!updErr) {
-        updatedCount++;
+        if (!updErr) {
+          updatedCount++;
+        } else {
+          console.warn(`Erro ao atualizar item ${item.mlb_id}:`, updErr.message);
+        }
       } else {
-        console.warn(`Erro ao atualizar item ${item.mlb_id}:`, updErr.message);
+        console.warn(`⚠️ Produto "${item.title.slice(0, 30)}..." mantido como pendente (NÃO publicado na vitrine).`);
       }
     }
 
     // Se o botão amarelo ainda usava URL com hashtag e temos novos links curtos, promove o 1º link
-    if (shortLinks[0] && !hasShortGeneral) {
+    if (firstShortLink && !hasShortGeneral) {
       await supabase
         .from('store_settings')
         .update({
-          general_affiliate_url: shortLinks[0],
+          general_affiliate_url: firstShortLink,
           updated_at: new Date().toISOString(),
         })
         .eq('id', 'default');
-      console.log(`🔗 Link Geral do Botão Amarelo promovido para o 1º link curto: ${shortLinks[0]}`);
+      console.log(`🔗 Link Geral do Botão Amarelo promovido para o 1º link curto: ${firstShortLink}`);
     }
 
-    console.log(`\n🎉 SUCESSO: ${updatedCount} achadinhos aprovados, monetizados e publicados na vitrine!`);
+    console.log(`\n🎉 SUCESSO: ${updatedCount} de ${pending.length} achadinhos aprovados, monetizados e publicados na vitrine!`);
     console.log('👉 Acesse a vitrine oficial: https://clarice-variedades.vercel.app\n');
   } finally {
     console.log('🔒 Encerrando sessão do Microsoft Edge com segurança...');
