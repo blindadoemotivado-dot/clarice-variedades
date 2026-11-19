@@ -240,7 +240,9 @@ export async function sincronizarVitrine() {
     for (let i = 0; i < CONCURRENCY; i++) {
       const p = await browserContext.newPage();
       // Bloqueia mídias pesadas para navegação ultra-rápida (carrega só o DOM essencial)
-      await p.route('**/*.{png,jpg,jpeg,webp,gif,svg,css,woff,woff2}', (route) => route.abort());
+      await p.route('**/*.{png,jpg,jpeg,webp,gif,svg,css,woff,woff2}', (route) => {
+        route.abort().catch(() => {});
+      });
       pages.push(p);
     }
 
