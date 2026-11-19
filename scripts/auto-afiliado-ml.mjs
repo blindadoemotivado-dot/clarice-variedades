@@ -368,13 +368,14 @@ async function main() {
     }
 
     // --------------------------------------------------------------------------
-    // ROTINA 2: Garimpo Misto no Edge (Infantil & Bebês + Achadinhos Gerais)
+    // ROTINA 2: Garimpo Equilibrado nas 6 Categorias (5 ofertas por categoria)
     // --------------------------------------------------------------------------
-    console.log('\n📡 [ROTINA 2/3] Executando garimpo misto de ofertas reais no Mercado Livre...');
+    console.log('\n📡 [ROTINA 2/3] Executando garimpo equilibrado nas 6 categorias oficiais do Mercado Livre...');
     try {
       await runRadarCrawler({
         minDiscount: 15,
         tag: AFFILIATE_TAG,
+        targetPerCategory: 5,
         targetCount: 30,
         existingPage: page,
       });

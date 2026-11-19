@@ -49,40 +49,70 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-// a) Infantil & Bebês 1+ ano (termos variados e rotativos)
-const BABY_TARGETS = [
-  { term: 'brinquedos educativos 1 ano', category: 'Infantil & Bebês' },
-  { term: 'brinquedo montessori 1 ano', category: 'Infantil & Bebês' },
-  { term: 'cadeira alimentacao bebe', category: 'Infantil & Bebês' },
-  { term: 'copo transicao bebe', category: 'Infantil & Bebês' },
-  { term: 'carrinho passeio bebe', category: 'Infantil & Bebês' },
-  { term: 'fralda pampers confort sec', category: 'Infantil & Bebês' },
-  { term: 'tenis bebe menina menino', category: 'Infantil & Bebês' },
-  { term: 'andador infantil bebe', category: 'Infantil & Bebês' },
-  { term: 'mordedor bebe sensorial', category: 'Infantil & Bebês' },
-  { term: 'tapete atividades bebe infantil', category: 'Infantil & Bebês' },
-  { term: 'prato termico infantil bebe', category: 'Infantil & Bebês' },
-  { term: 'kit mamadeira anti colica', category: 'Infantil & Bebês' },
-];
-
-// b) Achadinhos Gerais de alta conversão (termos variados e rotativos)
-const GENERAL_TARGETS = [
-  { url: 'https://www.mercadolivre.com.br/ofertas', category: 'Ofertas do Dia' },
-  { term: 'air fryer 4l', category: 'Casa & Cozinha' },
-  { term: 'air fryer 5l', category: 'Casa & Cozinha' },
-  { term: 'parafusadeira furadeira bateria', category: 'Ferramentas' },
-  { term: 'jogo de ferramentas maleta', category: 'Ferramentas' },
-  { term: 'fone bluetooth cancelamento ruido', category: 'Eletrônicos' },
-  { term: 'caixa de som bluetooth prova d agua', category: 'Eletrônicos' },
-  { term: 'panela eletrica de arroz', category: 'Eletroportáteis' },
-  { term: 'aspirador robo', category: 'Eletroportáteis' },
-  { term: 'aspirador de po vertical 2 em 1', category: 'Eletroportáteis' },
-  { term: 'mop giratorio limpeza', category: 'Casa & Cozinha' },
-  { term: 'escova secadora modeladora', category: 'Beleza & Saúde' },
-  { term: 'cafeteira espresso eletrica', category: 'Eletroportáteis' },
-  { term: 'organizador geladeira armarios', category: 'Casa & Cozinha' },
-  { term: 'liquidificador potente 1000w', category: 'Eletroportáteis' },
-];
+// 6 Categorias Oficiais com alvos rotativos e variados
+export const CATEGORY_TARGETS = {
+  'Casa & Cozinha': [
+    { term: 'jogo de panelas antiaderente', category: 'Casa & Cozinha' },
+    { term: 'potes hermeticos de vidro conjunto', category: 'Casa & Cozinha' },
+    { term: 'garrafa termica inox 1l', category: 'Casa & Cozinha' },
+    { term: 'organizador armarios geladeira acrilico', category: 'Casa & Cozinha' },
+    { term: 'frigideira antiaderente inducao', category: 'Casa & Cozinha' },
+    { term: 'mop giratorio limpeza pesada', category: 'Casa & Cozinha' },
+    { term: 'faqueiro tramontina inox 24 pecas', category: 'Casa & Cozinha' },
+    { term: 'porta temperos giratorio acrilico inox', category: 'Casa & Cozinha' },
+  ],
+  'Eletroportáteis': [
+    { term: 'air fryer 4l digital', category: 'Eletroportáteis' },
+    { term: 'cafeteira espresso eletrica', category: 'Eletroportáteis' },
+    { term: 'aspirador robo passa pano', category: 'Eletroportáteis' },
+    { term: 'liquidificador potente 1000w inox', category: 'Eletroportáteis' },
+    { term: 'panela pressao eletrica digital', category: 'Eletroportáteis' },
+    { term: 'batedeira planetaria inox', category: 'Eletroportáteis' },
+    { term: 'aspirador de po vertical 2 em 1', category: 'Eletroportáteis' },
+    { term: 'sanduicheira grill antiaderente', category: 'Eletroportáteis' },
+  ],
+  'Ferramentas': [
+    { term: 'parafusadeira furadeira impacto bateria', category: 'Ferramentas' },
+    { term: 'jogo de ferramentas maleta completa', category: 'Ferramentas' },
+    { term: 'jogo de chaves soquetes catraca', category: 'Ferramentas' },
+    { term: 'trena a laser 40m digital', category: 'Ferramentas' },
+    { term: 'serra tico tico bancada', category: 'Ferramentas' },
+    { term: 'kit brocas aco rapido concreto', category: 'Ferramentas' },
+    { term: 'martelete perfurador rompedor', category: 'Ferramentas' },
+    { term: 'multimetro digital inteligente', category: 'Ferramentas' },
+  ],
+  'Beleza & Saúde': [
+    { term: 'escova secadora modeladora alisadora', category: 'Beleza & Saúde' },
+    { term: 'prancha chapinha profissional titanio', category: 'Beleza & Saúde' },
+    { term: 'protetor solar facial toque seco', category: 'Beleza & Saúde' },
+    { term: 'secador de cabelo profissional ionico', category: 'Beleza & Saúde' },
+    { term: 'hidratante corporal cerave neutrogena', category: 'Beleza & Saúde' },
+    { term: 'barbeador eletrico masculino aparador', category: 'Beleza & Saúde' },
+    { term: 'escova dentes eletrica recarregavel', category: 'Beleza & Saúde' },
+    { term: 'depilador eletrico feminino luz pulsada', category: 'Beleza & Saúde' },
+  ],
+  'Infantil & Bebês': [
+    { term: 'brinquedos educativos 1 ano montessori', category: 'Infantil & Bebês' },
+    { term: 'cadeira alimentacao bebe refeicao', category: 'Infantil & Bebês' },
+    { term: 'andador infantil bebe primeiros passos', category: 'Infantil & Bebês' },
+    { term: 'carrinho passeio bebe compacto', category: 'Infantil & Bebês' },
+    { term: 'copo transicao bebe treinamento', category: 'Infantil & Bebês' },
+    { term: 'tapete atividades bebe infantil acolchoado', category: 'Infantil & Bebês' },
+    { term: 'kit mamadeira anti colica bico petala', category: 'Infantil & Bebês' },
+    { term: 'prato termico ventosa infantil bebe', category: 'Infantil & Bebês' },
+    { term: 'mordedor sensorial silicone bebe', category: 'Infantil & Bebês' },
+  ],
+  'Eletrônicos': [
+    { term: 'fone bluetooth cancelamento ruido ativo', category: 'Eletrônicos' },
+    { term: 'smartwatch prova dagua monitor cardiaco', category: 'Eletrônicos' },
+    { term: 'carregador portatil power bank 20000mah', category: 'Eletrônicos' },
+    { term: 'tv stick 4k streaming player', category: 'Eletrônicos' },
+    { term: 'teclado bluetooth sem fio multidispositivo', category: 'Eletrônicos' },
+    { term: 'mouse sem fio ergonomico recarregavel', category: 'Eletrônicos' },
+    { term: 'tablet infantil educativo controle parental', category: 'Eletrônicos' },
+    { term: 'caixa som bluetooth potente prova dagua', category: 'Eletrônicos' },
+  ],
+};
 
 // Embaralha array para garantir rotação dinâmica a cada execução
 export function shuffleArray(arr) {
@@ -433,7 +463,8 @@ export async function runRadarCrawler({
   customTerm,
   minDiscount = 15,
   tag = DEFAULT_AFFILIATE_TAG,
-  targetCount = 36,
+  targetPerCategory = 5,
+  targetCount = 30,
   existingPage = null,
 } = {}) {
   console.log('📡 [Radar Clarice Achadinhos] Iniciando garimpo misto com Microsoft Edge...');
@@ -512,63 +543,49 @@ export async function runRadarCrawler({
         }
       }
     } else {
-      // 2.A: Garimpo Infantil & Bebês 1+ ano (~18 itens) com rotação e paginação
-      const babyTargetLimit = Math.floor(targetCount / 2);
-      console.log(`\n🍼 [Grupo A] Garimpando achadinhos para Infantil & Bebês 1+ ano (meta: ${babyTargetLimit})...`);
-      const rotatedBabyTargets = shuffleArray(BABY_TARGETS);
-      for (const target of rotatedBabyTargets) {
-        if (collectedDeals.length >= babyTargetLimit) break;
-        const paginatedUrls = buildPaginatedUrls(target);
-        for (const searchUrl of paginatedUrls) {
-          if (collectedDeals.length >= babyTargetLimit) break;
-          const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
-          for (const d of deals) {
-            if (seenInBatch.has(d.mlbId)) continue;
+      // Garimpo equilibrado entre TODAS as 6 categorias oficiais da vitrine (5 ofertas reais inéditas por categoria)
+      const CATEGORIES = [
+        'Casa & Cozinha',
+        'Eletroportáteis',
+        'Ferramentas',
+        'Beleza & Saúde',
+        'Infantil & Bebês',
+        'Eletrônicos',
+      ];
 
-            const dupCheck = findDuplicateMatch(d, existingProducts);
-            if (dupCheck && dupCheck.match.currentPrice <= d.currentPrice) {
-              continue;
+      for (const catName of CATEGORIES) {
+        console.log(`\n🎯 [${catName}] Garimpando ${targetPerCategory} ofertas inéditas...`);
+        let catCollected = 0;
+        const targets = shuffleArray(CATEGORY_TARGETS[catName] || []);
+
+        for (const target of targets) {
+          if (catCollected >= targetPerCategory) break;
+          const paginatedUrls = buildPaginatedUrls(target);
+
+          for (const searchUrl of paginatedUrls) {
+            if (catCollected >= targetPerCategory) break;
+            const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
+
+            for (const d of deals) {
+              if (seenInBatch.has(d.mlbId)) continue;
+
+              const dupCheck = findDuplicateMatch(d, existingProducts);
+              if (dupCheck && dupCheck.match.currentPrice <= d.currentPrice) {
+                continue;
+              }
+
+              seenInBatch.add(d.mlbId);
+              collectedDeals.push({
+                ...d,
+                category: catName,
+              });
+              catCollected++;
+              if (catCollected >= targetPerCategory) break;
             }
-
-            seenInBatch.add(d.mlbId);
-            collectedDeals.push({
-              ...d,
-              category: 'Infantil & Bebês',
-            });
-            if (collectedDeals.length >= babyTargetLimit) break;
+            if (catCollected >= targetPerCategory) break;
           }
-          if (collectedDeals.length >= babyTargetLimit) break;
         }
-        console.log(`🍼 Achadinhos infantis inéditos acumulados: ${collectedDeals.length}`);
-      }
-
-      // 2.B: Garimpo Achadinhos Gerais de alta conversão (~18 itens) com rotação e paginação
-      console.log(`\n⚡ [Grupo B] Garimpando achadinhos gerais de alta conversão (meta total: ${targetCount})...`);
-      const rotatedGeneralTargets = shuffleArray(GENERAL_TARGETS);
-      for (const target of rotatedGeneralTargets) {
-        if (collectedDeals.length >= targetCount) break;
-        const paginatedUrls = buildPaginatedUrls(target);
-        for (const searchUrl of paginatedUrls) {
-          if (collectedDeals.length >= targetCount) break;
-          const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
-          for (const d of deals) {
-            if (seenInBatch.has(d.mlbId)) continue;
-
-            const dupCheck = findDuplicateMatch(d, existingProducts);
-            if (dupCheck && dupCheck.match.currentPrice <= d.currentPrice) {
-              continue;
-            }
-
-            seenInBatch.add(d.mlbId);
-            collectedDeals.push({
-              ...d,
-              category: inferCategory(d.title, target.category),
-            });
-            if (collectedDeals.length >= targetCount) break;
-          }
-          if (collectedDeals.length >= targetCount) break;
-        }
-        console.log(`⚡ Total de achadinhos inéditos acumulados: ${collectedDeals.length}`);
+        console.log(`✅ [${catName}] ${catCollected} achadinho(s) qualificado(s) adicionado(s) à fila.`);
       }
     }
   } finally {
