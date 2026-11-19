@@ -44,6 +44,57 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
 });
 
 // --------------------------------------------------------------------------
+// Funções Utilitárias de Similaridade & Normalização de Títulos
+// --------------------------------------------------------------------------
+export function normalizeTitle(title) {
+  if (!title) return '';
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(oferta|ofertas|promocao|promocoes|original|novo|nova|super|barato|imperdivel|frete|gratis|lancamento|top)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function calculateSimilarity(str1, str2) {
+  if (str1 === str2) return 1.0;
+  if (!str1 || !str2) return 0.0;
+  if (str1.length < 2 || str2.length < 2) return 0.0;
+
+  const tokens1 = new Set(str1.split(' ').filter(Boolean));
+  const tokens2 = new Set(str2.split(' ').filter(Boolean));
+  let tokenIntersection = 0;
+  for (const t of tokens1) {
+    if (tokens2.has(t)) tokenIntersection++;
+  }
+  const totalTokens = tokens1.size + tokens2.size;
+  const tokenSimilarity = totalTokens > 0 ? (2 * tokenIntersection) / totalTokens : 0;
+
+  const bigrams1 = new Map();
+  for (let i = 0; i < str1.length - 1; i++) {
+    const bigram = str1.slice(i, i + 2);
+    bigrams1.set(bigram, (bigrams1.get(bigram) || 0) + 1);
+  }
+
+  let intersection = 0;
+  for (let i = 0; i < str2.length - 1; i++) {
+    const bigram = str2.slice(i, i + 2);
+    const count = bigrams1.get(bigram) || 0;
+    if (count > 0) {
+      bigrams1.set(bigram, count - 1);
+      intersection++;
+    }
+  }
+
+  const totalBigrams = str1.length - 1 + (str2.length - 1);
+  const bigramSimilarity = totalBigrams > 0 ? (2 * intersection) / totalBigrams : 0;
+
+  return Math.max(bigramSimilarity, tokenSimilarity);
+}
+
+// --------------------------------------------------------------------------
 // 2. Consulta Rápida via API Pública do Mercado Livre
 // --------------------------------------------------------------------------
 async function checkItemViaPublicApi(mlbId) {
@@ -81,9 +132,11 @@ async function inspectItemViaPage(page, item) {
   const digits = String(item.mlb_id || '').replace(/\D/g, '');
   const mlbId = `MLB${digits}`;
 
-  // Se for ID de catálogo (<= 8 dígitos), testa primeiro na URL canônica /p/
+  // Prioriza o link oficial existente ou as rotas canônicas
   const url =
-    digits.length <= 8
+    item.affiliate_url && item.affiliate_url.startsWith('http')
+      ? item.affiliate_url
+      : digits.length <= 8
       ? `https://www.mercadolivre.com.br/p/${mlbId}`
       : `https://produto.mercadolivre.com.br/MLB-${digits}`;
 
@@ -142,11 +195,12 @@ async function inspectItemViaPage(page, item) {
       ...data,
     };
   } catch (err) {
+    // Em caso de falha de carregamento ou timeout, NÃO marcar como pausado para evitar falsos positivos
     return {
       success: false,
       source: 'playwright',
-      isPaused: true,
-      isOutOfStock: true,
+      isPaused: false,
+      isOutOfStock: false,
       currentPrice: 0,
       originalPrice: 0,
       error: err.message,
@@ -166,7 +220,7 @@ export async function sincronizarVitrine() {
   console.log('📦 Consultando produtos ativos no Supabase...');
   const { data: activeProducts, error: fetchErr } = await supabase
     .from('produtos_clarice')
-    .select('id, mlb_id, title, current_price, original_price, discount_percent, status, active')
+    .select('id, mlb_id, title, affiliate_url, current_price, original_price, discount_percent, status, active')
     .eq('status', 'ativo')
     .order('created_at', { ascending: false });
 
@@ -177,7 +231,7 @@ export async function sincronizarVitrine() {
 
   if (!activeProducts || activeProducts.length === 0) {
     console.log('ℹ️ Nenhum produto ativo encontrado para sincronizar.');
-    return { total: 0, mantidos: 0, atualizados: 0, retirados: 0 };
+    return { total: 0, mantidos: 0, atualizados: 0, retirados: 0, duplicadosExcluidos: 0 };
   }
 
   console.log(`🔎 Total de produtos ativos a verificar: ${activeProducts.length}`);
@@ -283,7 +337,11 @@ export async function sincronizarVitrine() {
 
   for (const item of activeProducts) {
     const result = verifiedResults.get(item.id);
-    if (!result) continue;
+    // Se a checagem falhou por rede/desafio antibot, não desativa por falso positivo
+    if (!result || !result.success) {
+      mantidos++;
+      continue;
+    }
 
     const currentPrice = Number(result.currentPrice ?? 0);
     const originalPrice = Number(result.originalPrice ?? 0);
@@ -367,7 +425,69 @@ export async function sincronizarVitrine() {
     }
   }
 
-  // 5. Exibição do Resumo
+  // --------------------------------------------------------------------------
+  // 5. Blindagem Contínua: Deduplicação de Produtos Ativos na Vitrine
+  // --------------------------------------------------------------------------
+  console.log('\n🧹 Etapa 5: Deduplicação Contínua de Produtos Ativos...');
+  let duplicadosExcluidos = 0;
+
+  const { data: latestActive, error: activeErr } = await supabase
+    .from('produtos_clarice')
+    .select('id, mlb_id, title, current_price, status, active')
+    .eq('status', 'ativo')
+    .eq('active', true)
+    .order('created_at', { ascending: false });
+
+  if (!activeErr && latestActive && latestActive.length > 0) {
+    const visited = new Set();
+    const idsToDelete = [];
+
+    for (let i = 0; i < latestActive.length; i++) {
+      if (visited.has(latestActive[i].id)) continue;
+      const group = [latestActive[i]];
+      visited.add(latestActive[i].id);
+      const normA = normalizeTitle(latestActive[i].title);
+
+      for (let j = i + 1; j < latestActive.length; j++) {
+        if (visited.has(latestActive[j].id)) continue;
+        const normB = normalizeTitle(latestActive[j].title);
+        const sim = calculateSimilarity(normA, normB);
+        if (normA === normB || sim >= 0.85) {
+          group.push(latestActive[j]);
+          visited.add(latestActive[j].id);
+        }
+      }
+
+      if (group.length > 1) {
+        group.sort((a, b) => Number(a.current_price) - Number(b.current_price));
+        // Mantém group[0] (menor preço), deleta os mais caros
+        for (let k = 1; k < group.length; k++) {
+          idsToDelete.push(group[k].id);
+          console.log(
+            `  🗑️ Duplicata detectada: [${group[k].mlb_id}] R$ ${group[k].current_price} ("${group[k].title.slice(0, 35)}...") -> mantido menor preço [${group[0].mlb_id}] R$ ${group[0].current_price}`
+          );
+        }
+      }
+    }
+
+    if (idsToDelete.length > 0) {
+      const { error: delErr } = await supabase
+        .from('produtos_clarice')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (!delErr) {
+        duplicadosExcluidos = idsToDelete.length;
+        console.log(`✅ ${duplicadosExcluidos} produtos duplicados foram excluídos da vitrine com sucesso!`);
+      } else {
+        console.error('❌ Falha ao excluir duplicatas:', delErr.message);
+      }
+    } else {
+      console.log('✨ Nenhuma duplicata encontrada entre os produtos ativos.');
+    }
+  }
+
+  // 6. Exibição do Resumo
   console.log('\n=============================================================');
   console.log('📊 RESUMO DA SINCRONIZAÇÃO DA VITRINE CLARICE ACHADINHOS');
   console.log('=============================================================');
@@ -375,6 +495,7 @@ export async function sincronizarVitrine() {
   console.log(`✅ Mantidos ativos (preço e estoque fiéis): ${mantidos}`);
   console.log(`⚡ Preços/Descontos atualizados no banco: ${atualizados}`);
   console.log(`🚫 Retirados da vitrine (pausados/sem estoque/sem desconto): ${retirados}`);
+  console.log(`🧹 Duplicados mais caros excluídos: ${duplicadosExcluidos}`);
   console.log('=============================================================\n');
 
   if (updatedDetails.length > 0) {
@@ -395,6 +516,7 @@ export async function sincronizarVitrine() {
     mantidos,
     atualizados,
     retirados,
+    duplicadosExcluidos,
   };
 }
 
