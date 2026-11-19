@@ -639,9 +639,8 @@ function RadarTab({
   const [syncing, setSyncing] = useState(false);
   const [selectedRadarIds, setSelectedRadarIds] = useState<Set<string>>(new Set());
 
-  // Garimpo sob demanda & filtro
+  // Busca e filtro na fila
   const [searchTerm, setSearchTerm] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
 
   // Modal / painel para colar links curtos em lote
@@ -694,42 +693,37 @@ function RadarTab({
     if (!onSyncRadar) return;
     setSyncing(true);
     try {
-      const res = await onSyncRadar(settings.mlAffiliateTag);
+      const res = await onSyncRadar();
       if (res && typeof res === 'object' && 'message' in res) {
-        toast.success(res.message);
+        if (res.totalPendingCount === 0) {
+          toast.info(res.message);
+        } else {
+          toast.success(res.message);
+        }
+      } else if (pendingProducts.length === 0) {
+        toast.info(
+          'Fila do Radar vazia — todos os achadinhos já foram publicados. Aguarde o próximo ciclo automático ou execute .\\rodar-clarice.ps1.'
+        );
       } else {
-        toast.success(`Radar sincronizado! ${res ?? pendingProducts.length} achadinhos na fila.`);
+        toast.success(`Fila do Radar atualizada! ${pendingProducts.length} achadinhos na fila.`);
       }
     } catch {
-      toast.error('Erro ao sincronizar radar com o Mercado Livre.');
+      toast.error('Erro ao atualizar fila do radar.');
     } finally {
       setSyncing(false);
     }
   };
 
-  const handleSearchOnDemand = async (e?: React.FormEvent) => {
+  const handleSearchOnDemand = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const query = searchTerm.trim();
     if (!query) {
-      toast.info('Digite uma palavra-chave para garimpar (ex: air fryer, smart tv, cafeteira)...');
+      setFilterQuery('');
+      toast.info('Digite uma palavra-chave para buscar na fila do radar.');
       return;
     }
-    if (!onSyncRadar) return;
-
-    setIsSearching(true);
-    try {
-      const res = await onSyncRadar(settings.mlAffiliateTag, query);
-      if (res && typeof res === 'object' && 'message' in res) {
-        toast.success(res.message);
-      } else {
-        toast.success(`Garimpo finalizado para "${query}"!`);
-      }
-      setSearchTerm('');
-    } catch {
-      toast.error('Erro ao garimpar ofertas no Mercado Livre.');
-    } finally {
-      setIsSearching(false);
-    }
+    setFilterQuery(query);
+    toast.info(`Filtro aplicado para "${query}". O garimpo de novas ofertas roda via .\\rodar-clarice.ps1.`);
   };
 
   const handleCopySelectedLinks = () => {
@@ -997,13 +991,13 @@ function RadarTab({
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-400/20 transition disabled:opacity-50"
               >
                 <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
-                {syncing ? 'Sincronizando...' : 'Varredura Padrão'}
+                {syncing ? 'Atualizando Fila...' : 'Atualizar Fila do Radar'}
               </button>
             )}
           </div>
         </div>
 
-        {/* Campo de Busca Livre por Palavra-Chave (Garimpo On-Demand) */}
+        {/* Campo de Busca / Filtro na Fila do Radar */}
         <form onSubmit={handleSearchOnDemand} className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/10">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
@@ -1011,17 +1005,17 @@ function RadarTab({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Garimpar termo no Mercado Livre (ex: air fryer 4l, fone bluetooth, cafeteira)..."
+              placeholder="Buscar por termo na fila do Radar (ex: air fryer, fone, tênis)..."
               className={cn(field, 'pl-9 text-xs')}
             />
           </div>
           <button
             type="submit"
-            disabled={isSearching || !searchTerm.trim()}
+            disabled={!searchTerm.trim()}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-zinc-950 font-bold px-4 py-2 text-xs transition disabled:opacity-50 shadow-md shadow-cyan-400/20 shrink-0"
           >
-            <WandSparkles className={cn('h-3.5 w-3.5', isSearching && 'animate-spin')} />
-            {isSearching ? 'Garimpando no ML...' : 'Garimpar Ofertas'}
+            <Search className="h-3.5 w-3.5" />
+            Buscar na Fila
           </button>
         </form>
 
@@ -1042,10 +1036,10 @@ function RadarTab({
 
       {pendingProducts.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-zinc-900/40 p-8 text-center text-zinc-400">
-          <Radar className="h-10 w-10 mx-auto text-zinc-600 mb-2" />
-          <p className="text-sm font-semibold text-zinc-300">Fila do Radar Vazia</p>
-          <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
-            Todas as ofertas encontradas já foram aprovadas ou descartadas. O radar roda automaticamente a cada 6 horas via GitHub Actions ou instantaneamente pelo botão abaixo.
+          <Radar className="h-10 w-10 mx-auto text-cyan-400/60 mb-2" />
+          <p className="text-sm font-semibold text-zinc-200">Fila do Radar Vazia</p>
+          <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto leading-relaxed">
+            Fila do Radar vazia — todos os achadinhos já foram publicados. Aguarde o próximo ciclo automático ou execute <code className="text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">.\rodar-clarice.ps1</code>.
           </p>
           {onSyncRadar && (
             <button
@@ -1055,7 +1049,7 @@ function RadarTab({
               className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cyan-400 text-zinc-950 px-4 py-2 text-xs font-bold hover:bg-cyan-300 transition"
             >
               <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
-              Verificar Novas Ofertas Agora
+              {syncing ? 'Atualizando Fila...' : 'Atualizar Fila do Radar'}
             </button>
           )}
         </div>
@@ -1317,14 +1311,22 @@ function SettingsTab({
     }
     setSyncingRadar(true);
     try {
-      const res = await onSyncRadar(affTag.trim() || settings.mlAffiliateTag);
+      const res = await onSyncRadar();
       if (res && typeof res === 'object' && 'message' in res) {
-        toast.success(res.message);
+        if (res.totalPendingCount === 0) {
+          toast.info(res.message);
+        } else {
+          toast.success(res.message);
+        }
+      } else if (pendingCount === 0) {
+        toast.info(
+          'Fila do Radar vazia — todos os achadinhos já foram publicados. Aguarde o próximo ciclo automático ou execute .\\rodar-clarice.ps1.'
+        );
       } else {
-        toast.success(`Radar sincronizado! ${res ?? pendingCount} achadinhos na fila de aprovação.`);
+        toast.success(`Fila do Radar atualizada! ${pendingCount} achadinhos na fila.`);
       }
     } catch {
-      toast.error('Erro ao sincronizar radar com o Mercado Livre.');
+      toast.error('Erro ao atualizar fila do radar.');
     } finally {
       setSyncingRadar(false);
     }
@@ -1593,10 +1595,10 @@ function SettingsTab({
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <Radar className="h-4 w-4 text-cyan-400" />
-            <h3 className="text-xs font-bold text-zinc-200">Radar Autônomo de Ofertas</h3>
+            <h3 className="text-xs font-bold text-zinc-200">Fila do Radar de Ofertas</h3>
           </div>
           <p className="text-[11px] text-zinc-400">
-            {pendingCount} achadinho(s) na fila de aprovação aguardando revisão de link de afiliado.
+            {pendingCount} achadinho(s) na fila de aprovação. O garimpo de novos itens é executado de forma autônoma via <code className="text-cyan-300 bg-cyan-950/60 px-1 py-0.5 rounded">.\rodar-clarice.ps1</code>.
           </p>
         </div>
         <button
@@ -1606,7 +1608,7 @@ function SettingsTab({
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-zinc-950 px-4 py-2.5 text-xs font-bold transition disabled:opacity-50"
         >
           <RefreshCw className={cn('h-3.5 w-3.5', syncingRadar && 'animate-spin')} />
-          {syncingRadar ? 'Sincronizando Radar...' : '⚡ Sincronizar Radar de Ofertas Agora'}
+          {syncingRadar ? 'Atualizando Fila...' : '🔄 Atualizar Fila do Radar'}
         </button>
       </div>
 

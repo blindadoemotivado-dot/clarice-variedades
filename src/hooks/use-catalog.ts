@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AffiliateProduct } from '@/types/product';
 import { MOCK_PRODUCTS } from '@/data/mockProducts';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { syncRadarOffersServerFn, type RadarSyncResult } from '@/services/radarServerFn';
+import type { RadarSyncResult } from '@/services/radarServerFn';
 
 const KEY = 'clarice_v2';
 const FAV_KEY = 'clarice:favorites:v1';
@@ -198,23 +198,10 @@ export function useCatalog() {
     }
   }, []);
 
-  const syncRadar = useCallback(async (customTag?: string, customTerm?: string): Promise<RadarSyncResult> => {
+  const syncRadar = useCallback(async (): Promise<RadarSyncResult> => {
     setIsSyncing(true);
     try {
-      let serverRes: RadarSyncResult = {
-        success: true,
-        newDealsCount: 0,
-        totalPendingCount: pendingProducts.length,
-        message: 'Radar atualizado.',
-      };
-
-      try {
-        const res = await syncRadarOffersServerFn({ data: { tag: customTag, term: customTerm } });
-        if (res) serverRes = res;
-      } catch (err) {
-        console.warn('[useCatalog] Server function error, fallback to local fetch:', err);
-      }
-
+      let total = 0;
       if (isSupabaseConfigured) {
         const { data, error } = await supabase
           .from('produtos_clarice')
@@ -225,18 +212,27 @@ export function useCatalog() {
         if (!error && data) {
           const mapped = (data as SupabaseProductRow[]).map(mapRowToProduct);
           setPendingProducts(mapped);
-          return {
-            ...serverRes,
-            totalPendingCount: mapped.length,
-          };
+          total = mapped.length;
+        } else if (error) {
+          console.error('[useCatalog] Erro ao carregar fila do radar do Supabase:', error.message);
         }
       }
 
-      return serverRes;
+      const message =
+        total === 0
+          ? 'Fila do Radar vazia — todos os achadinhos já foram publicados. Aguarde o próximo ciclo automático ou execute .\\rodar-clarice.ps1.'
+          : `Fila do Radar atualizada! ${total} achadinho(s) aguardando aprovação na fila.`;
+
+      return {
+        success: true,
+        newDealsCount: 0,
+        totalPendingCount: total,
+        message,
+      };
     } finally {
       setIsSyncing(false);
     }
-  }, [pendingProducts.length]);
+  }, []);
 
   return {
     products,
