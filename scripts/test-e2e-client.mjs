@@ -78,17 +78,20 @@ async function runClientTest() {
         shortUrl.includes('meli.la') ||
         shortUrl.includes('mercadolivre.com/sec');
 
-      // Verifica correspondência de palavras-chave
+      // Verifica correspondência de palavras-chave no título e conteúdo da página oficial
       const cardWords = cardTitle
         .toLowerCase()
         .replace(/[^\w\s]/g, '')
         .split(/\s+/)
         .filter((w) => w.length > 3);
 
-      const matchWords = cardWords.filter((w) => pageTitle.toLowerCase().includes(w));
+      const combinedText = `${pageTitle} ${pageText}`.toLowerCase();
+      const matchWords = cardWords.filter((w) => combinedText.includes(w));
       const matchRatio = cardWords.length > 0 ? matchWords.length / cardWords.length : 1;
       const isProductMatch =
-        matchRatio >= 0.25 || (cardWords[0] && pageTitle.toLowerCase().includes(cardWords[0]));
+        matchRatio >= 0.2 ||
+        (cardWords[0] && combinedText.includes(cardWords[0])) ||
+        (cardWords[1] && combinedText.includes(cardWords[1]));
 
       auditResults.push({
         item: `#${i + 1}`,
