@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { extractMlbId, filterProducts, formatBRL, productFromUrl, buildWhatsAppCopy } from './catalog';
+import {
+  extractMlbId,
+  filterProducts,
+  formatBRL,
+  productFromUrl,
+  buildWhatsAppCopy,
+  normalizeTitle,
+  calculateSimilarity,
+} from './catalog';
 import { isValidMercadoLivreUrl, isMonetizedUrl } from '@/components/store/AdminSheet';
 import { applyAffiliateTag, getStoreSettings } from '@/lib/store-settings';
 import { MOCK_PRODUCTS } from '@/data/mockProducts';
@@ -30,5 +38,36 @@ describe('catalog', () => {
     const monetized = applyAffiliateTag(url, 'clarice-achadinhos');
     expect(monetized).toContain('matt_tool=clarice-achadinhos');
     expect(getStoreSettings().mlAffiliateTag).toBe('clarice-achadinhos');
+  });
+
+  describe('deduplicação de títulos e similaridade', () => {
+    it('normaliza títulos removendo acentos, pontuação e palavras genéricas', () => {
+      const raw = 'Super Oferta! Fone de Ouvido Bluetooth Sem Fio Original Promoção - Frete Grátis';
+      const normalized = normalizeTitle(raw);
+      expect(normalized).toBe('fone de ouvido bluetooth sem fio');
+    });
+
+    it('trata strings vazias ou nulas na normalização', () => {
+      expect(normalizeTitle('')).toBe('');
+      expect(normalizeTitle('   ')).toBe('');
+    });
+
+    it('calcula similaridade de 100% para strings idênticas', () => {
+      expect(calculateSimilarity('air fryer mondial 4l inox', 'air fryer mondial 4l inox')).toBe(1.0);
+    });
+
+    it('calcula similaridade >= 85% para variações mínimas do mesmo produto', () => {
+      const title1 = normalizeTitle('Fritadeira Air Fryer Mondial 4L Inox 110V');
+      const title2 = normalizeTitle('Fritadeira Air Fryer Mondial 4L Inox');
+      const sim = calculateSimilarity(title1, title2);
+      expect(sim).toBeGreaterThanOrEqual(0.85);
+    });
+
+    it('calcula similaridade baixa (< 60%) para produtos distintos de categorias diferentes', () => {
+      const title1 = normalizeTitle('Fritadeira Air Fryer Mondial 4L Inox');
+      const title2 = normalizeTitle('Andador Infantil Carrinho Passeio Bebe');
+      const sim = calculateSimilarity(title1, title2);
+      expect(sim).toBeLessThan(0.6);
+    });
   });
 });

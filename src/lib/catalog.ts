@@ -62,3 +62,57 @@ export function productFromUrl(url: string, category: AffiliateProduct['category
 }
 
 function hash(s: string): number { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return h; }
+
+/**
+ * Normaliza títulos removendo acentos, pontuação e termos genéricos de promoção
+ */
+export function normalizeTitle(title: string): string {
+  if (!title) return '';
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(oferta|ofertas|promocao|promocoes|original|novo|nova|super|barato|imperdivel|frete|gratis|lancamento|top)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Calcula a similaridade entre duas strings (0 a 1) combinando Dice Bigrams e Token Jaccard
+ */
+export function calculateSimilarity(str1: string, str2: string): number {
+  if (str1 === str2) return 1.0;
+  if (!str1 || !str2) return 0.0;
+  if (str1.length < 2 || str2.length < 2) return 0.0;
+
+  const tokens1 = new Set(str1.split(' ').filter(Boolean));
+  const tokens2 = new Set(str2.split(' ').filter(Boolean));
+  let tokenIntersection = 0;
+  for (const t of tokens1) {
+    if (tokens2.has(t)) tokenIntersection++;
+  }
+  const totalTokens = tokens1.size + tokens2.size;
+  const tokenSimilarity = totalTokens > 0 ? (2 * tokenIntersection) / totalTokens : 0;
+
+  const bigrams1 = new Map<string, number>();
+  for (let i = 0; i < str1.length - 1; i++) {
+    const bigram = str1.slice(i, i + 2);
+    bigrams1.set(bigram, (bigrams1.get(bigram) || 0) + 1);
+  }
+
+  let intersection = 0;
+  for (let i = 0; i < str2.length - 1; i++) {
+    const bigram = str2.slice(i, i + 2);
+    const count = bigrams1.get(bigram) || 0;
+    if (count > 0) {
+      bigrams1.set(bigram, count - 1);
+      intersection++;
+    }
+  }
+
+  const totalBigrams = str1.length - 1 + (str2.length - 1);
+  const bigramSimilarity = totalBigrams > 0 ? (2 * intersection) / totalBigrams : 0;
+
+  return Math.max(bigramSimilarity, tokenSimilarity);
+}

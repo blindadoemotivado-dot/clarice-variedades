@@ -111,6 +111,101 @@ export function buildPaginatedUrls(target) {
   ];
 }
 
+/**
+ * Normaliza títulos removendo acentos, pontuação e termos genéricos de promoção
+ */
+export function normalizeTitle(title) {
+  if (!title) return '';
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(oferta|ofertas|promocao|promocoes|original|novo|nova|super|barato|imperdivel|frete|gratis|lancamento|top)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Calcula a similaridade entre duas strings (0 a 1) combinando Dice Bigrams e Token Jaccard
+ */
+export function calculateSimilarity(str1, str2) {
+  if (str1 === str2) return 1.0;
+  if (!str1 || !str2) return 0.0;
+  if (str1.length < 2 || str2.length < 2) return 0.0;
+
+  const tokens1 = new Set(str1.split(' ').filter(Boolean));
+  const tokens2 = new Set(str2.split(' ').filter(Boolean));
+  let tokenIntersection = 0;
+  for (const t of tokens1) {
+    if (tokens2.has(t)) tokenIntersection++;
+  }
+  const totalTokens = tokens1.size + tokens2.size;
+  const tokenSimilarity = totalTokens > 0 ? (2 * tokenIntersection) / totalTokens : 0;
+
+  const bigrams1 = new Map();
+  for (let i = 0; i < str1.length - 1; i++) {
+    const bigram = str1.slice(i, i + 2);
+    bigrams1.set(bigram, (bigrams1.get(bigram) || 0) + 1);
+  }
+
+  let intersection = 0;
+  for (let i = 0; i < str2.length - 1; i++) {
+    const bigram = str2.slice(i, i + 2);
+    const count = bigrams1.get(bigram) || 0;
+    if (count > 0) {
+      bigrams1.set(bigram, count - 1);
+      intersection++;
+    }
+  }
+
+  const totalBigrams = str1.length - 1 + (str2.length - 1);
+  const bigramSimilarity = totalBigrams > 0 ? (2 * intersection) / totalBigrams : 0;
+
+  return Math.max(bigramSimilarity, tokenSimilarity);
+}
+
+/**
+ * Localiza possível correspondência duplicada no catálogo existente
+ * (por MLB ID idêntico, título normalizado exato ou similaridade >= 85%)
+ */
+export function findDuplicateMatch(deal, existingProducts) {
+  const dealNorm = normalizeTitle(deal.title);
+
+  // 1. Prioridade: mesmo MLB ID
+  for (const existing of existingProducts) {
+    if (existing.mlbId && deal.mlbId && existing.mlbId === deal.mlbId) {
+      return { match: existing, reason: 'mlb_id', similarity: 1.0 };
+    }
+  }
+
+  // 2. Título normalizado exato ou similaridade >= 0.85
+  if (!dealNorm) return null;
+
+  let bestMatch = null;
+  let highestSim = 0;
+
+  for (const existing of existingProducts) {
+    if (!existing.normTitle) continue;
+
+    if (dealNorm === existing.normTitle) {
+      return { match: existing, reason: 'exact_title', similarity: 1.0 };
+    }
+
+    const sim = calculateSimilarity(dealNorm, existing.normTitle);
+    if (sim >= 0.85 && sim > highestSim) {
+      highestSim = sim;
+      bestMatch = existing;
+    }
+  }
+
+  if (bestMatch) {
+    return { match: bestMatch, reason: 'similarity', similarity: highestSim };
+  }
+
+  return null;
+}
+
 export function inferCategory(title, defaultCategory = 'Achadinhos') {
   const t = title.toLowerCase();
   if (
@@ -346,18 +441,28 @@ export async function runRadarCrawler({
   console.log(`🏷️ Tag de Afiliado: ${tag}`);
   if (customTerm) console.log(`🔍 Garimpo sob demanda para: "${customTerm}"`);
 
-  // 1. Deduplicação Global: consulta TODOS os mlb_id já existentes na tabela produtos_clarice (qualquer status)
+  // 1. Deduplicação Global: consulta produtos existentes na tabela produtos_clarice
   const { data: existingRows, error: fetchErr } = await supabase
     .from('produtos_clarice')
-    .select('mlb_id');
+    .select('id, mlb_id, title, current_price, original_price, discount_percent, status, active');
 
   if (fetchErr) {
     console.error('❌ Falha ao consultar produtos existentes no banco:', fetchErr.message);
     throw fetchErr;
   }
 
-  const blockedMlbIds = new Set((existingRows || []).map((r) => r.mlb_id));
-  console.log(`📦 Deduplicação global ativada: ${blockedMlbIds.size} anúncio(s) existentes protegidos de repetição.`);
+  const existingProducts = (existingRows || []).map((r) => ({
+    id: r.id,
+    mlbId: r.mlb_id,
+    title: r.title,
+    normTitle: normalizeTitle(r.title),
+    currentPrice: Number(r.current_price) || 0,
+    originalPrice: Number(r.original_price) || 0,
+    status: r.status,
+    active: r.active,
+  }));
+
+  console.log(`📦 Deduplicação global ativada: ${existingProducts.length} produto(s) existentes no banco.`);
 
   // 2. Inicializar Edge Playwright com perfil persistente (ou reaproveitar se já fornecido)
   let context = null;
@@ -391,14 +496,19 @@ export async function runRadarCrawler({
         if (collectedDeals.length >= targetCount) break;
         const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
         for (const d of deals) {
-          if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
-            seenInBatch.add(d.mlbId);
-            collectedDeals.push({
-              ...d,
-              category: inferCategory(d.title, 'Achadinhos'),
-            });
-            if (collectedDeals.length >= targetCount) break;
+          if (seenInBatch.has(d.mlbId)) continue;
+
+          const dupCheck = findDuplicateMatch(d, existingProducts);
+          if (dupCheck && dupCheck.match.currentPrice <= d.currentPrice) {
+            continue;
           }
+
+          seenInBatch.add(d.mlbId);
+          collectedDeals.push({
+            ...d,
+            category: inferCategory(d.title, 'Achadinhos'),
+          });
+          if (collectedDeals.length >= targetCount) break;
         }
       }
     } else {
@@ -413,14 +523,19 @@ export async function runRadarCrawler({
           if (collectedDeals.length >= babyTargetLimit) break;
           const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
           for (const d of deals) {
-            if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
-              seenInBatch.add(d.mlbId);
-              collectedDeals.push({
-                ...d,
-                category: 'Infantil & Bebês',
-              });
-              if (collectedDeals.length >= babyTargetLimit) break;
+            if (seenInBatch.has(d.mlbId)) continue;
+
+            const dupCheck = findDuplicateMatch(d, existingProducts);
+            if (dupCheck && dupCheck.match.currentPrice <= d.currentPrice) {
+              continue;
             }
+
+            seenInBatch.add(d.mlbId);
+            collectedDeals.push({
+              ...d,
+              category: 'Infantil & Bebês',
+            });
+            if (collectedDeals.length >= babyTargetLimit) break;
           }
           if (collectedDeals.length >= babyTargetLimit) break;
         }
@@ -437,14 +552,19 @@ export async function runRadarCrawler({
           if (collectedDeals.length >= targetCount) break;
           const deals = await scrapeOffersFromPage(page, searchUrl, minDiscount);
           for (const d of deals) {
-            if (!blockedMlbIds.has(d.mlbId) && !seenInBatch.has(d.mlbId)) {
-              seenInBatch.add(d.mlbId);
-              collectedDeals.push({
-                ...d,
-                category: inferCategory(d.title, target.category),
-              });
-              if (collectedDeals.length >= targetCount) break;
+            if (seenInBatch.has(d.mlbId)) continue;
+
+            const dupCheck = findDuplicateMatch(d, existingProducts);
+            if (dupCheck && dupCheck.match.currentPrice <= d.currentPrice) {
+              continue;
             }
+
+            seenInBatch.add(d.mlbId);
+            collectedDeals.push({
+              ...d,
+              category: inferCategory(d.title, target.category),
+            });
+            if (collectedDeals.length >= targetCount) break;
           }
           if (collectedDeals.length >= targetCount) break;
         }
@@ -464,7 +584,7 @@ export async function runRadarCrawler({
     return [];
   }
 
-  // 3. Persistência no Supabase com status 'pendente_afiliado' e URL real validada
+  // 3. Persistência no Supabase com deduplicação por título e substituição por menor preço
   const validDeals = collectedDeals.filter((deal) => {
     const u = deal.cleanUrl || '';
     return (
@@ -475,52 +595,125 @@ export async function runRadarCrawler({
     );
   });
 
-  const rowsToInsert = validDeals.map((deal) => {
+  const rowsToInsert = [];
+  let updatedCheaperCount = 0;
+  let ignoredDuplicateCount = 0;
+
+  for (const deal of validDeals) {
     const cleanUrl = deal.cleanUrl || `https://produto.mercadolivre.com.br/${deal.mlbId}`;
+    const dupCheck = findDuplicateMatch(deal, existingProducts);
 
-    return {
-      mlb_id: deal.mlbId,
-      title: deal.title,
-      original_price: deal.originalPrice,
-      current_price: deal.currentPrice,
-      discount_percent: deal.discountPercent,
-      installments_text: deal.installmentsText,
-      image_url: deal.imageUrl,
-      affiliate_url: cleanUrl,
-      category: deal.category,
-      badge_text: `Radar ${deal.discountPercent}% OFF`,
-      free_shipping: deal.freeShipping,
-      is_full: deal.isFull,
-      rating: 4.8,
-      reviews_count: 420,
-      featured: false,
-      active: false,
-      status: 'pendente_afiliado',
-    };
-  });
+    if (dupCheck) {
+      const existing = dupCheck.match;
+      if (deal.currentPrice < existing.currentPrice) {
+        console.log(
+          `📉 [Substituição por Menor Preço] "${deal.title}" (R$ ${deal.currentPrice.toFixed(2)}) ` +
+          `substitui "${existing.title}" (R$ ${existing.currentPrice.toFixed(2)}) [${(dupCheck.similarity * 100).toFixed(0)}% similar, motivo: ${dupCheck.reason}]`
+        );
 
-  const { data: inserted, error: insertErr } = await supabase
-    .from('produtos_clarice')
-    .insert(rowsToInsert)
-    .select('id, mlb_id, title, category, discount_percent, status');
+        const { error: updateErr } = await supabase
+          .from('produtos_clarice')
+          .update({
+            mlb_id: deal.mlbId,
+            title: deal.title,
+            original_price: deal.originalPrice,
+            current_price: deal.currentPrice,
+            discount_percent: deal.discountPercent,
+            installments_text: deal.installmentsText,
+            image_url: deal.imageUrl,
+            affiliate_url: cleanUrl,
+            category: deal.category,
+            badge_text: `Radar ${deal.discountPercent}% OFF`,
+            free_shipping: deal.freeShipping,
+            is_full: deal.isFull,
+            status: 'pendente_afiliado',
+            active: false,
+          })
+          .eq('id', existing.id);
 
-  if (insertErr) {
-    console.error('❌ Erro ao salvar ofertas no Supabase:', insertErr.message);
-    throw insertErr;
+        if (updateErr) {
+          console.warn(`⚠️ Erro ao atualizar produto com menor preço (ID ${existing.id}):`, updateErr.message);
+        } else {
+          updatedCheaperCount++;
+          existing.mlbId = deal.mlbId;
+          existing.title = deal.title;
+          existing.normTitle = normalizeTitle(deal.title);
+          existing.currentPrice = deal.currentPrice;
+        }
+      } else {
+        console.log(
+          `⏩ [Duplicado Ignorado] Oferta garimpada R$ ${deal.currentPrice.toFixed(2)} >= Existente R$ ${existing.currentPrice.toFixed(2)} ` +
+          `("${deal.title.slice(0, 35)}..." vs "${existing.title.slice(0, 35)}...")`
+        );
+        ignoredDuplicateCount++;
+      }
+    } else {
+      // Produto inédito
+      const newRow = {
+        mlb_id: deal.mlbId,
+        title: deal.title,
+        original_price: deal.originalPrice,
+        current_price: deal.currentPrice,
+        discount_percent: deal.discountPercent,
+        installments_text: deal.installmentsText,
+        image_url: deal.imageUrl,
+        affiliate_url: cleanUrl,
+        category: deal.category,
+        badge_text: `Radar ${deal.discountPercent}% OFF`,
+        free_shipping: deal.freeShipping,
+        is_full: deal.isFull,
+        rating: 4.8,
+        reviews_count: 420,
+        featured: false,
+        active: false,
+        status: 'pendente_afiliado',
+      };
+      rowsToInsert.push(newRow);
+
+      // Registra em existingProducts para proteger contra duplicados no mesmo lote
+      existingProducts.push({
+        id: `batch-${deal.mlbId}`,
+        mlbId: deal.mlbId,
+        title: deal.title,
+        normTitle: normalizeTitle(deal.title),
+        currentPrice: deal.currentPrice,
+      });
+    }
   }
 
-  console.log(`\n🎉 ${inserted.length} achadinhos reais salvos na Fila do Radar (status: pendente_afiliado)!`);
-  console.table(
-    inserted.slice(0, 15).map((i) => ({
-      MLB: i.mlb_id,
-      Categoria: i.category,
-      Título: i.title.slice(0, 36) + '...',
-      Desconto: `${i.discount_percent}% OFF`,
-      Status: i.status,
-    }))
-  );
-  if (inserted.length > 15) {
-    console.log(`... e mais ${inserted.length - 15} ofertas inseridas no banco.`);
+  let inserted = [];
+  if (rowsToInsert.length > 0) {
+    const { data, error: insertErr } = await supabase
+      .from('produtos_clarice')
+      .insert(rowsToInsert)
+      .select('id, mlb_id, title, category, discount_percent, status');
+
+    if (insertErr) {
+      console.error('❌ Erro ao salvar ofertas no Supabase:', insertErr.message);
+      throw insertErr;
+    }
+    inserted = data || [];
+  }
+
+  console.log(`\n📊 Relatório de Deduplicação & Garimpo:`);
+  console.log(`   ✨ Novos produtos inseridos: ${inserted.length}`);
+  console.log(`   📉 Produtos atualizados por preço menor: ${updatedCheaperCount}`);
+  console.log(`   ⏩ Duplicados ignorados (mais caros ou iguais): ${ignoredDuplicateCount}`);
+
+  if (inserted.length > 0) {
+    console.log(`\n🎉 ${inserted.length} achadinhos reais salvos na Fila do Radar (status: pendente_afiliado)!`);
+    console.table(
+      inserted.slice(0, 15).map((i) => ({
+        MLB: i.mlb_id,
+        Categoria: i.category,
+        Título: i.title.slice(0, 36) + '...',
+        Desconto: `${i.discount_percent}% OFF`,
+        Status: i.status,
+      }))
+    );
+    if (inserted.length > 15) {
+      console.log(`... e mais ${inserted.length - 15} ofertas inseridas no banco.`);
+    }
   }
 
   return inserted;
