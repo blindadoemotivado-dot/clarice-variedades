@@ -119,10 +119,39 @@ async function main() {
   fs.writeFileSync(faviconIcoPath, icoBuffer);
   console.log('✓ Gerado: public/icons/favicon.ico');
 
+  // 7. apple-splash.png (1170x2532 para tela de abertura do iOS Safari)
+  const splashWidth = 1170;
+  const splashHeight = 2532;
+  const splashLogoSize = 340;
+  const splashLogoBuffer = await sharp(sourcePath)
+    .resize(splashLogoSize, splashLogoSize, { fit: 'cover' })
+    .toBuffer();
+
+  const appleSplashPath = path.join(iconsDir, 'apple-splash.png');
+  await sharp({
+    create: {
+      width: splashWidth,
+      height: splashHeight,
+      channels: 4,
+      background: { r: 15, g: 23, b: 42, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: splashLogoBuffer,
+        top: Math.round((splashHeight - splashLogoSize) / 2) - 60,
+        left: Math.round((splashWidth - splashLogoSize) / 2),
+      },
+    ])
+    .png({ quality: 90, compressionLevel: 8 })
+    .toFile(appleSplashPath);
+  console.log('✓ Gerado: public/icons/apple-splash.png');
+
   // Cópias de retrocompatibilidade na raiz de public/
   fs.copyFileSync(icon192Path, path.resolve('public/icon-192.png'));
   fs.copyFileSync(icon512Path, path.resolve('public/icon-512.png'));
   fs.copyFileSync(appleTouchPath, path.resolve('public/apple-touch-icon.png'));
+  fs.copyFileSync(appleSplashPath, path.resolve('public/apple-splash.png'));
   fs.copyFileSync(favicon32Path, path.resolve('public/favicon.png'));
   fs.copyFileSync(favicon32Path, path.resolve('public/favicon-32x32.png'));
   fs.copyFileSync(faviconIcoPath, path.resolve('public/favicon.ico'));

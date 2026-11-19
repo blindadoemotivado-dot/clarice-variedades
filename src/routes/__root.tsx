@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { PwaInstallPrompt } from "../components/store/PwaInstallPrompt";
+import { SplashScreen } from "../components/store/SplashScreen";
 
 function NotFoundComponent() {
   return (
@@ -127,6 +128,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "shortcut icon", href: "/favicon.ico" },
       { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon.png" },
       { rel: "apple-touch-icon-precomposed", href: "/icons/apple-touch-icon.png" },
+      { rel: "apple-touch-startup-image", href: "/icons/apple-splash.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -170,6 +172,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <SplashScreen />
       <PwaInstallPrompt />
     </QueryClientProvider>
   );

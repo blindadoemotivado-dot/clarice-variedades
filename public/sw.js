@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clarice-achadinhos-pwa-v2';
+const CACHE_NAME = 'clarice-achadinhos-pwa-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
   '/icons/icon-512x512.png',
   '/icons/icon-512x512-maskable.png',
   '/icons/apple-touch-icon.png',
+  '/icons/apple-splash.png',
   '/icons/favicon-32x32.png',
   '/icons/favicon.ico',
 ];
