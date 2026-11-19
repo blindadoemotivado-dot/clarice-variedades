@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { PwaInstallPrompt } from "../components/store/PwaInstallPrompt";
 
 function NotFoundComponent() {
   return (
@@ -75,12 +76,9 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
-    // Replace these placeholders with the app's name and description when first building the app.
-    // Each content route, / included, must still set its own head(). Never add og:image or
-    // twitter:image here: every page without its own would inherit the root's preview image.
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1.0, viewport-fit=cover" },
       { title: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
       {
         name: "description",
@@ -88,6 +86,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Curadoria diária de achadinhos com desconto verificado no Mercado Livre com frete grátis e compra 100% segura.",
       },
       { name: "theme-color", content: "#FFE600" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Clarice" },
+      { name: "application-name", content: "Clarice Achadinhos" },
+      { name: "msapplication-TileColor", content: "#0F172A" },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Clarice Achadinhos" },
       { property: "og:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
@@ -118,10 +122,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon.png?v=2" },
-      { rel: "shortcut icon", href: "/favicon.ico?v=2" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2" },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/icons/favicon-32x32.png" },
+      { rel: "shortcut icon", href: "/favicon.ico" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon.png" },
+      { rel: "apple-touch-icon-precomposed", href: "/icons/apple-touch-icon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -147,10 +152,25 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => {
+            console.log("[Clarice PWA] Service Worker registrado com sucesso:", reg.scope);
+          })
+          .catch((err) => {
+            console.warn("[Clarice PWA] Falha ao registrar Service Worker:", err);
+          });
+      });
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <PwaInstallPrompt />
     </QueryClientProvider>
   );
 }
