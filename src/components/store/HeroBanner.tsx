@@ -12,30 +12,30 @@ export function HeroBanner({ onVip }: HeroBannerProps) {
     `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`;
 
   return (
-    <section className="relative mb-6 overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-[#0B1329] via-[#0F172A] to-[#1E293B] p-4 text-white shadow-xl sm:p-7">
+    <section className="relative mb-6 overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-[#0B1329] via-[#0F172A] to-[#1E293B] px-4 pt-5 pb-0 text-white shadow-xl sm:px-7 sm:pt-7 md:min-h-[380px] lg:min-h-[420px] flex flex-col justify-end">
       {/* Luzes decorativas sutis no fundo */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-12 -top-12 h-64 w-64 rounded-full bg-[#FFE600]/15 blur-3xl"
+        className="pointer-events-none absolute -right-12 -top-12 h-72 w-72 rounded-full bg-[#FFE600]/15 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-12 -bottom-12 h-64 w-64 rounded-full bg-[#3483FA]/10 blur-3xl"
+        className="pointer-events-none absolute -left-12 -bottom-12 h-72 w-72 rounded-full bg-[#3483FA]/10 blur-3xl"
       />
 
-      <div className="relative flex flex-col-reverse items-center justify-between gap-5 md:flex-row md:items-center">
+      <div className="relative flex flex-col-reverse items-center justify-between gap-5 md:flex-row md:items-end w-full">
         {/* Texto & Chamadas para Ação */}
-        <div className="flex-1 text-center md:text-left">
+        <div className="flex-1 text-center md:text-left py-2 pb-6 md:pb-8">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#FFE600]/30 bg-[#FFE600]/10 px-3 py-1 text-[11px] font-bold text-[#FFE600] backdrop-blur-md">
             <Sparkles className="h-3.5 w-3.5" />
             <span>Curadoria Oficial • Mercado Livre</span>
           </div>
 
-          <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl">
+          <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl max-w-xl">
             Achadinhos reais do Mercado Livre escolhidos todo dia pela Clarice
           </h1>
 
-          <p className="mt-2 max-w-xl text-xs leading-relaxed text-slate-300 sm:text-sm">
+          <p className="mt-2.5 max-w-xl text-xs leading-relaxed text-slate-300 sm:text-sm">
             Garimpamos descontos de até <strong>70% OFF</strong> com preços verificados, frete grátis e compra 100% garantida no app oficial do Mercado Livre.
           </p>
 
@@ -76,10 +76,10 @@ export function HeroBanner({ onVip }: HeroBannerProps) {
           </div>
         </div>
 
-        {/* Mascote Clarice em Destaque na Primeira Dobra */}
-        <div className="relative shrink-0 flex items-center justify-center">
-          <div className="relative">
-            <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-[#FFE600]/30 to-[#3483FA]/20 blur-xl -z-10" />
+        {/* Mascote Clarice: 85% a 95% da altura no desktop, alinhada à base */}
+        <div className="relative shrink-0 flex items-end justify-center md:justify-end self-center md:self-end">
+          <div className="relative flex items-end justify-center">
+            <div className="absolute -inset-3 rounded-full bg-gradient-to-tr from-[#FFE600]/30 to-[#3483FA]/20 blur-2xl -z-10" />
             <img
               src="/brand/clarice-hero.png"
               onError={(e) => {
@@ -87,11 +87,11 @@ export function HeroBanner({ onVip }: HeroBannerProps) {
                 e.currentTarget.src = '/brand/logo-square.jpg';
               }}
               alt="Mascote Clarice - Curadora de Achadinhos"
-              width={240}
-              height={240}
-              className="h-36 w-auto sm:h-48 md:h-56 object-contain drop-shadow-2xl transition-transform duration-300 hover:scale-105"
+              width={340}
+              height={380}
+              className="h-48 sm:h-64 md:h-[340px] lg:h-[385px] w-auto object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
             />
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#FFE600] px-3 py-0.5 text-[10px] font-black uppercase text-slate-950 shadow-md">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#FFE600] px-3 py-0.5 text-[10px] sm:text-[11px] font-black uppercase text-slate-950 shadow-lg ring-2 ring-slate-900/60">
               Sua Curadora Oficial
             </div>
           </div>

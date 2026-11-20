@@ -196,11 +196,25 @@ export function calculateSimilarity(str1, str2) {
 }
 
 /**
+ * Normaliza URL de imagem do Mercado Livre para detecção de duplicados
+ */
+export function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const clean = url.trim().split('?')[0].split('#')[0];
+  const match = clean.match(/D_NQ_NP_(?:2X_)?([a-zA-Z0-9_-]+)/i);
+  if (match) {
+    return match[1].replace(/[-_][OVF]$/i, '').toLowerCase();
+  }
+  return clean.toLowerCase();
+}
+
+/**
  * Localiza possível correspondência duplicada no catálogo existente
- * (por MLB ID idêntico, título normalizado exato ou similaridade >= 85%)
+ * (por MLB ID idêntico, mesma URL de imagem, título normalizado exato ou similaridade >= 75%)
  */
 export function findDuplicateMatch(deal, existingProducts) {
   const dealNorm = normalizeTitle(deal.title);
+  const dealImg = normalizeImageUrl(deal.imageUrl);
 
   // 1. Prioridade: mesmo MLB ID
   for (const existing of existingProducts) {
@@ -209,7 +223,16 @@ export function findDuplicateMatch(deal, existingProducts) {
     }
   }
 
-  // 2. Título normalizado exato ou similaridade >= 0.85
+  // 2. Mesma Imagem do Produto
+  if (dealImg) {
+    for (const existing of existingProducts) {
+      if (existing.normImage && existing.normImage === dealImg) {
+        return { match: existing, reason: 'image_url', similarity: 1.0 };
+      }
+    }
+  }
+
+  // 3. Título normalizado exato ou similaridade >= 0.75
   if (!dealNorm) return null;
 
   let bestMatch = null;
@@ -223,7 +246,7 @@ export function findDuplicateMatch(deal, existingProducts) {
     }
 
     const sim = calculateSimilarity(dealNorm, existing.normTitle);
-    if (sim >= 0.85 && sim > highestSim) {
+    if (sim >= 0.75 && sim > highestSim) {
       highestSim = sim;
       bestMatch = existing;
     }
@@ -475,7 +498,7 @@ export async function runRadarCrawler({
   // 1. Deduplicação Global: consulta produtos existentes na tabela produtos_clarice
   const { data: existingRows, error: fetchErr } = await supabase
     .from('produtos_clarice')
-    .select('id, mlb_id, title, current_price, original_price, discount_percent, status, active');
+    .select('id, mlb_id, title, image_url, current_price, original_price, discount_percent, status, active');
 
   if (fetchErr) {
     console.error('❌ Falha ao consultar produtos existentes no banco:', fetchErr.message);
@@ -487,6 +510,7 @@ export async function runRadarCrawler({
     mlbId: r.mlb_id,
     title: r.title,
     normTitle: normalizeTitle(r.title),
+    normImage: normalizeImageUrl(r.image_url),
     currentPrice: Number(r.current_price) || 0,
     originalPrice: Number(r.original_price) || 0,
     status: r.status,
@@ -655,6 +679,7 @@ export async function runRadarCrawler({
           existing.mlbId = deal.mlbId;
           existing.title = deal.title;
           existing.normTitle = normalizeTitle(deal.title);
+          existing.normImage = normalizeImageUrl(deal.imageUrl);
           existing.currentPrice = deal.currentPrice;
         }
       } else {
@@ -693,6 +718,7 @@ export async function runRadarCrawler({
         mlbId: deal.mlbId,
         title: deal.title,
         normTitle: normalizeTitle(deal.title),
+        normImage: normalizeImageUrl(deal.imageUrl),
         currentPrice: deal.currentPrice,
       });
     }

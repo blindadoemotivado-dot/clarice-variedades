@@ -116,3 +116,17 @@ export function calculateSimilarity(str1: string, str2: string): number {
 
   return Math.max(bigramSimilarity, tokenSimilarity);
 }
+
+/**
+ * Normaliza URL de imagem do Mercado Livre para detecção de duplicados
+ */
+export function normalizeImageUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '';
+  const clean = url.trim().split('?')[0].split('#')[0];
+  const match = clean.match(/D_NQ_NP_(?:2X_)?([a-zA-Z0-9_-]+)/i);
+  if (match) {
+    return match[1].replace(/[-_][OVF]$/i, '').toLowerCase();
+  }
+  return clean.toLowerCase();
+}
+

@@ -216,7 +216,7 @@ function Storefront() {
     })[0];
   }, [c.products]);
 
-  // 2) Ofertas Relâmpago: Top 10 com maior % OFF
+  // 2) Ofertas Relâmpago: Top 10 com maior % OFF (excluindo o Achadinho do Dia)
   const ofertasRelampago = useMemo(() => {
     if (!c.products) return [];
     return [...c.products]
@@ -225,14 +225,20 @@ function Storefront() {
       .slice(0, 10);
   }, [c.products, achadinhoDoDia]);
 
-  // 3) Achadinhos Até R$ 99: Foco em compras por impulso de ticket baixo
+  // 3) Achadinhos Até R$ 99: Foco em compras por impulso (excluindo Achadinho do Dia E itens de Ofertas Relâmpago)
   const achadinhosAte99 = useMemo(() => {
     if (!c.products) return [];
+    const usedIds = new Set<string>();
+    if (achadinhoDoDia) usedIds.add(achadinhoDoDia.id);
+    for (const rel of ofertasRelampago) {
+      usedIds.add(rel.id);
+    }
+
     return [...c.products]
-      .filter((p) => p.currentPrice <= 99 && (!achadinhoDoDia || p.id !== achadinhoDoDia.id))
+      .filter((p) => p.currentPrice <= 99 && !usedIds.has(p.id))
       .sort((a, b) => b.discountPercent - a.discountPercent)
       .slice(0, 12);
-  }, [c.products, achadinhoDoDia]);
+  }, [c.products, achadinhoDoDia, ofertasRelampago]);
 
   const progressPercent =
     visible.length > 0

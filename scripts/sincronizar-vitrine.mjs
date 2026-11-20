@@ -94,6 +94,16 @@ export function calculateSimilarity(str1, str2) {
   return Math.max(bigramSimilarity, tokenSimilarity);
 }
 
+export function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const clean = url.trim().split('?')[0].split('#')[0];
+  const match = clean.match(/D_NQ_NP_(?:2X_)?([a-zA-Z0-9_-]+)/i);
+  if (match) {
+    return match[1].replace(/[-_][OVF]$/i, '').toLowerCase();
+  }
+  return clean.toLowerCase();
+}
+
 // --------------------------------------------------------------------------
 // 2. Consulta Rápida via API Pública do Mercado Livre
 // --------------------------------------------------------------------------
@@ -428,12 +438,12 @@ export async function sincronizarVitrine() {
   // --------------------------------------------------------------------------
   // 5. Blindagem Contínua: Deduplicação de Produtos Ativos na Vitrine
   // --------------------------------------------------------------------------
-  console.log('\n🧹 Etapa 5: Deduplicação Contínua de Produtos Ativos...');
+  console.log('\n🧹 Etapa 5: Deduplicação Contínua de Produtos Ativos (imagem + título >= 75%)...');
   let duplicadosExcluidos = 0;
 
   const { data: latestActive, error: activeErr } = await supabase
     .from('produtos_clarice')
-    .select('id, mlb_id, title, current_price, status, active')
+    .select('id, mlb_id, title, image_url, current_price, status, active')
     .eq('status', 'ativo')
     .eq('active', true)
     .order('created_at', { ascending: false });
@@ -447,13 +457,24 @@ export async function sincronizarVitrine() {
       const group = [latestActive[i]];
       visited.add(latestActive[i].id);
       const normA = normalizeTitle(latestActive[i].title);
+      const imgA = normalizeImageUrl(latestActive[i].image_url);
 
       for (let j = i + 1; j < latestActive.length; j++) {
         if (visited.has(latestActive[j].id)) continue;
         const normB = normalizeTitle(latestActive[j].title);
+        const imgB = normalizeImageUrl(latestActive[j].image_url);
+        const sameImage = imgA && imgB && imgA === imgB;
         const sim = calculateSimilarity(normA, normB);
-        if (normA === normB || sim >= 0.85) {
-          group.push(latestActive[j]);
+
+        if (sameImage || normA === normB || sim >= 0.75) {
+          group.push({
+            ...latestActive[j],
+            dupReason: sameImage
+              ? 'mesma_imagem'
+              : normA === normB
+              ? 'titulo_identico'
+              : `similaridade_${(sim * 100).toFixed(0)}%`,
+          });
           visited.add(latestActive[j].id);
         }
       }
@@ -464,7 +485,7 @@ export async function sincronizarVitrine() {
         for (let k = 1; k < group.length; k++) {
           idsToDelete.push(group[k].id);
           console.log(
-            `  🗑️ Duplicata detectada: [${group[k].mlb_id}] R$ ${group[k].current_price} ("${group[k].title.slice(0, 35)}...") -> mantido menor preço [${group[0].mlb_id}] R$ ${group[0].current_price}`
+            `  🗑️ Duplicata detectada [${group[k].dupReason}]: [${group[k].mlb_id}] R$ ${group[k].current_price} ("${group[k].title.slice(0, 35)}...") -> mantido menor preço [${group[0].mlb_id}] R$ ${group[0].current_price}`
           );
         }
       }

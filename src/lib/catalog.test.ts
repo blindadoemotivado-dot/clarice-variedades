@@ -7,6 +7,7 @@ import {
   buildWhatsAppCopy,
   normalizeTitle,
   calculateSimilarity,
+  normalizeImageUrl,
 } from './catalog';
 import { isValidMercadoLivreUrl, isMonetizedUrl } from '@/components/store/AdminSheet';
 import { applyAffiliateTag, getStoreSettings } from '@/lib/store-settings';
@@ -68,6 +69,13 @@ describe('catalog', () => {
       const title2 = normalizeTitle('Andador Infantil Carrinho Passeio Bebe');
       const sim = calculateSimilarity(title1, title2);
       expect(sim).toBeLessThan(0.6);
+    });
+
+    it('normaliza URLs de imagem do Mercado Livre para extrair ID do asset', () => {
+      const url1 = 'https://http2.mlstatic.com/D_NQ_NP_2X_813292-MLA74620358212_022024-F.webp';
+      const url2 = 'https://http2.mlstatic.com/D_NQ_NP_813292-MLA74620358212_022024-O.webp?v=1';
+      expect(normalizeImageUrl(url1)).toBe(normalizeImageUrl(url2));
+      expect(normalizeImageUrl(url1)).toBe('813292-mla74620358212_022024');
     });
   });
 });
