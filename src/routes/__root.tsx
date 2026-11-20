@@ -95,6 +95,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "msapplication-TileColor", content: "#0F172A" },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Clarice Achadinhos" },
+      { property: "og:url", content: "https://clariceachadinhos.vercel.app" },
       { property: "og:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
       {
         property: "og:description",
@@ -104,7 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:locale", content: "pt_BR" },
       {
         property: "og:image",
-        content: "https://clarice-variedades.vercel.app/og-image.png",
+        content: "https://clariceachadinhos.vercel.app/og-image.png",
       },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
@@ -115,10 +116,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         name: "twitter:image",
-        content: "https://clarice-variedades.vercel.app/og-image.png",
+        content: "https://clariceachadinhos.vercel.app/og-image.png",
       },
     ],
     links: [
+      { rel: "canonical", href: "https://clariceachadinhos.vercel.app" },
       {
         rel: "stylesheet",
         href: appCss,
