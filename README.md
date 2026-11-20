@@ -1,8 +1,8 @@
-# Clarice Variedades
+# Clarice Achadinhos
 
 [SYSTEM DIRECTIVE: ZERO-SHOT FRONTEND EXECUTION — LOVABLE AI]
 ROLE: Principal UI/UX Retail Architect & Senior React Engineer.
-PROJECT: "Zizi Variedades" — High-Conversion Affiliate Retail Storefront & Admin Bulk Ingestor.
+PROJECT: "Clarice Achadinhos" — High-Conversion Affiliate Retail Storefront & Admin Bulk Ingestor.
 EXECUTION MODE: Single-pass, 100% functional frontend with stateful local persistence (localStorage fallback to rich Mock Data). Zero backend calls, zero routing hallucinations.
 
 1. STRICT TECH STACK & ANTI-HALLUCINATION CONSTRAINTS
@@ -68,9 +68,9 @@ Populate initial state with 8 ultra-realistic Brazilian retail products:
 4. UI BLUEPRINT & INTERACTIVE UX FLOWS
 
 A. TOP TRUST HEADER (Sticky `top-0 z-40`)
-- Announcement Strip: `bg-[#FFE600] text-slate-900 text-[11px] sm:text-xs font-semibold py-1.5 px-3 text-center flex items-center justify-center gap-1.5` -> "⚡ Curadoria Oficial Zizi Variedades • Redirecionamento 100% Seguro para o Mercado Livre".
+- Announcement Strip: `bg-[#FFE600] text-slate-900 text-[11px] sm:text-xs font-semibold py-1.5 px-3 text-center flex items-center justify-center gap-1.5` -> "⚡ Curadoria Oficial Clarice Achadinhos • Redirecionamento 100% Seguro para o Mercado Livre".
 - Main Navigation Bar (`bg-white border-b border-slate-200 py-3 px-4 shadow-2xs`):
-  * Brand Logo: ShoppingBag icon inside a rounded yellow/blue badge + "Zizi Variedades" (`font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight`) + Verified Badge (`BadgeCheck` in `#3483FA`).
+  * Brand Logo: ShoppingBag icon inside a rounded yellow/blue badge + "Clarice Achadinhos" (`font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight`) + Verified Badge (`BadgeCheck` in `#3483FA`).
   * Instant Search Input: Rounded pill (`rounded-full bg-slate-100 border-slate-200 focus:bg-white focus:ring-2 focus:ring-[#3483FA] pl-9 pr-8 h-10 text-sm`) with clear (`X`) button, filtering products in real time by title or MLB ID.
   * Right Actions:
     1. Favorites Counter Button (`Heart` icon + numeric badge) toggling a "Meus Favoritos" filter view.
@@ -95,7 +95,7 @@ D. MOBILE-FIRST 2-COLUMN PRODUCT GRID
      - Top-Left Badge (`if badgeText`): Pill badge (`bg-amber-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md shadow-2xs`).
      - Top-Right Floating Actions (`flex flex-col gap-1.5`):
        * Favorite Heart toggle (`w-7 h-7 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 flex items-center justify-center shadow-2xs`).
-       * WhatsApp Quick Share button (`Share2` icon, `w-7 h-7 rounded-full bg-white/90 border border-slate-200 flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600`): Clicking copies a ready-to-send formatted WhatsApp offer message (`"🔥 *ACHADINHO ZIZI VARIEDADES*\n\n🛍️ *{title}*\n~De: {originalPrice}~\n✅ *Por apenas: {currentPrice}* ({discountPercent}% OFF)\n💳 {installmentsText}\n\n👉 *Compre no Mercado Livre pelo link oficial:* {affiliateUrl}"`) to clipboard and fires a Sonner toast.
+       * WhatsApp Quick Share button (`Share2` icon, `w-7 h-7 rounded-full bg-white/90 border border-slate-200 flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600`): Clicking copies a ready-to-send formatted WhatsApp offer message (`"🔥 *ACHADINHO CLARICE ACHADINHOS*\n\n🛍️ *{title}*\n~De: {originalPrice}~\n✅ *Por apenas: {currentPrice}* ({discountPercent}% OFF)\n💳 {installmentsText}\n\n👉 *Compre no Mercado Livre pelo link oficial:* {affiliateUrl}"`) to clipboard and fires a Sonner toast.
   2. Card Body (`p-2.5 sm:p-3.5 flex flex-col flex-1 justify-between`):
      - Rating & MLB code row: Star icon (`fill-amber-400 text-amber-400 w-3 h-3`) + `{rating} ({reviewsCount})` in `text-[11px] text-slate-400`.
      - Title: `text-xs sm:text-sm text-slate-700 font-medium line-clamp-2 my-1`.
@@ -110,8 +110,8 @@ D. MOBILE-FIRST 2-COLUMN PRODUCT GRID
        * Action: Opens `affiliateUrl` in a new tab (`window.open(product.affiliateUrl, '_blank', 'noopener,noreferrer')`) and triggers a confirmation toast (`"Cupom e link ativados! Redirecionando para o Mercado Livre..."`).
 
 E. FLOATING WHATSAPP CONCIERGE & FOOTER
-- Floating bottom-right button (`fixed bottom-5 right-5 z-30 bg-[#16A34A] hover:bg-[#15803D] text-white rounded-full p-3.5 shadow-lg flex items-center gap-2`): Opens a clean helper modal where customers can type what product they are looking for ("Procurando algo específico? Peça o link com desconto para a Zizi no WhatsApp!").
-- Footer: Trust disclaimer explaining Zizi Variedades is an official affiliate curator, plus a discreet button `"🔒 Painel Zizi (Admin)"` that opens the Dark Mode Admin Sheet.
+- Floating bottom-right button (`fixed bottom-5 right-5 z-30 bg-[#16A34A] hover:bg-[#15803D] text-white rounded-full p-3.5 shadow-lg flex items-center gap-2`): Opens a clean helper modal where customers can type what product they are looking for ("Procurando algo específico? Peça o link com desconto para a Clarice no WhatsApp!").
+- Footer: Trust disclaimer explaining Clarice Achadinhos is an official affiliate curator, plus a discreet button `"🔒 Painel Clarice (Admin)"` that opens the Dark Mode Admin Sheet.
 
 F. ADMIN SHEET: "INPUT MÁGICO & PROCESSADOR EM LOTE" (Dark Mode `Sheet` or `Dialog`)
 - Styled strictly in FCIA Dark Mode (`bg-zinc-950 text-zinc-100 border-white/10`).
