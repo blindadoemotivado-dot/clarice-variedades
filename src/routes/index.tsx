@@ -393,30 +393,33 @@ function Storefront() {
         <div className="flex items-center justify-center gap-1.5 bg-promo px-3 py-1.5 text-center text-[11px] font-semibold text-promo-foreground sm:text-xs">
           ⚡ {store.nomeLoja} • {store.subtitulo || 'Ofertas selecionadas no Mercado Livre e Shopee com redirecionamento 100% seguro'}
         </div>
-        <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
-            <a href={store.slug === 'clarice' ? '/' : `/?loja=${store.slug}`} className="flex items-center gap-2.5">
+        <div className="border-b border-border bg-card px-4 py-2.5 shadow-2xs">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-2.5 md:flex-nowrap">
+            <a
+              href={store.slug === 'clarice' ? '/' : `/?loja=${store.slug}`}
+              className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial"
+            >
               {store.logoUrl ? (
                 <img
                   src={store.logoUrl}
                   alt={store.nomeLoja}
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A]"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A] shrink-0"
                   style={{ borderColor: store.corDestaque || '#FFE600' }}
                 />
               ) : store.slug === 'clarice' ? (
                 <img
                   src="/icons/icon-192x192.png"
                   alt={store.nomeLoja}
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A]"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A] shrink-0"
                   style={{ borderColor: store.corDestaque || '#FFE600' }}
                 />
               ) : (
                 <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black text-xs text-slate-950 shadow-sm ring-2"
+                  className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full font-black text-xs text-slate-950 shadow-sm ring-2"
                   style={{
                     backgroundColor: store.corDestaque || '#FFE600',
                     borderColor: store.corPrimaria || '#0F172A',
@@ -426,27 +429,27 @@ function Storefront() {
                   {getStoreInitials(store.nomeLoja)}
                 </div>
               )}
-              <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">
+              <span className="text-base font-extrabold tracking-tight text-foreground truncate min-w-0 sm:text-xl">
                 {store.nomeLoja}
               </span>
-              <BadgeCheck className="h-5 w-5 text-ml" aria-label="Loja verificada" />
+              <BadgeCheck className="h-4 w-4 shrink-0 text-ml sm:h-5 sm:w-5" aria-label="Loja verificada" />
             </a>
-            <div className="ml-auto flex items-center gap-2 md:order-3">
+            <div className="flex items-center gap-2 shrink-0 md:order-3 md:ml-auto">
               <button
                 type="button"
                 onClick={() => setFavoritesOnly((value) => !value)}
                 aria-pressed={favoritesOnly}
                 aria-label="Meus Favoritos"
                 className={cn(
-                  'relative flex h-10 w-10 items-center justify-center rounded-full border border-border transition-colors',
+                  'relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border transition-colors shrink-0',
                   favoritesOnly
                     ? 'bg-destructive/10 text-destructive'
                     : 'bg-card text-muted-foreground hover:bg-muted'
                 )}
               >
-                <Heart className={cn('h-5 w-5', favoritesOnly && 'fill-current')} />
+                <Heart className={cn('h-4 w-4 sm:h-5 sm:w-5', favoritesOnly && 'fill-current')} />
                 {c.favorites.length > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-on-brand">
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[9px] sm:text-[10px] font-bold text-on-brand">
                     {c.favorites.length}
                   </span>
                 )}
@@ -454,9 +457,9 @@ function Storefront() {
               <button
                 type="button"
                 onClick={() => openVipGroup()}
-                className="flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover"
+                className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover shrink-0"
               >
-                <MessageCircle className="h-4 w-4" /> <span className="hidden sm:inline">Grupo VIP</span> WhatsApp
+                <MessageCircle className="h-4 w-4" /> <span className="hidden lg:inline">Grupo VIP</span> WhatsApp
               </button>
             </div>
             <form onSubmit={runAiSearch} className="relative w-full md:order-2 md:mx-4 md:flex-1">
