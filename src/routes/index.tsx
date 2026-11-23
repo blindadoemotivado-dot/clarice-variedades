@@ -749,32 +749,33 @@ function Storefront() {
         </section>
       </main>
 
-      <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-28 md:pb-12 text-center text-xs text-muted-foreground">
-        <div className="mx-auto mb-6 max-w-md rounded-2xl border border-border/80 bg-background/80 p-4 shadow-sm backdrop-blur-sm sm:p-5">
-          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 sm:text-left">
+      <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-24 md:pb-12 text-center text-xs text-muted-foreground">
+        {/* Identidade Compacta da Loja */}
+        <div className="mx-auto mb-5 max-w-md rounded-2xl border border-border/80 bg-background/80 p-3.5 shadow-sm backdrop-blur-sm sm:p-4">
+          <div className="flex items-center gap-3 text-left">
             {store.logoUrl ? (
               <img
                 src={store.logoUrl}
                 alt={store.nomeLoja}
-                width={80}
-                height={80}
-                className="h-20 w-20 shrink-0 rounded-2xl border border-border object-cover shadow-sm bg-card"
+                width={52}
+                height={52}
+                className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-xl border border-border object-cover shadow-sm bg-card"
               />
             ) : store.slug === 'clarice' ? (
               <picture className="shrink-0">
                 <source srcSet="/brand/selo-clarice-footer.webp" type="image/webp" />
                 <img
                   src="/brand/selo-clarice-footer.png"
-                  alt="Selo Oficial Clarice Achadinhos com Plaquinha de Desconto"
-                  width={80}
-                  height={80}
+                  alt="Selo Oficial Clarice Achadinhos"
+                  width={52}
+                  height={52}
                   loading="lazy"
-                  className="h-20 w-20 rounded-2xl border border-border object-cover shadow-sm"
+                  className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border border-border object-cover shadow-sm"
                 />
               </picture>
             ) : (
               <div
-                className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl font-black text-2xl text-slate-950 shadow-sm border border-border"
+                className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-xl font-black text-lg text-slate-950 shadow-sm border border-border"
                 style={{
                   backgroundColor: store.corDestaque || '#FFE600',
                 }}
@@ -782,36 +783,29 @@ function Storefront() {
                 {getStoreInitials(store.nomeLoja)}
               </div>
             )}
-            <div className="flex-1 space-y-1">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-ml/10 px-2.5 py-0.5 text-[11px] font-bold text-ml">
-                <BadgeCheck className="h-3.5 w-3.5 text-ml" />
-                <span>Curadoria Oficial Verificada</span>
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div className="inline-flex items-center gap-1 rounded-full bg-ml/10 px-2 py-0.5 text-[10px] font-bold text-ml">
+                <BadgeCheck className="h-3 w-3 text-ml" />
+                <span>Curadoria Oficial</span>
               </div>
-              <h3 className="text-sm font-bold text-foreground">{store.nomeLoja}</h3>
-              <p className="text-[12px] leading-relaxed text-muted-foreground">
-                {store.subtitulo || 'Garimpamos diariamente os melhores descontos do Mercado Livre e Shopee com frete grátis e compra 100% segura.'}
+              <h3 className="text-sm font-bold text-foreground truncate">{store.nomeLoja}</h3>
+              <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
+                {store.subtitulo || 'Ofertas verificadas no Mercado Livre e Shopee com redirecionamento seguro.'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Botão Oficial Grupo VIP WhatsApp */}
-        <div className="mx-auto mb-4 max-w-md px-2">
+        {/* Grade de Botões Diretos Lado a Lado */}
+        <div className="mx-auto mb-5 max-w-md grid grid-cols-1 sm:grid-cols-2 gap-2.5 px-2">
           <button
             type="button"
             onClick={() => (store.whatsappVipUrl ? window.open(store.whatsappVipUrl, '_blank') : openVipGroup())}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-black text-sm px-5 py-3.5 shadow-lg shadow-emerald-500/20 transition transform active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-bold text-xs py-2.5 px-3 shadow-sm transition active:scale-[0.98]"
           >
-            <MessageCircle className="h-4 w-4 text-slate-950" />
-            <span>Entrar no Grupo VIP Oficial no WhatsApp</span>
+            <MessageCircle className="h-4 w-4 text-slate-950 shrink-0" />
+            <span>Grupo VIP WhatsApp</span>
           </button>
-          <p className="mt-2 text-[11px] text-muted-foreground/80">
-            Receba ofertas selecionadas e descontos exclusivos diretamente no seu WhatsApp
-          </p>
-        </div>
-
-        {/* Botão Amarelo de Afiliado Geral Mercado Livre */}
-        <div className="mx-auto mb-6 max-w-md px-2">
           <a
             href={
               settings.generalAffiliateUrl ||
@@ -819,29 +813,27 @@ function Storefront() {
             }
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-sm px-5 py-3.5 shadow-lg shadow-amber-400/20 transition transform active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold text-xs py-2.5 px-3 shadow-sm transition active:scale-[0.98]"
           >
-            <span>Vai comprar outro produto? Abrir Mercado Livre</span>
-            <ExternalLink className="h-4 w-4 shrink-0 text-slate-950" />
+            <span>Abrir Mercado Livre</span>
+            <ExternalLink className="h-3.5 w-3.5 text-slate-950 shrink-0" />
           </a>
-          <p className="mt-2 text-[11px] text-muted-foreground/80">
-            🔒 Redirecionado com segurança para o ambiente oficial do Mercado Livre
-          </p>
         </div>
 
-        <p className="mx-auto max-w-2xl">
-          A {store.nomeLoja} é uma curadora afiliada oficial do Mercado Livre e Shopee. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem nas plataformas parceiras. Podemos receber comissão pelas indicações, sem custo extra para você.
+        {/* Aviso Legal Enxuto */}
+        <p className="mx-auto max-w-lg text-[11px] leading-relaxed text-muted-foreground/80">
+          Curadoria afiliada oficial. Compras, pagamentos e entregas ocorrem diretamente no Mercado Livre ou Shopee.
         </p>
 
         {/* Assinatura Institucional FCIA */}
-        <div className="mt-5 pt-3 border-t border-border/40 flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground/80">
-          <span>Tecnologia por <strong className="font-bold text-foreground">FCIA</strong></span>
+        <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/80">
+          <span>Tecnologia <strong className="font-bold text-foreground">FCIA</strong></span>
           <span>•</span>
           <a
             href="/criar-loja"
             className="font-semibold text-ml hover:underline inline-flex items-center gap-1 transition"
           >
-            <span>Crie sua própria vitrine de achadinhos</span>
+            <span>Crie sua vitrine</span>
             <ExternalLink className="h-3 w-3" />
           </a>
         </div>
