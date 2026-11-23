@@ -2,30 +2,69 @@ import { useEffect, useState } from 'react';
 import { DEFAULT_CLARICE_STORE, type LojaAfiliado } from '@/types/tenant';
 import { fetchStoreBySlug, fetchStoreByDomain } from '@/services/tenantService';
 
-export function useTenant() {
+export function useTenant(preferredSlug?: string) {
   const [store, setStore] = useState<LojaAfiliado>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const paramSlug = params.get('loja')?.trim().toLowerCase();
-      if (paramSlug && paramSlug !== 'clarice') {
-        return {
-          ...DEFAULT_CLARICE_STORE,
-          id: `tenant-${paramSlug}`,
-          slug: paramSlug,
-          nomeLoja: paramSlug === 'loja-demo' ? 'Achadinhos Demo FCIA' : paramSlug,
-          logoUrl: undefined,
-          heroMascoteUrl: undefined,
-        };
-      }
+    const slug =
+      preferredSlug ||
+      (typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('loja')?.trim().toLowerCase()
+        : undefined);
+
+    if (slug && slug !== 'clarice') {
+      return {
+        ...DEFAULT_CLARICE_STORE,
+        id: `tenant-${slug}`,
+        slug: slug,
+        nomeLoja: slug === 'loja-demo' ? 'Achadinhos Demo FCIA' : '',
+        subtitulo: '',
+        corPrimaria: '#0F172A',
+        corDestaque: slug === 'loja-demo' ? '#10B981' : '#FFE600',
+        logoUrl: undefined,
+        heroMascoteUrl: undefined,
+        whatsappVipUrl: '',
+        instagramUrl: '',
+        plano: 'pro',
+        statusAssinatura: 'ativo',
+      };
     }
     return DEFAULT_CLARICE_STORE;
   });
-  const [loading, setLoading] = useState(true);
+
+  const [loading, setLoading] = useState<boolean>(() => {
+    const slug =
+      preferredSlug ||
+      (typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('loja')?.trim().toLowerCase()
+        : undefined);
+    return Boolean(slug && slug !== 'clarice');
+  });
 
   useEffect(() => {
     let active = true;
 
     async function resolveTenant() {
+      // 1. Tentar resolver por parâmetro explícito ou ?loja=<slug>
+      const targetSlug =
+        preferredSlug ||
+        (typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('loja')?.trim().toLowerCase()
+          : undefined);
+
+      if (targetSlug && targetSlug !== 'clarice') {
+        try {
+          return await fetchStoreBySlug(targetSlug);
+        } catch {
+          return {
+            ...DEFAULT_CLARICE_STORE,
+            id: `tenant-${targetSlug}`,
+            slug: targetSlug,
+            nomeLoja: targetSlug === 'loja-demo' ? 'Achadinhos Demo FCIA' : targetSlug,
+            logoUrl: undefined,
+            heroMascoteUrl: undefined,
+          };
+        }
+      }
+
       if (typeof window === 'undefined') {
         return DEFAULT_CLARICE_STORE;
       }
@@ -37,24 +76,13 @@ export function useTenant() {
         hostname.endsWith('.vercel.app') ||
         hostname.includes('lovableproject.com');
 
-      // 1. Tentar resolver por domínio customizado primeiro (se não for domínio interno)
+      // 2. Tentar resolver por domínio customizado primeiro (se não for domínio interno)
       if (!isInternalDomain) {
         try {
           const storeByDomain = await fetchStoreByDomain(hostname);
           if (storeByDomain) return storeByDomain;
         } catch {
           // segue para busca por slug
-        }
-      }
-
-      // 2. Tentar resolver por parâmetro ?loja=<slug>
-      const params = new URLSearchParams(window.location.search);
-      const paramSlug = params.get('loja')?.trim().toLowerCase();
-      if (paramSlug) {
-        try {
-          return await fetchStoreBySlug(paramSlug);
-        } catch {
-          return DEFAULT_CLARICE_STORE;
         }
       }
 
@@ -71,7 +99,6 @@ export function useTenant() {
       })
       .catch(() => {
         if (active) {
-          setStore(DEFAULT_CLARICE_STORE);
           setLoading(false);
         }
       });
@@ -79,7 +106,7 @@ export function useTenant() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [preferredSlug]);
 
   // Trava de Assinatura:
   // Se for a loja oficial 'clarice', nunca é bloqueada.

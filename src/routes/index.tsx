@@ -35,7 +35,24 @@ import { filterProducts, type CategoryFilter, type SortKey, type MarketplaceFilt
 import { CATEGORIES } from '@/types/product';
 import { cn } from '@/lib/utils';
 
+interface IndexSearchParams {
+  loja?: string;
+  produto?: string;
+}
+
 export const Route = createFileRoute('/')({
+  validateSearch: (search: Record<string, unknown>): IndexSearchParams => {
+    return {
+      loja:
+        typeof search.loja === 'string' && search.loja.trim()
+          ? search.loja.trim().toLowerCase()
+          : undefined,
+      produto:
+        typeof search.produto === 'string' && search.produto.trim()
+          ? search.produto.trim()
+          : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: 'Clarice Achadinhos — Curadoria de Ofertas no Mercado Livre' },
@@ -181,7 +198,9 @@ function AiSearchPanel({
 }
 
 function Storefront() {
-  const { store, isSuspended } = useTenant();
+  const search = Route.useSearch();
+  const searchSlug = search.loja?.toLowerCase();
+  const { store, isSuspended, loading: tenantLoading } = useTenant(searchSlug);
   const c = useCatalog(store.slug);
   const [settings] = useStoreSettings();
   const [query, setQuery] = useState('');
@@ -382,6 +401,46 @@ function Storefront() {
           onToggleFeatured={c.toggleFeatured}
           onReset={c.reset}
         />
+      </div>
+    );
+  }
+
+  // Renderiza Skeleton Neutro enquanto carrega loja parceira (zero flash fantasma da Clarice)
+  if (store.slug !== 'clarice' && tenantLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] text-white">
+        <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 px-4 py-3.5">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-slate-800 animate-pulse border border-slate-700/50" />
+              <div className="space-y-1.5">
+                <div className="h-4 w-36 rounded bg-slate-800 animate-pulse" />
+                <div className="h-2.5 w-48 rounded bg-slate-800/60 animate-pulse" />
+              </div>
+            </div>
+            <div className="h-9 w-9 rounded-full bg-slate-800 animate-pulse" />
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-7xl px-4 py-6">
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-10 mb-8 animate-pulse">
+            <div className="h-5 w-40 rounded-full bg-slate-800 mb-3" />
+            <div className="h-7 w-64 rounded bg-slate-800 mb-2" />
+            <div className="h-4 w-80 max-w-full rounded bg-slate-800/70 mb-6" />
+            <div className="h-11 w-44 rounded-2xl bg-slate-800" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/40 p-3 sm:p-4 animate-pulse">
+                <div className="aspect-square rounded-xl bg-slate-800/80 mb-3" />
+                <div className="h-4 w-3/4 rounded bg-slate-800 mb-2" />
+                <div className="h-3 w-1/2 rounded bg-slate-800/60 mb-4" />
+                <div className="mt-auto h-9 w-full rounded-xl bg-slate-800" />
+              </div>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }
