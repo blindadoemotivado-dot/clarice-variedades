@@ -35,8 +35,8 @@ async function run() {
     vencimento_em: vencimentoEm,
     cor_primaria: '#0F172A',
     cor_destaque: '#FFE600',
-    logo_url: '/icons/icon-192x192.png',
-    hero_mascote_url: '/brand/clarice-hero.png',
+    logo_url: null,
+    hero_mascote_url: null,
   };
 
   const { data: storeData, error: storeError } = await supabase

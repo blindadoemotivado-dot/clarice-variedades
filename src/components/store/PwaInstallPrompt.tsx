@@ -70,9 +70,13 @@ export function PwaInstallPrompt() {
   };
 
   const pathname = location?.pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
+  const search = location?.search || (typeof window !== 'undefined' ? window.location.search : '');
+  const searchParams = new URLSearchParams(search);
+  const lojaParam = searchParams.get('loja')?.trim().toLowerCase();
+  const isSaaSVitrine = Boolean(lojaParam && lojaParam !== 'clarice');
   const isHiddenRoute = pathname.startsWith('/criar-loja') || pathname.startsWith('/admin');
 
-  if (isStandalone || dismissed || isHiddenRoute) return null;
+  if (isStandalone || dismissed || isHiddenRoute || isSaaSVitrine) return null;
 
   // Banner para Android / Desktop (Chrome / Edge)
   if (deferredPrompt) {

@@ -70,6 +70,13 @@ const FILTERS: { value: CategoryFilter; label: string }[] = [
 
 const ITEMS_PER_PAGE = 16;
 
+function getStoreInitials(name: string): string {
+  if (!name) return 'LO';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
 type AiResult = Awaited<ReturnType<typeof askClariceAi>>;
 
 function ProductSkeleton() {
@@ -363,14 +370,36 @@ function Storefront() {
         <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
             <a href={store.slug === 'clarice' ? '/' : `/?loja=${store.slug}`} className="flex items-center gap-2.5">
-              <img
-                src={store.logoUrl || '/icons/icon-192x192.png'}
-                alt={store.nomeLoja}
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A]"
-                style={{ borderColor: store.corDestaque || '#FFE600' }}
-              />
+              {store.logoUrl ? (
+                <img
+                  src={store.logoUrl}
+                  alt={store.nomeLoja}
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A]"
+                  style={{ borderColor: store.corDestaque || '#FFE600' }}
+                />
+              ) : store.slug === 'clarice' ? (
+                <img
+                  src="/icons/icon-192x192.png"
+                  alt={store.nomeLoja}
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A]"
+                  style={{ borderColor: store.corDestaque || '#FFE600' }}
+                />
+              ) : (
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black text-xs text-slate-950 shadow-sm ring-2"
+                  style={{
+                    backgroundColor: store.corDestaque || '#FFE600',
+                    borderColor: store.corPrimaria || '#0F172A',
+                  }}
+                  aria-label={store.nomeLoja}
+                >
+                  {getStoreInitials(store.nomeLoja)}
+                </div>
+              )}
               <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">
                 {store.nomeLoja}
               </span>
@@ -467,6 +496,8 @@ function Storefront() {
           mascoteUrl={store.heroMascoteUrl}
           vipUrl={store.whatsappVipUrl}
           accentColor={store.corDestaque}
+          storeSlug={store.slug}
+          subtitle={store.subtitulo}
         />
 
         <AiSearchPanel result={aiResult} loading={aiLoading} onClear={clearAiSearch} />
@@ -691,17 +722,36 @@ function Storefront() {
       <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-28 md:pb-12 text-center text-xs text-muted-foreground">
         <div className="mx-auto mb-6 max-w-md rounded-2xl border border-border/80 bg-background/80 p-4 shadow-sm backdrop-blur-sm sm:p-5">
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 sm:text-left">
-            <picture className="shrink-0">
-              <source srcSet="/brand/selo-clarice-footer.webp" type="image/webp" />
+            {store.logoUrl ? (
               <img
-                src="/brand/selo-clarice-footer.png"
-                alt="Selo Oficial Clarice Achadinhos com Plaquinha de Desconto"
+                src={store.logoUrl}
+                alt={store.nomeLoja}
                 width={80}
                 height={80}
-                loading="lazy"
-                className="h-20 w-20 rounded-2xl border border-border object-cover shadow-sm"
+                className="h-20 w-20 shrink-0 rounded-2xl border border-border object-cover shadow-sm bg-card"
               />
-            </picture>
+            ) : store.slug === 'clarice' ? (
+              <picture className="shrink-0">
+                <source srcSet="/brand/selo-clarice-footer.webp" type="image/webp" />
+                <img
+                  src="/brand/selo-clarice-footer.png"
+                  alt="Selo Oficial Clarice Achadinhos com Plaquinha de Desconto"
+                  width={80}
+                  height={80}
+                  loading="lazy"
+                  className="h-20 w-20 rounded-2xl border border-border object-cover shadow-sm"
+                />
+              </picture>
+            ) : (
+              <div
+                className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl font-black text-2xl text-slate-950 shadow-sm border border-border"
+                style={{
+                  backgroundColor: store.corDestaque || '#FFE600',
+                }}
+              >
+                {getStoreInitials(store.nomeLoja)}
+              </div>
+            )}
             <div className="flex-1 space-y-1">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-ml/10 px-2.5 py-0.5 text-[11px] font-bold text-ml">
                 <BadgeCheck className="h-3.5 w-3.5 text-ml" />
@@ -750,14 +800,14 @@ function Storefront() {
         </div>
 
         <p className="mx-auto max-w-2xl">
-          A Clarice Achadinhos é uma curadora afiliada oficial do Mercado Livre. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem no Mercado Livre. Podemos receber comissão pelas indicações, sem custo extra para você.
+          A {store.nomeLoja} é uma curadora afiliada oficial do Mercado Livre e Shopee. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem nas plataformas parceiras. Podemos receber comissão pelas indicações, sem custo extra para você.
         </p>
         <button
           type="button"
           onClick={handleOpenAdmin}
           className="mt-4 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"
         >
-          <Lock className="h-3 w-3" /> Painel Clarice (Admin)
+          <Lock className="h-3 w-3" /> Painel da Loja (Admin)
         </button>
       </footer>
 

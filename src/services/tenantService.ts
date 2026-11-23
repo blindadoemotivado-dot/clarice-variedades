@@ -31,6 +31,7 @@ function saveLocalStores(stores: LojaAfiliado[]) {
 }
 
 export function mapRowToStore(row: any): LojaAfiliado {
+  const isClarice = (row.slug || '').toLowerCase() === 'clarice';
   return {
     id: row.id,
     slug: row.slug || 'clarice',
@@ -38,8 +39,8 @@ export function mapRowToStore(row: any): LojaAfiliado {
     subtitulo: row.subtitulo || '',
     corPrimaria: row.cor_primaria || '#0F172A',
     corDestaque: row.cor_destaque || '#FFE600',
-    logoUrl: row.logo_url || '/icons/icon-192x192.png',
-    heroMascoteUrl: row.hero_mascote_url || '/brand/clarice-hero.png',
+    logoUrl: row.logo_url || (isClarice ? '/icons/icon-192x192.png' : undefined),
+    heroMascoteUrl: row.hero_mascote_url || (isClarice ? '/brand/clarice-hero.png' : undefined),
     whatsappVipUrl: row.whatsapp_vip_url || '',
     instagramUrl: row.instagram_url || '',
     plano: (row.plano as SubscriptionPlan) || 'start',
@@ -202,8 +203,8 @@ export async function createStore(input: {
     subtitulo: input.subtitulo?.trim() || '',
     corPrimaria: input.corPrimaria || '#0F172A',
     corDestaque: input.corDestaque || '#FFE600',
-    logoUrl: input.logoUrl?.trim() || '/icons/icon-192x192.png',
-    heroMascoteUrl: input.heroMascoteUrl?.trim() || '/brand/clarice-hero.png',
+    logoUrl: input.logoUrl?.trim() || (input.slug.trim().toLowerCase() === 'clarice' ? '/icons/icon-192x192.png' : undefined),
+    heroMascoteUrl: input.heroMascoteUrl?.trim() || (input.slug.trim().toLowerCase() === 'clarice' ? '/brand/clarice-hero.png' : undefined),
     whatsappVipUrl: input.whatsappVipUrl?.trim() || '',
     instagramUrl: input.instagramUrl?.trim() || '',
     plano: input.plano,
@@ -239,8 +240,8 @@ export async function createStore(input: {
           subtitulo: newStore.subtitulo,
           cor_primaria: newStore.corPrimaria,
           cor_destaque: newStore.corDestaque,
-          logo_url: newStore.logoUrl,
-          hero_mascote_url: newStore.heroMascoteUrl,
+          logo_url: newStore.logoUrl || null,
+          hero_mascote_url: newStore.heroMascoteUrl || null,
           whatsapp_vip_url: newStore.whatsappVipUrl,
           instagram_url: newStore.instagramUrl,
           plano: newStore.plano,
@@ -272,8 +273,8 @@ export async function createStore(input: {
             subtitulo: newStore.subtitulo,
             cor_primaria: newStore.corPrimaria,
             cor_destaque: newStore.corDestaque,
-            logo_url: newStore.logoUrl,
-            hero_mascote_url: newStore.heroMascoteUrl,
+            logo_url: newStore.logoUrl || null,
+            hero_mascote_url: newStore.heroMascoteUrl || null,
             whatsapp_vip_url: newStore.whatsappVipUrl,
             instagram_url: newStore.instagramUrl,
             plano: newStore.plano,
