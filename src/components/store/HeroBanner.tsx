@@ -3,20 +3,38 @@ import { useStoreSettings } from '@/lib/store-settings';
 
 interface HeroBannerProps {
   onVip?: () => void;
+  storeName?: string;
+  mascoteUrl?: string;
+  vipUrl?: string;
+  accentColor?: string;
 }
 
-export function HeroBanner({ onVip }: HeroBannerProps) {
+export function HeroBanner({ onVip, storeName = 'Clarice Achadinhos', mascoteUrl, vipUrl, accentColor }: HeroBannerProps) {
   const [settings] = useStoreSettings();
   const generalUrl =
     settings.generalAffiliateUrl ||
     `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`;
+
+  const resolvedMascote = mascoteUrl || '/brand/clarice-hero.png';
+  const effectiveAccent = accentColor || '#FFE600';
+
+  const handleVipClick = () => {
+    if (onVip) {
+      onVip();
+      return;
+    }
+    if (vipUrl) {
+      window.open(vipUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <section className="relative mb-6 overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-[#0B1329] via-[#0F172A] to-[#1E293B] px-4 pt-5 pb-0 text-white shadow-xl sm:px-7 sm:pt-7 md:min-h-[380px] lg:min-h-[420px] flex flex-col justify-end">
       {/* Luzes decorativas sutis no fundo */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-12 -top-12 h-72 w-72 rounded-full bg-[#FFE600]/15 blur-3xl"
+        className="pointer-events-none absolute -right-12 -top-12 h-72 w-72 rounded-full opacity-20 blur-3xl"
+        style={{ backgroundColor: effectiveAccent }}
       />
       <div
         aria-hidden="true"
@@ -26,17 +44,24 @@ export function HeroBanner({ onVip }: HeroBannerProps) {
       <div className="relative flex flex-col-reverse items-center justify-between gap-5 md:flex-row md:items-end w-full">
         {/* Texto & Chamadas para Ação */}
         <div className="flex-1 text-center md:text-left py-2 pb-6 md:pb-8">
-          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#FFE600]/30 bg-[#FFE600]/10 px-3 py-1 text-[11px] font-bold text-[#FFE600] backdrop-blur-md">
+          <div
+            className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold backdrop-blur-md"
+            style={{
+              borderColor: `${effectiveAccent}4D`,
+              backgroundColor: `${effectiveAccent}1A`,
+              color: effectiveAccent,
+            }}
+          >
             <Sparkles className="h-3.5 w-3.5" />
-            <span>Curadoria Oficial • Mercado Livre</span>
+            <span>Curadoria Oficial • Mercado Livre & Shopee</span>
           </div>
 
           <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl max-w-xl">
-            Achadinhos reais do Mercado Livre escolhidos todo dia pela Clarice
+            Achadinhos reais com desconto escolhidos todo dia pela {storeName}
           </h1>
 
           <p className="mt-2.5 max-w-xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-            Garimpamos descontos de até <strong>70% OFF</strong> com preços verificados, frete grátis e compra 100% garantida no app oficial do Mercado Livre.
+            Garimpamos descontos de até <strong>70% OFF</strong> com preços verificados, frete grátis e compra 100% garantida nos apps oficiais do Mercado Livre e Shopee.
           </p>
 
           {/* Selos de Confiança */}
@@ -56,7 +81,7 @@ export function HeroBanner({ onVip }: HeroBannerProps) {
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 md:justify-start">
             <button
               type="button"
-              onClick={onVip}
+              onClick={handleVipClick}
               className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] text-slate-950 font-black text-xs sm:text-sm px-4 py-3 shadow-lg shadow-emerald-500/20 transition transform active:scale-95"
             >
               <MessageCircle className="h-4 w-4 fill-current" />
@@ -69,29 +94,39 @@ export function HeroBanner({ onVip }: HeroBannerProps) {
                 e.preventDefault();
                 document.getElementById('achadinho-do-dia')?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-[#FFE600] hover:bg-yellow-400 text-slate-950 font-black text-xs sm:text-sm px-4 py-3 shadow-lg shadow-yellow-500/20 transition transform active:scale-95"
+              style={{
+                backgroundColor: effectiveAccent,
+                color: '#0F172A',
+              }}
+              className="flex items-center justify-center gap-2 rounded-2xl font-black text-xs sm:text-sm px-4 py-3 shadow-lg transition transform active:scale-95 hover:brightness-95"
             >
               <span>⭐ Ver Achadinho do Dia</span>
             </a>
           </div>
         </div>
 
-        {/* Mascote Clarice: 85% a 95% da altura no desktop, alinhada à base */}
+        {/* Mascote / Imagem de Destaque da Loja */}
         <div className="relative shrink-0 flex items-end justify-center md:justify-end self-center md:self-end">
           <div className="relative flex items-end justify-center">
-            <div className="absolute -inset-3 rounded-full bg-gradient-to-tr from-[#FFE600]/30 to-[#3483FA]/20 blur-2xl -z-10" />
+            <div
+              className="absolute -inset-3 rounded-full blur-2xl -z-10 opacity-30"
+              style={{ background: `radial-gradient(circle, ${effectiveAccent} 0%, #3483FA 100%)` }}
+            />
             <img
-              src="/brand/clarice-hero.png"
+              src={resolvedMascote}
               onError={(e) => {
                 e.currentTarget.onerror = null;
-                e.currentTarget.src = '/brand/logo-square.jpg';
+                e.currentTarget.src = '/brand/clarice-hero.png';
               }}
-              alt="Mascote Clarice - Curadora de Achadinhos"
+              alt={`${storeName} - Curadoria Oficial`}
               width={340}
               height={380}
               className="h-48 sm:h-64 md:h-[340px] lg:h-[385px] w-auto object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
             />
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#FFE600] px-3 py-0.5 text-[10px] sm:text-[11px] font-black uppercase text-slate-950 shadow-lg ring-2 ring-slate-900/60">
+            <div
+              className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-black uppercase text-slate-950 shadow-lg ring-2 ring-slate-900/60"
+              style={{ backgroundColor: effectiveAccent }}
+            >
               Sua Curadora Oficial
             </div>
           </div>

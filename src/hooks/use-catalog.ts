@@ -76,7 +76,7 @@ function mapRowToProduct(row: SupabaseProductRow): AffiliateProduct {
   };
 }
 
-export function useCatalog() {
+export function useCatalog(lojaSlug?: string) {
   const [products, setProducts] = useState<AffiliateProduct[]>([]);
   const [pendingProducts, setPendingProducts] = useState<AffiliateProduct[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -87,18 +87,30 @@ export function useCatalog() {
     if (!isSupabaseConfigured) return;
     setIsSyncing(true);
     try {
+      let activeQuery = supabase
+        .from('produtos_clarice')
+        .select('*')
+        .eq('active', true);
+
+      if (lojaSlug && lojaSlug !== 'todos') {
+        if (lojaSlug === 'clarice') {
+          activeQuery = activeQuery.or('loja_slug.eq.clarice,loja_slug.is.null');
+        } else {
+          activeQuery = activeQuery.eq('loja_slug', lojaSlug);
+        }
+      }
+
       const [activeRes, pendingRes] = await Promise.all([
-        supabase
-          .from('produtos_clarice')
-          .select('*')
-          .eq('active', true)
+        activeQuery
           .order('featured', { ascending: false })
           .order('created_at', { ascending: false }),
-        supabase
-          .from('produtos_clarice')
-          .select('*')
-          .eq('status', 'pendente_afiliado')
-          .order('created_at', { ascending: false }),
+        lojaSlug && lojaSlug !== 'clarice' && lojaSlug !== 'todos'
+          ? Promise.resolve({ data: [] as SupabaseProductRow[], error: null })
+          : supabase
+              .from('produtos_clarice')
+              .select('*')
+              .eq('status', 'pendente_afiliado')
+              .order('created_at', { ascending: false }),
       ]);
 
       if (!activeRes.error && activeRes.data) {
@@ -117,7 +129,7 @@ export function useCatalog() {
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [lojaSlug]);
 
   useEffect(() => {
     // 1. Carrega inicial do cache local sem fallback fictício

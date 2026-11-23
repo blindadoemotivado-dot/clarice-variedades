@@ -173,8 +173,8 @@ function AiSearchPanel({
 }
 
 function Storefront() {
-  const c = useCatalog();
   const { store, isSuspended } = useTenant();
+  const c = useCatalog(store.slug);
   const [settings] = useStoreSettings();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('Todos');
@@ -353,20 +353,21 @@ function Storefront() {
       {/* Header Sticky com Safe Area para Notch do iPhone */}
       <header className="sticky top-0 z-40 bg-promo pt-[env(safe-area-inset-top,0px)]">
         <div className="flex items-center justify-center gap-1.5 bg-promo px-3 py-1.5 text-center text-[11px] font-semibold text-promo-foreground sm:text-xs">
-          ⚡ Clarice Achadinhos • Ofertas selecionadas no Mercado Livre e Shopee com redirecionamento 100% seguro
+          ⚡ {store.nomeLoja} • {store.subtitulo || 'Ofertas selecionadas no Mercado Livre e Shopee com redirecionamento 100% seguro'}
         </div>
         <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
-            <a href="/" className="flex items-center gap-2.5">
+            <a href={store.slug === 'clarice' ? '/' : `/?loja=${store.slug}`} className="flex items-center gap-2.5">
               <img
-                src="/icons/icon-192x192.png"
-                alt="Clarice Achadinhos"
+                src={store.logoUrl || '/icons/icon-192x192.png'}
+                alt={store.nomeLoja}
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-full object-cover ring-2 ring-[#FFE600] shadow-sm bg-[#0F172A]"
+                className="h-10 w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A]"
+                style={{ borderColor: store.corDestaque || '#FFE600' }}
               />
               <span className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">
-                Clarice Achadinhos
+                {store.nomeLoja}
               </span>
               <BadgeCheck className="h-5 w-5 text-ml" aria-label="Loja verificada" />
             </a>
@@ -454,8 +455,14 @@ function Storefront() {
       )}
 
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
-        {/* 1. Hero Banner Alinhado ao Brand Book com a Mascote Clarice */}
-        <HeroBanner onVip={() => openVipGroup()} />
+        {/* 1. Hero Banner Alinhado ao Brand Book com Personalização do Tenant */}
+        <HeroBanner
+          onVip={() => (store.whatsappVipUrl ? window.open(store.whatsappVipUrl, '_blank') : openVipGroup())}
+          storeName={store.nomeLoja}
+          mascoteUrl={store.heroMascoteUrl}
+          vipUrl={store.whatsappVipUrl}
+          accentColor={store.corDestaque}
+        />
 
         <AiSearchPanel result={aiResult} loading={aiLoading} onClear={clearAiSearch} />
 
@@ -695,9 +702,9 @@ function Storefront() {
                 <BadgeCheck className="h-3.5 w-3.5 text-ml" />
                 <span>Curadoria Oficial Verificada</span>
               </div>
-              <h3 className="text-sm font-bold text-foreground">Clarice Achadinhos</h3>
+              <h3 className="text-sm font-bold text-foreground">{store.nomeLoja}</h3>
               <p className="text-[12px] leading-relaxed text-muted-foreground">
-                Garimpamos diariamente os melhores descontos do Mercado Livre com frete grátis e compra 100% segura.
+                {store.subtitulo || 'Garimpamos diariamente os melhores descontos do Mercado Livre e Shopee com frete grátis e compra 100% segura.'}
               </p>
             </div>
           </div>
@@ -707,7 +714,7 @@ function Storefront() {
         <div className="mx-auto mb-4 max-w-md px-2">
           <button
             type="button"
-            onClick={() => openVipGroup()}
+            onClick={() => (store.whatsappVipUrl ? window.open(store.whatsappVipUrl, '_blank') : openVipGroup())}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-black text-sm px-5 py-3.5 shadow-lg shadow-emerald-500/20 transition transform active:scale-[0.98]"
           >
             <MessageCircle className="h-4 w-4 text-slate-950" />

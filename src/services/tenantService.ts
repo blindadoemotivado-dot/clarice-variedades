@@ -30,7 +30,7 @@ function saveLocalStores(stores: LojaAfiliado[]) {
   }
 }
 
-function mapRowToStore(row: any): LojaAfiliado {
+export function mapRowToStore(row: any): LojaAfiliado {
   return {
     id: row.id,
     slug: row.slug || 'clarice',
@@ -47,6 +47,12 @@ function mapRowToStore(row: any): LojaAfiliado {
     vencimentoEm: row.vencimento_em || undefined,
     shopeeAppId: row.shopee_app_id || '',
     shopeeSecret: row.shopee_secret || '',
+    ownerEmail: row.owner_email || '',
+    ownerUserId: row.owner_user_id || '',
+    asaasCustomerId: row.asaas_customer_id || '',
+    asaasSubscriptionId: row.asaas_subscription_id || '',
+    asaasPaymentUrl: row.asaas_payment_url || '',
+    dominioCustomizado: row.dominio_customizado || '',
     createdAt: row.created_at || new Date().toISOString(),
   };
 }
@@ -68,7 +74,6 @@ export async function fetchStoreBySlug(slug: string = 'clarice'): Promise<LojaAf
 
     if (!error && data) {
       const store = mapRowToStore(data);
-      // Atualiza cache local
       const updated = localStores.map((s) => (s.slug === slug ? store : s));
       if (!localStores.some((s) => s.slug === slug)) {
         updated.push(store);
@@ -81,6 +86,66 @@ export async function fetchStoreBySlug(slug: string = 'clarice'): Promise<LojaAf
   }
 
   return matchedLocal || DEFAULT_CLARICE_STORE;
+}
+
+export async function fetchStoreByDomain(domain: string): Promise<LojaAfiliado | null> {
+  if (!domain) return null;
+  const cleanDomain = domain.toLowerCase().trim();
+
+  // 1. Checa local
+  const localStores = getLocalStores();
+  const matchedLocal = localStores.find((s) => s.dominioCustomizado?.toLowerCase().trim() === cleanDomain);
+  if (matchedLocal) return matchedLocal;
+
+  if (!isSupabaseConfigured) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('lojas_afiliados')
+      .select('*')
+      .eq('dominio_customizado', cleanDomain)
+      .maybeSingle();
+
+    if (!error && data) {
+      const store = mapRowToStore(data);
+      saveLocalStores([...localStores.filter((s) => s.slug !== store.slug), store]);
+      return store;
+    }
+  } catch (err) {
+    console.warn('[tenantService] Erro ao buscar por domínio customizado:', err);
+  }
+
+  return null;
+}
+
+export async function fetchStoreByOwnerEmail(email: string): Promise<LojaAfiliado | null> {
+  if (!email) return null;
+  const cleanEmail = email.toLowerCase().trim();
+
+  // 1. Checa local
+  const localStores = getLocalStores();
+  const matchedLocal = localStores.find((s) => s.ownerEmail?.toLowerCase().trim() === cleanEmail);
+  if (matchedLocal) return matchedLocal;
+
+  if (!isSupabaseConfigured) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('lojas_afiliados')
+      .select('*')
+      .ilike('owner_email', cleanEmail)
+      .maybeSingle();
+
+    if (!error && data) {
+      const store = mapRowToStore(data);
+      saveLocalStores([...localStores.filter((s) => s.slug !== store.slug), store]);
+      return store;
+    }
+  } catch (err) {
+    console.warn('[tenantService] Erro ao buscar loja por e-mail do lojista:', err);
+  }
+
+  return null;
 }
 
 export async function listAllStores(): Promise<LojaAfiliado[]> {
@@ -122,6 +187,8 @@ export async function createStore(input: {
   statusAssinatura?: SubscriptionStatus;
   shopeeAppId?: string;
   shopeeSecret?: string;
+  ownerEmail?: string;
+  dominioCustomizado?: string;
 }): Promise<LojaAfiliado> {
   const newStore: LojaAfiliado = {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `store-${Date.now()}`,
@@ -138,6 +205,8 @@ export async function createStore(input: {
     statusAssinatura: input.statusAssinatura || 'ativo',
     shopeeAppId: input.shopeeAppId?.trim() || '',
     shopeeSecret: input.shopeeSecret?.trim() || '',
+    ownerEmail: input.ownerEmail?.trim().toLowerCase() || '',
+    dominioCustomizado: input.dominioCustomizado?.trim().toLowerCase() || '',
     createdAt: new Date().toISOString(),
   };
 
@@ -171,6 +240,8 @@ export async function createStore(input: {
           status_assinatura: newStore.statusAssinatura,
           shopee_app_id: newStore.shopeeAppId,
           shopee_secret: newStore.shopeeSecret,
+          owner_email: newStore.ownerEmail,
+          dominio_customizado: newStore.dominioCustomizado || null,
         })
         .select()
         .single();
@@ -186,11 +257,54 @@ export async function createStore(input: {
   return newStore;
 }
 
+export async function updateStoreBranding(
+  slug: string,
+  updates: Partial<LojaAfiliado>
+): Promise<LojaAfiliado | null> {
+  const local = getLocalStores();
+  const targetIdx = local.findIndex((s) => s.slug === slug);
+  if (targetIdx >= 0) {
+    local[targetIdx] = { ...local[targetIdx]!, ...updates };
+    saveLocalStores(local);
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const dbPayload: any = {};
+      if (updates.nomeLoja !== undefined) dbPayload.nome_loja = updates.nomeLoja;
+      if (updates.subtitulo !== undefined) dbPayload.subtitulo = updates.subtitulo;
+      if (updates.corPrimaria !== undefined) dbPayload.cor_primaria = updates.corPrimaria;
+      if (updates.corDestaque !== undefined) dbPayload.cor_destaque = updates.corDestaque;
+      if (updates.logoUrl !== undefined) dbPayload.logo_url = updates.logoUrl;
+      if (updates.heroMascoteUrl !== undefined) dbPayload.hero_mascote_url = updates.heroMascoteUrl;
+      if (updates.whatsappVipUrl !== undefined) dbPayload.whatsapp_vip_url = updates.whatsappVipUrl;
+      if (updates.instagramUrl !== undefined) dbPayload.instagram_url = updates.instagramUrl;
+      if (updates.dominioCustomizado !== undefined) dbPayload.dominio_customizado = updates.dominioCustomizado || null;
+      if (updates.shopeeAppId !== undefined) dbPayload.shopee_app_id = updates.shopeeAppId;
+      if (updates.shopeeSecret !== undefined) dbPayload.shopee_secret = updates.shopeeSecret;
+
+      const { data, error } = await supabase
+        .from('lojas_afiliados')
+        .update(dbPayload)
+        .eq('slug', slug)
+        .select()
+        .single();
+
+      if (!error && data) {
+        return mapRowToStore(data);
+      }
+    } catch (err) {
+      console.warn('[tenantService] Falha ao atualizar branding no Supabase:', err);
+    }
+  }
+
+  return targetIdx >= 0 ? local[targetIdx]! : null;
+}
+
 export async function updateStoreSubscriptionStatus(
   id: string,
   newStatus: SubscriptionStatus
 ): Promise<boolean> {
-  // Atualiza cache local
   const local = getLocalStores();
   const target = local.find((s) => s.id === id || s.slug === id);
   if (target) {
@@ -217,4 +331,26 @@ export async function updateStoreSubscriptionStatus(
   }
 
   return true;
+}
+
+export async function createAsaasCheckout(payload: {
+  loja_slug: string;
+  nome: string;
+  email: string;
+  cpfCnpj?: string;
+  plano: SubscriptionPlan;
+}): Promise<{ success: boolean; paymentUrl?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/asaas/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }

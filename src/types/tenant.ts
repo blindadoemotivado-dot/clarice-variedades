@@ -19,6 +19,12 @@ export interface LojaAfiliado {
   vencimentoEm?: string;
   shopeeAppId?: string;
   shopeeSecret?: string;
+  ownerEmail?: string;
+  ownerUserId?: string;
+  asaasCustomerId?: string;
+  asaasSubscriptionId?: string;
+  asaasPaymentUrl?: string;
+  dominioCustomizado?: string;
   createdAt?: string;
 }
 
@@ -41,4 +47,5 @@ export const DEFAULT_CLARICE_STORE: LojaAfiliado = {
   instagramUrl: 'https://instagram.com/clariceachadinhos',
   plano: 'advanced',
   statusAssinatura: 'ativo',
+  ownerEmail: 'admin@clariceachadinhos.com.br',
 };
