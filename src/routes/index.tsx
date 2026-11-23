@@ -53,30 +53,38 @@ export const Route = createFileRoute('/')({
           : undefined,
     };
   },
-  head: () => ({
-    meta: [
-      { title: 'Clarice Achadinhos — Curadoria de Ofertas no Mercado Livre' },
-      {
-        name: 'description',
-        content:
-          'Curadoria diária de achadinhos verificados do Mercado Livre: eletrônicos, casa, cozinha, ferramentas e beleza com frete grátis e parcelamento sem juros.',
-      },
-      { property: 'og:title', content: 'Clarice Achadinhos — Achadinhos do Dia com Desconto Real' },
-      {
-        property: 'og:description',
-        content:
-          'Ofertas verificadas no Mercado Livre com desconto real, frete grátis e compra garantida.',
-      },
-      { property: 'og:type', content: 'website' },
-      { property: 'og:url', content: 'https://clariceachadinhos.vercel.app' },
-      { property: 'og:image', content: 'https://clariceachadinhos.vercel.app/og-image.png' },
-      { name: 'twitter:card', content: 'summary_large_image' },
-      { name: 'twitter:image', content: 'https://clariceachadinhos.vercel.app/og-image.png' },
-    ],
-    links: [
-      { rel: 'canonical', href: 'https://clariceachadinhos.vercel.app' },
-    ],
-  }),
+  head: ({ search }) => {
+    const isPartner = search?.loja && search.loja !== 'clarice';
+    const storeTitle = isPartner
+      ? `${search.loja === 'loja-demo' ? 'Achadinhos Demo FCIA' : search.loja} — Ofertas & Achadinhos`
+      : 'Clarice Achadinhos — Curadoria de Ofertas no Mercado Livre';
+    return {
+      meta: [
+        { title: storeTitle },
+        {
+          name: 'description',
+          content: isPartner
+            ? `Achadinhos exclusivos e ofertas selecionadas por ${search.loja === 'loja-demo' ? 'Achadinhos Demo FCIA' : search.loja}.`
+            : 'Curadoria diária de achadinhos verificados do Mercado Livre: eletrônicos, casa, cozinha, ferramentas e beleza com frete grátis e parcelamento sem juros.',
+        },
+        { property: 'og:title', content: storeTitle },
+        {
+          property: 'og:description',
+          content: isPartner
+            ? `Achadinhos exclusivos e ofertas selecionadas por ${search.loja === 'loja-demo' ? 'Achadinhos Demo FCIA' : search.loja}.`
+            : 'Ofertas verificadas no Mercado Livre com desconto real, frete grátis e compra garantida.',
+        },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:url', content: 'https://clariceachadinhos.vercel.app' },
+        { property: 'og:image', content: 'https://clariceachadinhos.vercel.app/og-image.png' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:image', content: 'https://clariceachadinhos.vercel.app/og-image.png' },
+      ],
+      links: [
+        { rel: 'canonical', href: 'https://clariceachadinhos.vercel.app' },
+      ],
+    };
+  },
   component: Storefront,
 });
 
@@ -223,6 +231,17 @@ function Storefront() {
     const timer = window.setTimeout(() => setLoading(false), 1000);
     return () => window.clearTimeout(timer);
   }, []);
+
+  // Sincroniza o título do documento com a loja parceira ativa
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (store.slug !== 'clarice') {
+        document.title = `${store.nomeLoja || 'Minha Vitrine'} — Ofertas & Achadinhos`;
+      } else {
+        document.title = 'Clarice Achadinhos — Curadoria de Ofertas no Mercado Livre';
+      }
+    }
+  }, [store.slug, store.nomeLoja]);
 
   // Reseta a paginação ao trocar de categoria, busca ou ordenação
   useEffect(() => {

@@ -230,8 +230,9 @@ export async function sincronizarVitrine() {
   console.log('📦 Consultando produtos ativos no Supabase...');
   const { data: activeProducts, error: fetchErr } = await supabase
     .from('produtos_clarice')
-    .select('id, mlb_id, title, affiliate_url, current_price, original_price, discount_percent, status, active')
+    .select('id, mlb_id, title, affiliate_url, current_price, original_price, discount_percent, status, active, loja_slug')
     .eq('status', 'ativo')
+    .or('loja_slug.eq.clarice,loja_slug.is.null')
     .order('created_at', { ascending: false });
 
   if (fetchErr) {
