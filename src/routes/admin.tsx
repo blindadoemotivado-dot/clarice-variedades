@@ -66,6 +66,15 @@ import {
   type SubscriptionPlan,
   type SubscriptionStatus,
 } from '@/types/tenant';
+import {
+  getPlanPermissions,
+  PLAN_CARDS,
+  type PlanPermissions,
+} from '@/config/planPermissions';
+import { PlanGate } from '@/components/admin/PlanGate';
+import { LojistaBatchImport } from '@/components/admin/LojistaBatchImport';
+import { LojistaVipDispatcher } from '@/components/admin/LojistaVipDispatcher';
+import { LojistaStoreSettings } from '@/components/admin/LojistaStoreSettings';
 import { formatBRL, isValidShopeeUrl, extractMlbId, productFromUrl } from '@/lib/catalog';
 import { isValidMercadoLivreUrl } from '@/components/store/AdminSheet';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -150,25 +159,16 @@ function AdminRoutePage() {
   const [productSearch, setProductSearch] = useState('');
   const [marketFilter, setMarketFilter] = useState<'todos' | Marketplace>('todos');
 
-  // Formulário "Minha Loja" (Lojista)
-  const [storeBrandName, setStoreBrandName] = useState('');
-  const [storeBrandSubtitle, setStoreBrandSubtitle] = useState('');
-  const [storeBrandPrimaryColor, setStoreBrandPrimaryColor] = useState('#0F172A');
-  const [storeBrandAccentColor, setStoreBrandAccentColor] = useState('#FFE600');
-  const [storeBrandLogoUrl, setStoreBrandLogoUrl] = useState('');
-  const [storeBrandMascoteUrl, setStoreBrandMascoteUrl] = useState('');
-  const [storeBrandWhatsappVip, setStoreBrandWhatsappVip] = useState('');
-  const [storeBrandInstagram, setStoreBrandInstagram] = useState('');
-  const [storeBrandDomain, setStoreBrandDomain] = useState('');
-  const [isSavingBrand, setIsSavingBrand] = useState(false);
+  // Permissões ativas do lojista baseado no seu plano
+  const lojistaPermissions = useMemo(() => {
+    return getPlanPermissions(loggedStore?.plano);
+  }, [loggedStore?.plano]);
 
   // Assinatura Asaas (Lojista)
   const [isGeneratingAsaas, setIsGeneratingAsaas] = useState(false);
 
-  // Estados de Upload de Imagens
+  // Estados de Upload de Imagens do Produto
   const [uploadingProductImage, setUploadingProductImage] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [uploadingMascote, setUploadingMascote] = useState(false);
 
   const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -191,359 +191,8 @@ function AdminRoutePage() {
     }
   };
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setUploadingLogo(true);
-      const targetLoja = userRole === 'lojista' && loggedStore ? loggedStore.slug : 'clarice';
-      const publicUrl = await uploadStoreImage(file, 'logos', targetLoja);
-      setStoreBrandLogoUrl(publicUrl);
-      toast.success('Logotipo enviado com sucesso!');
-    } catch (err: any) {
-      toast.error(`Erro ao subir logo: ${err.message || 'Falha no upload'}`);
-    } finally {
-      setUploadingLogo(false);
-    }
-  };
-
-  const handleMascoteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setUploadingMascote(true);
-      const targetLoja = userRole === 'lojista' && loggedStore ? loggedStore.slug : 'clarice';
-      const publicUrl = await uploadStoreImage(file, 'banners', targetLoja);
-      setStoreBrandMascoteUrl(publicUrl);
-      toast.success('Banner/Mascote enviado com sucesso!');
-    } catch (err: any) {
-      toast.error(`Erro ao subir banner/mascote: ${err.message || 'Falha no upload'}`);
-    } finally {
-      setUploadingMascote(false);
-    }
-  };
-
   // Modo de Entrada de Produtos (Individual vs. Lote)
   const [productInputMode, setProductInputMode] = useState<'individual' | 'batch'>('individual');
-  const [batchLinksText, setBatchLinksText] = useState('');
-  const [batchDefaultCategory, setBatchDefaultCategory] = useState<AffiliateProduct['category']>('Casa & Cozinha');
-  const [batchParsedProducts, setBatchParsedProducts] = useState<AffiliateProduct[]>([]);
-  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
-  const [isSavingBatch, setIsSavingBatch] = useState(false);
-
-  // Estados do Disparador VIP (WhatsApp)
-  type VipTemplate = 'urgencia' | 'achadinho' | 'unidades';
-  const [selectedVipProduct, setSelectedVipProduct] = useState<AffiliateProduct | null>(null);
-  const [vipTemplate, setVipTemplate] = useState<VipTemplate>('achadinho');
-  const [customCopyText, setCustomCopyText] = useState('');
-  const [vipSearch, setVipSearch] = useState('');
-  const [vipFilter, setVipFilter] = useState<'todos' | 'nao_disparados' | 'disparados'>('todos');
-  const [disparosMap, setDisparosMap] = useState<Record<string, string>>({});
-
-  const getTodayDateStr = () => new Date().toISOString().slice(0, 10);
-
-  // Carrega mapa de disparos de hoje para a loja logada
-  useEffect(() => {
-    if (loggedStore?.slug) {
-      try {
-        const saved = localStorage.getItem(`disparos_vip_${loggedStore.slug}`);
-        if (saved) {
-          setDisparosMap(JSON.parse(saved));
-        }
-      } catch {
-        // ignore
-      }
-    }
-  }, [loggedStore?.slug]);
-
-  // Helper para gerar copy persuasiva
-  const generateVipCopy = (
-    product: AffiliateProduct,
-    template: VipTemplate,
-    storeName: string,
-    storeSlug: string
-  ): string => {
-    const isShopee = product.marketplace === 'shopee';
-    const canal = isShopee ? 'SHOPEE' : 'MERCADO LIVRE';
-    const vitrineUrl = `https://clariceachadinhos.vercel.app/?loja=${storeSlug}&produto=${product.id}`;
-    const precoAntigo = formatBRL(product.originalPrice);
-    const precoAtual = formatBRL(product.currentPrice);
-    const desconto = product.discountPercent;
-    const parcelas = product.installmentsText || 'em até 6x sem juros';
-    const lojaNome = storeName || 'Nossa Loja';
-
-    if (template === 'urgencia') {
-      return (
-        `🚨 *OFERTA RELÂMPAGO • PREÇO BAIXOU AGORA!*\n` +
-        `🔥 *${product.title}*\n\n` +
-        `~De: ${precoAntigo}~\n` +
-        `💥 *Por apenas: ${precoAtual}* (${desconto}% OFF)\n` +
-        `💳 ${parcelas}\n` +
-        `⚡ *Envio Rápido & Compra 100% Garantida no app ${canal}*\n\n` +
-        `👉 *Ver fotos e garantir na nossa vitrine:*\n${vitrineUrl}\n\n` +
-        `🛒 *Ou compre direto pelo link oficial:*\n${product.affiliateUrl}\n\n` +
-        `⏰ _Atenção: Promoção por tempo limitado enquanto durar o estoque promocional!_`
-      );
-    }
-
-    if (template === 'unidades') {
-      return (
-        `⚠️ *ÚLTIMAS UNIDADES COM ESSE PREÇO!*\n` +
-        `🏷️ *${product.title}*\n\n` +
-        `Estoque com desconto quase esgotado no ${canal}!\n\n` +
-        `~De: ${precoAntigo}~\n` +
-        `✅ *Por apenas: ${precoAtual}* (${desconto}% OFF)\n` +
-        `💳 ${parcelas}\n\n` +
-        `👉 *Garanta o seu antes que volte ao preço normal:*\n${vitrineUrl}\n\n` +
-        `🔗 *Link direto oficial:* ${product.affiliateUrl}\n\n` +
-        `🏃‍♂️💨 _Corre antes que acabe! Equipe ${lojaNome}_`
-      );
-    }
-
-    // Default: 'achadinho'
-    return (
-      `⭐ *ACHADINHO DO DIA • CURADORIA ${lojaNome.toUpperCase()}*\n` +
-      `🛍️ *${product.title}*\n\n` +
-      `Garimpamos essa oferta exclusiva com desconto real verificado no ${canal}:\n\n` +
-      `~De: ${precoAntigo}~\n` +
-      `✅ *Por apenas: ${precoAtual}* (${desconto}% OFF)\n` +
-      `💳 ${parcelas}\n` +
-      `🚚 ${product.freeShipping ? 'Frete Grátis disponível' : 'Envio Rápido'}\n\n` +
-      `👉 *Ver detalhes e fotos completas na vitrine:*\n${vitrineUrl}\n\n` +
-      `🔗 *Link do produto:* ${product.affiliateUrl}\n\n` +
-      `✨ _Selecionado especialmente para os membros do nosso Grupo VIP!_`
-    );
-  };
-
-  // Atualiza a copy sempre que o produto selecionado ou o template mudar
-  useEffect(() => {
-    if (selectedVipProduct && loggedStore) {
-      setCustomCopyText(
-        generateVipCopy(selectedVipProduct, vipTemplate, loggedStore.nomeLoja, loggedStore.slug)
-      );
-    }
-  }, [selectedVipProduct, vipTemplate, loggedStore]);
-
-  const markProductAsDispatched = (productId: string) => {
-    if (!loggedStore?.slug) return;
-    const today = getTodayDateStr();
-    const updated = { ...disparosMap, [productId]: today };
-    setDisparosMap(updated);
-    try {
-      localStorage.setItem(`disparos_vip_${loggedStore.slug}`, JSON.stringify(updated));
-    } catch {}
-
-    if (isSupabaseConfigured) {
-      supabase
-        .from('produtos_clarice')
-        .update({ ultimo_disparo_em: new Date().toISOString() })
-        .eq('id', productId)
-        .then(() => {})
-        .catch(() => {});
-    }
-  };
-
-  const resetProductDispatch = (productId: string) => {
-    if (!loggedStore?.slug) return;
-    const updated = { ...disparosMap };
-    delete updated[productId];
-    setDisparosMap(updated);
-    try {
-      localStorage.setItem(`disparos_vip_${loggedStore.slug}`, JSON.stringify(updated));
-    } catch {}
-  };
-
-  const handleCopyVip = () => {
-    if (!customCopyText.trim()) return;
-    navigator.clipboard.writeText(customCopyText);
-    toast.success('Copy copiada para a área de transferência!');
-  };
-
-  const handleFireWhatsApp = () => {
-    if (!selectedVipProduct || !customCopyText.trim()) {
-      toast.error('Selecione um produto e revise a copy antes de disparar.');
-      return;
-    }
-    markProductAsDispatched(selectedVipProduct.id);
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(customCopyText)}`;
-    window.open(waUrl, '_blank', 'noopener,noreferrer');
-    toast.success('WhatsApp aberto e produto marcado como Disparado Hoje!');
-  };
-
-  // Processamento do Lote de Produtos
-  const handleProcessBatch = () => {
-    const lines = batchLinksText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
-
-    if (lines.length === 0) {
-      toast.error('Cole ao menos um link válido para processar.');
-      return;
-    }
-
-    const limitedLines = lines.slice(0, 20);
-    if (lines.length > 20) {
-      toast.info('Processando os primeiros 20 links da lista.');
-    }
-
-    setIsProcessingBatch(true);
-    try {
-      const targetLoja =
-        userRole === 'lojista' && loggedStore
-          ? loggedStore.slug
-          : selectedStoreFilter !== 'todos'
-          ? selectedStoreFilter
-          : 'clarice';
-
-      const parsed: AffiliateProduct[] = [];
-
-      for (let i = 0; i < limitedLines.length; i++) {
-        const url = limitedLines[i];
-        const isShopee = url.includes('shopee.com') || url.includes('shp.ee');
-
-        if (isShopee) {
-          const slugMatch = url.match(/shopee\.com\.br\/([^?]+)-i\./i);
-          const slug = slugMatch ? decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim() : '';
-          const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : `Oferta Shopee #${i + 1}`;
-          const hashVal = Math.abs(hash(url) || Date.now() + i);
-          const mlbId = `SHP-${String(hashVal).slice(0, 8)}`;
-          const origPrice = 79.9 + (hashVal % 180) + 0.9;
-          const disc = 20 + (hashVal % 35);
-          const curPrice = Math.round(origPrice * (100 - disc)) / 100;
-
-          parsed.push({
-            id: `${mlbId}-${Date.now()}-${i}`,
-            mlbId,
-            title,
-            originalPrice: origPrice,
-            currentPrice: curPrice,
-            discountPercent: disc,
-            installmentsText: 'em até 6x sem juros',
-            imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
-            affiliateUrl: url,
-            category: batchDefaultCategory,
-            freeShipping: true,
-            isFull: false,
-            rating: 4.8,
-            reviewsCount: 190,
-            featured: false,
-            status: 'ativo',
-            marketplace: 'shopee',
-            lojaSlug: targetLoja,
-          });
-        } else {
-          // Mercado Livre
-          const p = productFromUrl(url, batchDefaultCategory, url, true);
-          if (p) {
-            parsed.push({
-              ...p,
-              marketplace: 'mercadolivre',
-              lojaSlug: targetLoja,
-              status: 'ativo',
-            });
-          } else {
-            const mlb = extractMlbId(url) || `MLB-${Date.now().toString().slice(-8)}`;
-            const origPrice = 129.9;
-            const disc = 25;
-            const curPrice = Math.round(origPrice * (100 - disc)) / 100;
-            parsed.push({
-              id: `${mlb}-${Date.now()}-${i}`,
-              mlbId: mlb,
-              title: `Produto Mercado Livre ${mlb}`,
-              originalPrice: origPrice,
-              currentPrice: curPrice,
-              discountPercent: disc,
-              installmentsText: 'em até 6x sem juros',
-              imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?auto=format&fit=crop&w=600&q=80',
-              affiliateUrl: url,
-              category: batchDefaultCategory,
-              freeShipping: true,
-              isFull: true,
-              rating: 4.9,
-              reviewsCount: 320,
-              featured: false,
-              status: 'ativo',
-              marketplace: 'mercadolivre',
-              lojaSlug: targetLoja,
-            });
-          }
-        }
-      }
-
-      setBatchParsedProducts(parsed);
-      toast.success(`${parsed.length} link(s) processado(s) com sucesso! Confira a prévia.`);
-    } catch (err: any) {
-      toast.error(`Erro ao processar lote: ${err?.message || 'Falha ao analisar links'}`);
-    } finally {
-      setIsProcessingBatch(false);
-    }
-  };
-
-  // Salvar Todos os Produtos do Lote
-  const handleSaveBatch = async () => {
-    if (batchParsedProducts.length === 0) return;
-
-    const targetLoja =
-      userRole === 'lojista' && loggedStore
-        ? loggedStore.slug
-        : selectedStoreFilter !== 'todos'
-        ? selectedStoreFilter
-        : 'clarice';
-
-    // Trava de limite de produtos para plano Start (máximo 50)
-    if (userRole === 'lojista' && loggedStore?.plano === 'start') {
-      const currentCount = c.products.filter((p) => p.lojaSlug === targetLoja).length;
-      const limit = 50;
-      if (currentCount + batchParsedProducts.length > limit) {
-        const remaining = Math.max(0, limit - currentCount);
-        toast.error(
-          `⚠️ Limite de 50 produtos do Plano Start atingido! Você possui ${currentCount} produtos ativos. Vagas restantes: ${remaining}. Faça upgrade para o Plano Pro na aba 'Minha Assinatura' para cadastrar produtos ilimitados!`
-        );
-        return;
-      }
-    }
-
-    setIsSavingBatch(true);
-    try {
-      c.add(batchParsedProducts);
-
-      if (isSupabaseConfigured) {
-        const rows = batchParsedProducts.map((p) => ({
-          id: p.id,
-          mlb_id: p.mlbId,
-          title: p.title,
-          original_price: p.originalPrice,
-          current_price: p.currentPrice,
-          discount_percent: p.discountPercent,
-          installments_text: p.installmentsText,
-          image_url: p.imageUrl,
-          affiliate_url: p.affiliateUrl,
-          category: p.category,
-          free_shipping: p.freeShipping,
-          is_full: p.isFull,
-          rating: p.rating,
-          reviews_count: p.reviewsCount,
-          featured: p.featured,
-          active: true,
-          status: 'ativo',
-          marketplace: p.marketplace,
-          loja_slug: p.lojaSlug,
-        }));
-
-        await supabase.from('produtos_clarice').insert(rows);
-      }
-
-      toast.success(`🎉 ${batchParsedProducts.length} produtos importados com sucesso na sua vitrine!`);
-      setBatchLinksText('');
-      setBatchParsedProducts([]);
-      setProductInputMode('individual');
-    } catch (err: any) {
-      toast.error(`Erro ao salvar lote: ${err?.message || 'Falha ao salvar'}`);
-    } finally {
-      setIsSavingBatch(false);
-    }
-  };
 
   // Checagem de autenticação no sessionStorage
   useEffect(() => {
@@ -558,7 +207,6 @@ function AdminRoutePage() {
         if (savedRole === 'lojista' && savedStoreSlug) {
           fetchStoreBySlug(savedStoreSlug).then((s) => {
             setLoggedStore(s);
-            populateBrandingForm(s);
           });
         }
       }
@@ -566,19 +214,6 @@ function AdminRoutePage() {
       // ignore
     }
   }, []);
-
-  // Preenche formulário de branding do lojista
-  const populateBrandingForm = (store: LojaAfiliado) => {
-    setStoreBrandName(store.nomeLoja);
-    setStoreBrandSubtitle(store.subtitulo || '');
-    setStoreBrandPrimaryColor(store.corPrimaria || '#0F172A');
-    setStoreBrandAccentColor(store.corDestaque || '#FFE600');
-    setStoreBrandLogoUrl(store.logoUrl || '');
-    setStoreBrandMascoteUrl(store.heroMascoteUrl || '');
-    setStoreBrandWhatsappVip(store.whatsappVipUrl || '');
-    setStoreBrandInstagram(store.instagramUrl || '');
-    setStoreBrandDomain(store.dominioCustomizado || '');
-  };
 
   // Carrega lojas SaaS para o Super Admin
   const loadStores = async () => {
@@ -666,7 +301,6 @@ function AdminRoutePage() {
 
       setUserRole('lojista');
       setLoggedStore(store);
-      populateBrandingForm(store);
       setIsAuthenticated(true);
       toast.success(`Bem-vindo de volta ao painel da loja ${store.nomeLoja}!`);
     } catch (err) {
@@ -774,12 +408,12 @@ function AdminRoutePage() {
         ? loggedStore.slug
         : (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter);
 
-    // Trava de limite de produtos para plano Start (máximo 50)
-    if (userRole === 'lojista' && loggedStore?.plano === 'start' && !editingProductId) {
+    // Trava de limite de produtos para plano do lojista
+    if (userRole === 'lojista' && !editingProductId) {
       const currentCount = c.products.filter((p) => p.lojaSlug === assignedLojaSlug).length;
-      if (currentCount >= 50) {
+      if (currentCount >= lojistaPermissions.maxProducts) {
         toast.error(
-          `⚠️ Limite de 50 produtos do Plano Start atingido! Você possui 50 produtos ativos. Faça upgrade para o Plano Pro na aba 'Minha Assinatura' para cadastrar produtos ilimitados!`
+          `⚠️ Limite de ${lojistaPermissions.maxProducts} produtos do seu plano atingido! Você possui ${currentCount} produtos ativos. Faça upgrade na aba 'Minha Assinatura' para cadastrar produtos ilimitados!`
         );
         return;
       }
@@ -859,39 +493,10 @@ function AdminRoutePage() {
     setProductImageUrl('');
   };
 
-  // Salvar Customização da Vitrine ("Minha Loja" - Lojista)
-  const handleSaveStoreBrand = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!loggedStore) return;
-
-    setIsSavingBrand(true);
-    try {
-      const updated = await updateStoreBranding(loggedStore.slug, {
-        nomeLoja: storeBrandName.trim(),
-        subtitulo: storeBrandSubtitle.trim(),
-        corPrimaria: storeBrandPrimaryColor,
-        corDestaque: storeBrandAccentColor,
-        logoUrl: storeBrandLogoUrl.trim(),
-        heroMascoteUrl: storeBrandMascoteUrl.trim(),
-        whatsappVipUrl: storeBrandWhatsappVip.trim(),
-        instagramUrl: storeBrandInstagram.trim(),
-        dominioCustomizado: storeBrandDomain.trim(),
-      });
-
-      if (updated) {
-        setLoggedStore(updated);
-        toast.success('Identidade e personalização da sua vitrine salvas com sucesso!');
-      }
-    } catch {
-      toast.error('Erro ao salvar customização da vitrine.');
-    } finally {
-      setIsSavingBrand(false);
-    }
-  };
-
   // Gerar Checkout / Cobrança Asaas (Lojista)
-  const handleGenerateAsaasCheckout = async () => {
+  const handleGenerateAsaasCheckout = async (newPlan?: SubscriptionPlan) => {
     if (!loggedStore) return;
+    const targetPlan = newPlan || loggedStore.plano;
 
     setIsGeneratingAsaas(true);
     try {
@@ -899,12 +504,14 @@ function AdminRoutePage() {
         loja_slug: loggedStore.slug,
         nome: loggedStore.nomeLoja,
         email: loggedStore.ownerEmail || 'lojista@exemplo.com.br',
-        plano: loggedStore.plano,
+        plano: targetPlan,
       });
 
       if (res.success && res.paymentUrl) {
-        setLoggedStore((prev) => prev ? { ...prev, asaasPaymentUrl: res.paymentUrl } : prev);
-        toast.success('Link de pagamento Asaas gerado com sucesso!');
+        setLoggedStore((prev) =>
+          prev ? { ...prev, plano: targetPlan, asaasPaymentUrl: res.paymentUrl } : prev
+        );
+        toast.success(`Link de pagamento Asaas gerado com sucesso!`);
         window.open(res.paymentUrl, '_blank', 'noopener,noreferrer');
       } else {
         toast.error(res.error || 'Não foi possível gerar a fatura Asaas.');
@@ -1645,122 +1252,32 @@ function AdminRoutePage() {
                 </form>
               </>
             ) : (
-              <div className="space-y-4">
-                <div className="border-b border-slate-800 pb-3 mb-1">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-[#FFE600]" />
-                    <h2 className="font-black text-white text-base">
-                      Importação em Lote (ML / Shopee)
-                    </h2>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Cole uma lista de links oficiais. O robô extrai os dados e prepara as ofertas automaticamente.
-                  </p>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">
-                      Lista de Links (1 por linha)
-                    </label>
-                    <span className="text-[11px] text-[#FFE600] font-bold">
-                      Máx. 20 por lote
-                    </span>
-                  </div>
-                  <textarea
-                    rows={7}
-                    value={batchLinksText}
-                    onChange={(e) => setBatchLinksText(e.target.value)}
-                    placeholder={"https://meli.la/123456\nhttps://s.shopee.com.br/...\nhttps://produto.mercadolivre.com.br/MLB-..."}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-3.5 text-xs text-white font-mono leading-relaxed outline-none focus:ring-2 focus:ring-[#FFE600]"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Suporta links do Mercado Livre (mercadolivre.com / meli.la) e Shopee (shopee.com.br / shp.ee).
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Categoria Padrão do Lote
-                  </label>
-                  <select
-                    value={batchDefaultCategory}
-                    onChange={(e) => setBatchDefaultCategory(e.target.value as any)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                  >
-                    {CATEGORIES.filter((c) => c !== 'Todos').map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={!batchLinksText.trim() || isProcessingBatch}
-                  onClick={handleProcessBatch}
-                  className="w-full rounded-2xl bg-slate-800 hover:bg-slate-700 py-3 text-xs sm:text-sm font-bold text-white flex items-center justify-center gap-2 transition disabled:opacity-50 border border-slate-700"
-                >
-                  {isProcessingBatch ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-[#FFE600]" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 text-[#FFE600]" />
-                  )}
-                  <span>{isProcessingBatch ? 'Processando links...' : '🔍 Processar & Visualizar Lote'}</span>
-                </button>
-
-                {/* Prévia dos Produtos do Lote */}
-                {batchParsedProducts.length > 0 && (
-                  <div className="space-y-3 pt-3 border-t border-slate-800">
-                    <div className="flex items-center justify-between text-xs font-bold text-white">
-                      <span>Prévia Identificada ({batchParsedProducts.length} itens)</span>
-                      <button
-                        type="button"
-                        onClick={() => setBatchParsedProducts([])}
-                        className="text-[11px] text-red-400 hover:underline"
-                      >
-                        Limpar Prévia
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                      {batchParsedProducts.map((p, idx) => (
-                        <div key={idx} className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950 border border-slate-800/80">
-                          <img src={p.imageUrl} alt="" className="h-10 w-10 rounded-lg object-contain bg-white p-0.5 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-bold text-white truncate">{p.title}</p>
-                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
-                              <span className={cn(
-                                'px-1 py-0.2 rounded font-bold uppercase text-[9px]',
-                                p.marketplace === 'shopee' ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'
-                              )}>
-                                {p.marketplace === 'shopee' ? 'Shopee' : 'Mercado Livre'}
-                              </span>
-                              <span className="text-emerald-400 font-bold">{formatBRL(p.currentPrice)}</span>
-                              <span>• {p.category}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={isSavingBatch}
-                      onClick={handleSaveBatch}
-                      className="w-full rounded-2xl bg-[#FFE600] hover:bg-yellow-400 py-3 text-xs sm:text-sm font-black text-slate-950 shadow-lg shadow-yellow-500/20 transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {isSavingBatch ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
-                      ) : (
-                        <Zap className="h-4 w-4 text-slate-950" />
-                      )}
-                      <span>{isSavingBatch ? 'Salvando lote...' : `Salvar Todos na Minha Loja (${batchParsedProducts.length})`}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+              <LojistaBatchImport
+                lojaSlug={
+                  userRole === 'lojista' && loggedStore
+                    ? loggedStore.slug
+                    : selectedStoreFilter !== 'todos'
+                    ? selectedStoreFilter
+                    : 'clarice'
+                }
+                currentProductCount={
+                  c.products.filter(
+                    (p) =>
+                      p.lojaSlug ===
+                      (userRole === 'lojista' && loggedStore
+                        ? loggedStore.slug
+                        : selectedStoreFilter !== 'todos'
+                        ? selectedStoreFilter
+                        : 'clarice')
+                  ).length
+                }
+                permissions={lojistaPermissions}
+                onImported={(imported) => {
+                  c.add(imported);
+                  setProductInputMode('individual');
+                }}
+                onUpgrade={() => handleTabChange('minha-assinatura')}
+              />
             )}
           </div>
 
@@ -1776,9 +1293,9 @@ function AdminRoutePage() {
                   </span>
                 </div>
                 <div className="text-slate-400 font-medium">
-                  {loggedStore.plano === 'start' ? (
+                  {lojistaPermissions.maxProducts < Infinity ? (
                     <span>
-                      <strong className="text-[#FFE600]">{c.products.filter((p) => p.lojaSlug === loggedStore.slug).length}</strong>/50 produtos cadastrados
+                      <strong className="text-[#FFE600]">{c.products.filter((p) => p.lojaSlug === loggedStore.slug).length}</strong>/{lojistaPermissions.maxProducts} produtos cadastrados
                     </span>
                   ) : (
                     <span className="text-emerald-400 font-bold">
@@ -1908,265 +1425,12 @@ function AdminRoutePage() {
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
             <TabsContent value="disparador-vip" className="space-y-6">
-              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
-                  <div>
-                    <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
-                        <MessageCircle className="h-4 w-4 fill-current" />
-                      </span>
-                      Disparador VIP • Grupos de WhatsApp
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Gere copies persuasivas em 1 clique e envie para o seu Grupo VIP ou canais sem repetir promoções já enviadas hoje.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-6 lg:grid-cols-12">
-                  {/* Coluna Esquerda: Lista de Produtos para Selecionar */}
-                  <div className="lg:col-span-5 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={vipSearch}
-                        onChange={(e) => setVipSearch(e.target.value)}
-                        placeholder="Buscar nos meus produtos..."
-                        className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-[#FFE600]"
-                      />
-                    </div>
-
-                    {/* Filtros de Status de Disparo */}
-                    <div className="flex gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold">
-                      <button
-                        type="button"
-                        onClick={() => setVipFilter('todos')}
-                        className={cn(
-                          'flex-1 py-1.5 rounded-lg text-center transition',
-                          vipFilter === 'todos' ? 'bg-[#FFE600] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-                        )}
-                      >
-                        Todos ({filteredVipProducts.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVipFilter('nao_disparados')}
-                        className={cn(
-                          'flex-1 py-1.5 rounded-lg text-center transition',
-                          vipFilter === 'nao_disparados' ? 'bg-[#FFE600] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-                        )}
-                      >
-                        Não Enviados ({nonDispatchedCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVipFilter('disparados')}
-                        className={cn(
-                          'flex-1 py-1.5 rounded-lg text-center transition',
-                          vipFilter === 'disparados' ? 'bg-[#FFE600] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-                        )}
-                      >
-                        Disparados Hoje ({dispatchedTodayCount})
-                      </button>
-                    </div>
-
-                    {/* Lista com Scroll */}
-                    <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
-                      {displayedVipProducts.length === 0 ? (
-                        <div className="py-12 text-center text-slate-500 text-xs">
-                          Nenhum produto encontrado com este filtro.
-                        </div>
-                      ) : (
-                        displayedVipProducts.map((p) => {
-                          const isDispatched = disparosMap[p.id] === getTodayDateStr();
-                          const isSelected = selectedVipProduct?.id === p.id;
-                          return (
-                            <div
-                              key={p.id}
-                              onClick={() => setSelectedVipProduct(p)}
-                              className={cn(
-                                'flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition select-none',
-                                isSelected
-                                  ? 'border-[#FFE600] bg-yellow-500/10 shadow-md'
-                                  : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900/60'
-                              )}
-                            >
-                              <img
-                                src={p.imageUrl}
-                                alt={p.title}
-                                className="h-14 w-14 rounded-xl object-contain bg-white p-1 shrink-0"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <span
-                                    className={cn(
-                                      'px-1.5 py-0.2 rounded text-[9px] font-bold uppercase',
-                                      p.marketplace === 'shopee'
-                                        ? 'bg-orange-500/20 text-orange-400'
-                                        : 'bg-yellow-500/20 text-yellow-400'
-                                    )}
-                                  >
-                                    {p.marketplace === 'shopee' ? 'Shopee' : 'Mercado Livre'}
-                                  </span>
-                                  {isDispatched ? (
-                                    <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-400 flex items-center gap-0.5">
-                                      <CheckCircle2 className="h-2.5 w-2.5" /> Disparado Hoje
-                                    </span>
-                                  ) : (
-                                    <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] font-medium text-slate-400 flex items-center gap-0.5">
-                                      <Clock className="h-2.5 w-2.5" /> Pronto
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs font-bold text-white truncate">{p.title}</p>
-                                <p className="text-xs font-black text-emerald-400 mt-0.5">
-                                  {formatBRL(p.currentPrice)}{' '}
-                                  <span className="text-[10px] text-slate-400 font-normal">
-                                    ({p.discountPercent}% OFF)
-                                  </span>
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Coluna Direita: Editor de Copy & Ação de Disparo */}
-                  <div className="lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 flex flex-col justify-between">
-                    {!selectedVipProduct ? (
-                      <div className="py-24 text-center text-slate-500">
-                        <MessageCircle className="mx-auto h-12 w-12 mb-3 opacity-30 text-emerald-400" />
-                        <p className="text-sm font-bold text-slate-300">Nenhum produto selecionado</p>
-                        <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                          Clique em qualquer produto da lista ao lado para carregar a copy automática pronta para disparo.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {/* Cabeçalho do Produto Selecionado */}
-                        <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={selectedVipProduct.imageUrl}
-                              alt={selectedVipProduct.title}
-                              className="h-12 w-12 rounded-xl object-contain bg-white p-1 shrink-0"
-                            />
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white truncate">{selectedVipProduct.title}</p>
-                              <p className="text-xs font-black text-emerald-400">
-                                {formatBRL(selectedVipProduct.currentPrice)}{' '}
-                                <span className="text-[10px] text-slate-400 line-through font-normal">
-                                  {formatBRL(selectedVipProduct.originalPrice)}
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-
-                          {disparosMap[selectedVipProduct.id] === getTodayDateStr() && (
-                            <button
-                              type="button"
-                              onClick={() => resetProductDispatch(selectedVipProduct.id)}
-                              className="text-[10px] text-slate-500 hover:text-slate-300 underline shrink-0"
-                              title="Desmarcar se desejar disparar novamente hoje"
-                            >
-                              Resetar disparo de hoje
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Seletor de Templates */}
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-300 mb-2">
-                            Escolha o Template de Mensagem:
-                          </label>
-                          <div className="grid grid-cols-3 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setVipTemplate('achadinho')}
-                              className={cn(
-                                'py-2 px-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1',
-                                vipTemplate === 'achadinho'
-                                  ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
-                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                              )}
-                            >
-                              <span className="text-sm">⭐</span>
-                              <span>Achadinho do Dia</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setVipTemplate('urgencia')}
-                              className={cn(
-                                'py-2 px-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1',
-                                vipTemplate === 'urgencia'
-                                  ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
-                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                              )}
-                            >
-                              <span className="text-sm">🔥</span>
-                              <span>Urgência / Relâmpago</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setVipTemplate('unidades')}
-                              className={cn(
-                                'py-2 px-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1',
-                                vipTemplate === 'unidades'
-                                  ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
-                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                              )}
-                            >
-                              <span className="text-sm">🚨</span>
-                              <span>Últimas Unidades</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Textarea Editável */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="block text-xs font-semibold text-slate-300">
-                              Mensagem Formatada para WhatsApp (Editável):
-                            </label>
-                            <span className="text-[10px] text-slate-400">
-                              Emojis e links verificados
-                            </span>
-                          </div>
-                          <textarea
-                            rows={10}
-                            value={customCopyText}
-                            onChange={(e) => setCustomCopyText(e.target.value)}
-                            className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 p-3.5 text-xs text-slate-100 font-mono leading-relaxed outline-none focus:ring-2 focus:ring-[#FFE600]"
-                          />
-                        </div>
-
-                        {/* Botões de Ação */}
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                          <button
-                            type="button"
-                            onClick={handleCopyVip}
-                            className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 hover:bg-slate-700 py-3.5 text-xs sm:text-sm font-bold text-white transition active:scale-95 shadow-md"
-                          >
-                            <Copy className="h-4 w-4" />
-                            <span>Copiar Copy</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={handleFireWhatsApp}
-                            className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] py-3.5 text-xs sm:text-sm font-black text-slate-950 transition active:scale-95 shadow-lg shadow-emerald-500/20"
-                          >
-                            <MessageCircle className="h-4 w-4 fill-current" />
-                            <span>Abrir WhatsApp & Disparar</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <LojistaVipDispatcher
+                store={loggedStore}
+                products={c.products}
+                permissions={lojistaPermissions}
+                onUpgrade={() => handleTabChange('minha-assinatura')}
+              />
             </TabsContent>
           )}
 
@@ -2175,254 +1439,14 @@ function AdminRoutePage() {
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
             <TabsContent value="minha-loja" className="space-y-6">
-              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-6 shadow-xl max-w-3xl">
-                <div className="border-b border-slate-800 pb-4 mb-5">
-                  <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
-                    <Palette className="h-5 w-5 text-[#FFE600]" />
-                    Personalização da Minha Vitrine
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Configure as cores, logotipo, mascote e canais de atendimento exclusivos da sua loja.
-                  </p>
-                </div>
-
-                <form onSubmit={handleSaveStoreBrand} className="space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Nome da Loja
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={storeBrandName}
-                        onChange={(e) => setStoreBrandName(e.target.value)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Slug Exclusivo da URL
-                      </label>
-                      <input
-                        type="text"
-                        disabled
-                        value={loggedStore.slug}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3.5 py-2.5 text-xs text-slate-500 cursor-not-allowed"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Subtítulo / Chamada da Loja
-                    </label>
-                    <input
-                      type="text"
-                      value={storeBrandSubtitle}
-                      onChange={(e) => setStoreBrandSubtitle(e.target.value)}
-                      placeholder="Ex: Ofertas garimpadas todos os dias com desconto real"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                    />
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Cor Primária (Fundo/Header)
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={storeBrandPrimaryColor}
-                          onChange={(e) => setStoreBrandPrimaryColor(e.target.value)}
-                          className="h-9 w-9 rounded-lg border border-slate-800 bg-transparent cursor-pointer"
-                        />
-                        <input
-                          type="text"
-                          value={storeBrandPrimaryColor}
-                          onChange={(e) => setStoreBrandPrimaryColor(e.target.value)}
-                          className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white font-mono"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Cor de Destaque (Botões/Selos)
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={storeBrandAccentColor}
-                          onChange={(e) => setStoreBrandAccentColor(e.target.value)}
-                          className="h-9 w-9 rounded-lg border border-slate-800 bg-transparent cursor-pointer"
-                        />
-                        <input
-                          type="text"
-                          value={storeBrandAccentColor}
-                          onChange={(e) => setStoreBrandAccentColor(e.target.value)}
-                          className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white font-mono"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold text-slate-300">
-                          Logo da Loja (Ícone)
-                        </label>
-                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-lg text-[11px] font-bold cursor-pointer border border-slate-700 transition">
-                          {uploadingLogo ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Upload className="h-3.5 w-3.5" />
-                          )}
-                          <span>{uploadingLogo ? 'Enviando...' : '📤 Subir Logo'}</span>
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp,image/jpg"
-                            className="hidden"
-                            disabled={uploadingLogo}
-                            onChange={handleLogoUpload}
-                          />
-                        </label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="url"
-                          value={storeBrandLogoUrl}
-                          onChange={(e) => setStoreBrandLogoUrl(e.target.value)}
-                          placeholder="https://... ou suba seu logo ao lado"
-                          className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                        />
-                        {storeBrandLogoUrl && (
-                          <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center p-0.5">
-                            <img
-                              src={storeBrandLogoUrl}
-                              alt="Logo"
-                              className="h-full w-full object-cover rounded-full"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-300">
-                            Banner Hero / Imagem Destaque da Vitrine
-                          </label>
-                          <p className="text-[10px] text-slate-400">
-                            Exibido no lado direito do banner no topo da sua vitrine.
-                          </p>
-                        </div>
-                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-xl text-[11px] font-bold cursor-pointer border border-slate-700 transition shrink-0">
-                          {uploadingMascote ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Upload className="h-3.5 w-3.5" />
-                          )}
-                          <span>{uploadingMascote ? 'Enviando...' : '📤 Subir Banner Hero'}</span>
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp,image/jpg"
-                            className="hidden"
-                            disabled={uploadingMascote}
-                            onChange={handleMascoteUpload}
-                          />
-                        </label>
-                      </div>
-                      <input
-                        type="url"
-                        value={storeBrandMascoteUrl}
-                        onChange={(e) => setStoreBrandMascoteUrl(e.target.value)}
-                        placeholder="https://... ou clique em 'Subir Banner Hero'"
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
-                      {storeBrandMascoteUrl && (
-                        <div className="mt-2.5 rounded-2xl border border-slate-800 bg-slate-950/80 p-2.5">
-                          <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5 px-1">
-                            <span className="font-semibold text-slate-300">Prévia do Banner Hero da Vitrine:</span>
-                            <button
-                              type="button"
-                              onClick={() => setStoreBrandMascoteUrl('')}
-                              className="text-red-400 hover:text-red-300 underline text-[10px]"
-                            >
-                              Remover
-                            </button>
-                          </div>
-                          <div className="h-44 sm:h-52 w-full rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-slate-800/80 p-1">
-                            <img
-                              src={storeBrandMascoteUrl}
-                              alt="Prévia do Banner Hero"
-                              className="h-full w-full object-contain"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Link do Grupo VIP WhatsApp
-                      </label>
-                      <input
-                        type="url"
-                        value={storeBrandWhatsappVip}
-                        onChange={(e) => setStoreBrandWhatsappVip(e.target.value)}
-                        placeholder="https://chat.whatsapp.com/..."
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Link do Instagram
-                      </label>
-                      <input
-                        type="url"
-                        value={storeBrandInstagram}
-                        onChange={(e) => setStoreBrandInstagram(e.target.value)}
-                        placeholder="https://instagram.com/..."
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Domínio Customizado Próprio (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={storeBrandDomain}
-                      onChange={(e) => setStoreBrandDomain(e.target.value)}
-                      placeholder="Ex: achadinhos.meudominio.com.br"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                    />
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Permite apontar um CNAME próprio para sua vitrine (suporte nativo na plataforma).
-                    </p>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSavingBrand}
-                    className="w-full rounded-2xl bg-[#FFE600] py-3 text-xs sm:text-sm font-black text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-400 active:scale-[0.98] transition disabled:opacity-50"
-                  >
-                    {isSavingBrand ? 'Salvando...' : 'Salvar Alterações da Minha Loja'}
-                  </button>
-                </form>
-              </div>
+              <LojistaStoreSettings
+                store={loggedStore}
+                permissions={lojistaPermissions}
+                onSaved={(updates) => {
+                  setLoggedStore((prev) => (prev ? { ...prev, ...updates } : prev));
+                }}
+                onUpgrade={() => handleTabChange('minha-assinatura')}
+              />
             </TabsContent>
           )}
 
@@ -2518,6 +1542,60 @@ function AdminRoutePage() {
                     <p className="text-center text-[11px] text-slate-400">
                       🔒 Pagamento processado com segurança pela instituição autorizada Asaas Gestão Financeira.
                     </p>
+                  </div>
+
+                  {/* Comparativo de Planos & Opções de Upgrade */}
+                  <div className="pt-5 border-t border-slate-800">
+                    <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider mb-3">
+                      Comparativo de Planos & Upgrades
+                    </h3>
+                    <div className="grid sm:grid-cols-3 gap-3">
+                      {PLAN_CARDS.map((card) => {
+                        const isCurrent = loggedStore.plano === card.id;
+                        return (
+                          <div
+                            key={card.id}
+                            className={cn(
+                              'rounded-2xl border p-3.5 flex flex-col justify-between',
+                              isCurrent
+                                ? 'border-[#FFE600] bg-yellow-500/10'
+                                : 'border-slate-800 bg-slate-950'
+                            )}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold text-white text-xs">{card.name}</span>
+                                {isCurrent && (
+                                  <span className="text-[9px] font-black uppercase bg-[#FFE600] text-slate-950 px-1.5 py-0.5 rounded">
+                                    Atual
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-1 text-sm font-black text-white">{card.price}</div>
+                              <ul className="mt-2.5 space-y-1 text-[10px] text-slate-300">
+                                {card.features.slice(0, 3).map((f, i) => (
+                                  <li key={i} className="flex items-center gap-1">
+                                    <Check className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
+                                    <span className="truncate">{f}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            {!isCurrent && (
+                              <button
+                                type="button"
+                                disabled={isGeneratingAsaas}
+                                onClick={() => handleGenerateAsaasCheckout(card.id)}
+                                className="mt-3 w-full py-1.5 rounded-xl bg-slate-800 hover:bg-[#FFE600] hover:text-slate-950 text-xs font-bold text-white transition active:scale-95 border border-slate-700"
+                              >
+                                Mudar para {card.name}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>

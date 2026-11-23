@@ -35,6 +35,7 @@ import {
   type SubscriptionPlan,
   type LojaAfiliado,
 } from '@/types/tenant';
+import { PLAN_CARDS } from '@/config/planPermissions';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/criar-loja')({
@@ -482,82 +483,48 @@ function CriarLojaPage() {
             </h2>
 
             <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
-              {/* Plano Start */}
-              <div
-                onClick={() => setPlano('start')}
-                className={cn(
-                  'relative rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between',
-                  plano === 'start'
-                    ? 'border-[#FFE600] bg-[#FFE600]/5 ring-2 ring-[#FFE600]/30'
-                    : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                )}
-              >
-                <div>
-                  <h3 className="font-bold text-white text-sm">Start</h3>
-                  <div className="mt-2 text-xl font-black text-white">R$ 67<span className="text-xs font-normal text-slate-400">/mês</span></div>
-                  <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                    Ideal para quem está começando na afiliação.
-                  </p>
-                  <ul className="mt-3 space-y-1.5 text-[11px] text-slate-300">
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Até 50 produtos</li>
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Mercado Livre + Shopee</li>
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Grupo VIP WhatsApp</li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* Plano Pro (Mais Popular) */}
-              <div
-                onClick={() => setPlano('pro')}
-                className={cn(
-                  'relative rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between',
-                  plano === 'pro'
-                    ? 'border-[#FFE600] bg-[#FFE600]/10 ring-2 ring-[#FFE600]'
-                    : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                )}
-              >
-                <span className="absolute -top-2.5 right-4 rounded-full bg-[#FFE600] px-2.5 py-0.5 text-[9px] font-black uppercase text-slate-950 shadow-sm">
-                  Mais Popular
-                </span>
-                <div>
-                  <h3 className="font-bold text-white text-sm flex items-center gap-1">
-                    Pro <Sparkles className="h-3.5 w-3.5 text-[#FFE600]" />
-                  </h3>
-                  <div className="mt-2 text-xl font-black text-white">R$ 117<span className="text-xs font-normal text-slate-400">/mês</span></div>
-                  <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                    Para afiliados em crescimento e alto volume.
-                  </p>
-                  <ul className="mt-3 space-y-1.5 text-[11px] text-slate-300">
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Produtos ilimitados</li>
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Cores e Mascote próprios</li>
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Automação de ofertas</li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* Plano Advanced */}
-              <div
-                onClick={() => setPlano('advanced')}
-                className={cn(
-                  'relative rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between',
-                  plano === 'advanced'
-                    ? 'border-[#FFE600] bg-[#FFE600]/5 ring-2 ring-[#FFE600]/30'
-                    : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                )}
-              >
-                <div>
-                  <h3 className="font-bold text-white text-sm">Advanced</h3>
-                  <div className="mt-2 text-xl font-black text-white">R$ 197<span className="text-xs font-normal text-slate-400">/mês</span></div>
-                  <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                    Infraestrutura completa com marca própria.
-                  </p>
-                  <ul className="mt-3 space-y-1.5 text-[11px] text-slate-300">
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Domínio próprio (CNAME)</li>
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Chaves de API exclusivas</li>
-                    <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-400" /> Suporte VIP individual</li>
-                  </ul>
-                </div>
-              </div>
+              {PLAN_CARDS.map((card) => {
+                const isSelected = plano === card.id;
+                return (
+                  <div
+                    key={card.id}
+                    onClick={() => setPlano(card.id)}
+                    className={cn(
+                      'relative rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between select-none',
+                      isSelected
+                        ? 'border-[#FFE600] bg-[#FFE600]/10 ring-2 ring-[#FFE600]'
+                        : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                    )}
+                  >
+                    {card.badge && (
+                      <span className="absolute -top-2.5 right-4 rounded-full bg-[#FFE600] px-2.5 py-0.5 text-[9px] font-black uppercase text-slate-950 shadow-sm">
+                        {card.badge}
+                      </span>
+                    )}
+                    <div>
+                      <h3 className="font-bold text-white text-sm flex items-center gap-1">
+                        {card.name}
+                        {card.id === 'pro' && <Sparkles className="h-3.5 w-3.5 text-[#FFE600]" />}
+                      </h3>
+                      <div className="mt-2 text-xl font-black text-white">
+                        R$ {card.value}
+                        <span className="text-xs font-normal text-slate-400">/mês</span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
+                        {card.description}
+                      </p>
+                      <ul className="mt-3 space-y-1.5 text-[11px] text-slate-300">
+                        {card.features.map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-1.5">
+                            <Check className="h-3 w-3 text-emerald-400 shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
