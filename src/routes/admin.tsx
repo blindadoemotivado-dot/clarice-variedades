@@ -97,7 +97,7 @@ const DEFAULT_PIN = (import.meta.env.VITE_ADMIN_PIN as string | undefined)?.trim
 
 type UserRole = 'super_admin' | 'lojista';
 
-function AdminRoutePage() {
+export function AdminRoutePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('super_admin');
   const [loggedStore, setLoggedStore] = useState<LojaAfiliado | null>(null);
@@ -194,20 +194,59 @@ function AdminRoutePage() {
   // Modo de Entrada de Produtos (Individual vs. Lote)
   const [productInputMode, setProductInputMode] = useState<'individual' | 'batch'>('individual');
 
-  // Checagem de autenticação no sessionStorage
+  // Checagem de autenticação no sessionStorage e localStorage (com proteção SSR)
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     try {
-      const auth = sessionStorage.getItem('clarice_admin_authenticated');
-      const savedRole = sessionStorage.getItem('clarice_admin_role') as UserRole | null;
-      const savedStoreSlug = sessionStorage.getItem('clarice_admin_store_slug');
+      let auth = sessionStorage.getItem('clarice_admin_authenticated');
+      let savedRole = sessionStorage.getItem('clarice_admin_role') as UserRole | null;
+      let savedStoreSlug = sessionStorage.getItem('clarice_admin_store_slug');
+
+      // Fallback para localStorage persistente
+      if (!auth) {
+        const adminSessionRaw = localStorage.getItem('clarice_admin_session');
+        if (adminSessionRaw) {
+          try {
+            const parsed = JSON.parse(adminSessionRaw);
+            if (parsed && (parsed.authenticated || parsed === true)) {
+              auth = 'true';
+              savedRole = 'super_admin';
+            }
+          } catch {
+            if (adminSessionRaw === 'true') {
+              auth = 'true';
+              savedRole = 'super_admin';
+            }
+          }
+        }
+      }
+
+      if (!auth) {
+        const lojistaSessionRaw = localStorage.getItem('clarice_lojista_session');
+        if (lojistaSessionRaw) {
+          try {
+            const parsed = JSON.parse(lojistaSessionRaw);
+            if (parsed?.slug) {
+              auth = 'true';
+              savedRole = 'lojista';
+              savedStoreSlug = parsed.slug;
+              if (parsed.store) {
+                setLoggedStore(parsed.store);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
 
       if (auth === 'true') {
         setIsAuthenticated(true);
         if (savedRole) setUserRole(savedRole);
         if (savedRole === 'lojista' && savedStoreSlug) {
           fetchStoreBySlug(savedStoreSlug).then((s) => {
-            setLoggedStore(s);
-          });
+            if (s) setLoggedStore(s);
+          }).catch(() => {});
         }
       }
     } catch {
@@ -238,12 +277,16 @@ function AdminRoutePage() {
   const handlePinSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (DEFAULT_PIN && pinInput.trim() === DEFAULT_PIN) {
-      try {
-        sessionStorage.setItem('clarice_admin_authenticated', 'true');
-        sessionStorage.setItem('clarice_admin_role', 'super_admin');
-        sessionStorage.removeItem('clarice_admin_store_slug');
-      } catch {
-        // ignore
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('clarice_admin_authenticated', 'true');
+          sessionStorage.setItem('clarice_admin_role', 'super_admin');
+          sessionStorage.removeItem('clarice_admin_store_slug');
+          localStorage.setItem('clarice_admin_session', JSON.stringify({ authenticated: true, timestamp: Date.now() }));
+          localStorage.removeItem('clarice_lojista_session');
+        } catch {
+          // ignore
+        }
       }
       setUserRole('super_admin');
       setIsAuthenticated(true);
@@ -291,12 +334,16 @@ function AdminRoutePage() {
         }
       }
 
-      try {
-        sessionStorage.setItem('clarice_admin_authenticated', 'true');
-        sessionStorage.setItem('clarice_admin_role', 'lojista');
-        sessionStorage.setItem('clarice_admin_store_slug', store.slug);
-      } catch {
-        // ignore
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('clarice_admin_authenticated', 'true');
+          sessionStorage.setItem('clarice_admin_role', 'lojista');
+          sessionStorage.setItem('clarice_admin_store_slug', store.slug);
+          localStorage.setItem('clarice_lojista_session', JSON.stringify({ slug: store.slug, store, timestamp: Date.now() }));
+          localStorage.removeItem('clarice_admin_session');
+        } catch {
+          // ignore
+        }
       }
 
       setUserRole('lojista');
@@ -311,12 +358,16 @@ function AdminRoutePage() {
   };
 
   const handleLogout = () => {
-    try {
-      sessionStorage.removeItem('clarice_admin_authenticated');
-      sessionStorage.removeItem('clarice_admin_role');
-      sessionStorage.removeItem('clarice_admin_store_slug');
-    } catch {
-      // ignore
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('clarice_admin_authenticated');
+        sessionStorage.removeItem('clarice_admin_role');
+        sessionStorage.removeItem('clarice_admin_store_slug');
+        localStorage.removeItem('clarice_admin_session');
+        localStorage.removeItem('clarice_lojista_session');
+      } catch {
+        // ignore
+      }
     }
     setIsAuthenticated(false);
     setLoggedStore(null);
@@ -649,40 +700,6 @@ function AdminRoutePage() {
       return matchesSearch && matchesMarket;
     });
   }, [c.products, productSearch, marketFilter, userRole, loggedStore]);
-
-  // Produtos disponíveis para o Disparador VIP
-  const filteredVipProducts = useMemo(() => {
-    return c.products.filter((p) => {
-      if (userRole === 'lojista' && loggedStore) {
-        if (p.lojaSlug !== loggedStore.slug) return false;
-      }
-      if (p.status === 'inativo') return false;
-      if (vipSearch.trim()) {
-        const q = vipSearch.toLowerCase();
-        if (!p.title.toLowerCase().includes(q) && !p.mlbId.toLowerCase().includes(q)) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [c.products, userRole, loggedStore, vipSearch]);
-
-  const todayStr = getTodayDateStr();
-  const dispatchedTodayCount = useMemo(() => {
-    return filteredVipProducts.filter((p) => disparosMap[p.id] === todayStr).length;
-  }, [filteredVipProducts, disparosMap, todayStr]);
-
-  const nonDispatchedCount = filteredVipProducts.length - dispatchedTodayCount;
-
-  const displayedVipProducts = useMemo(() => {
-    if (vipFilter === 'disparados') {
-      return filteredVipProducts.filter((p) => disparosMap[p.id] === todayStr);
-    }
-    if (vipFilter === 'nao_disparados') {
-      return filteredVipProducts.filter((p) => disparosMap[p.id] !== todayStr);
-    }
-    return filteredVipProducts;
-  }, [filteredVipProducts, vipFilter, disparosMap, todayStr]);
 
   // =========================================================================
   // TELA DE LOGIN (DUAL: SUPER ADMIN PIN OU LOJISTA E-MAIL)
@@ -1534,7 +1551,7 @@ function AdminRoutePage() {
                     ) : (
                       <button
                         type="button"
-                        onClick={handleGenerateAsaasCheckout}
+                        onClick={() => handleGenerateAsaasCheckout()}
                         disabled={isGeneratingAsaas}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FFE600] hover:bg-yellow-400 py-3.5 text-xs sm:text-sm font-black text-slate-950 shadow-lg shadow-yellow-500/20 transition active:scale-[0.98] disabled:opacity-50"
                       >

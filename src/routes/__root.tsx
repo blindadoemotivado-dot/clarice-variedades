@@ -69,7 +69,31 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
           >
             Voltar para o início
           </a>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.clear();
+                  localStorage.removeItem('clarice_admin_session');
+                  localStorage.removeItem('clarice_lojista_session');
+                }
+              } catch {}
+              window.location.reload();
+            }}
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-accent"
+          >
+            Limpar sessão & Recarregar
+          </button>
         </div>
+        {error?.message && (
+          <details className="mt-4 text-left text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-lg border border-border">
+            <summary className="cursor-pointer font-medium hover:text-foreground">Detalhes técnicos</summary>
+            <pre className="mt-1.5 whitespace-pre-wrap font-mono text-[11px] overflow-auto max-h-32 text-red-500/90">
+              {error.message}
+            </pre>
+          </details>
+        )}
       </div>
     </div>
   );

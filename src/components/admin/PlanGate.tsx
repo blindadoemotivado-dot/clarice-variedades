@@ -10,12 +10,12 @@ export interface PlanGateProps {
   /** Nome ou descrição do recurso bloqueado */
   featureName: string;
   /** Callback executado ao clicar no botão de upgrade */
-  onUpgrade?: () => void;
+  onUpgrade?: (() => void) | undefined;
   /** Conteúdo renderizado normalmente caso allowed === true */
   children: React.ReactNode;
   /** Se deve renderizar um card em bloco (padrão) ou um aviso compacto em linha */
-  variant?: 'card' | 'inline';
-  className?: string;
+  variant?: 'card' | 'inline' | undefined;
+  className?: string | undefined;
 }
 
 export function PlanGate({

@@ -42,10 +42,11 @@ export function LojistaVipDispatcher({
   const [disparosMap, setDisparosMap] = useState<Record<string, string>>({});
 
   // Assinatura Customizada (Plano Advanced)
-  const defaultSignature = `✨ ${store.nomeLoja} • Ofertas selecionadas todos os dias!`;
+  const defaultSignature = `✨ ${store?.nomeLoja || 'Nossa Vitrine'} • Ofertas selecionadas todos os dias!`;
   const [customSignature, setCustomSignature] = useState(() => {
+    if (typeof window === 'undefined') return defaultSignature;
     try {
-      return localStorage.getItem(`vip_signature_${store.slug}`) || defaultSignature;
+      return (store?.slug && localStorage.getItem(`vip_signature_${store.slug}`)) || defaultSignature;
     } catch {
       return defaultSignature;
     }
@@ -193,12 +194,15 @@ export function LojistaVipDispatcher({
     }
 
     if (isSupabaseConfigured) {
-      supabase
-        .from('produtos_clarice')
-        .update({ ultimo_disparo_em: new Date().toISOString() })
-        .eq('id', productId)
-        .then(() => {})
-        .catch(() => {});
+      try {
+        supabase
+          .from('produtos_clarice')
+          .update({ ultimo_disparo_em: new Date().toISOString() })
+          .eq('id', productId)
+          .then(() => {}, () => {});
+      } catch {
+        // ignore
+      }
     }
   };
 
