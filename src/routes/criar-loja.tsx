@@ -545,7 +545,7 @@ function CriarLojaPage() {
 
       {/* Rodapé */}
       <footer className="border-t border-slate-900 bg-[#0A0E17] py-6 px-4 text-center text-xs text-slate-500">
-        <p>Clarice Achadinhos SaaS • Plataforma Multi-Tenant de Afiliados</p>
+        <p>© 2026 FCIA — Fernando Cabral Inteligência Artificial • Plataforma Multi-Tenant de Afiliados</p>
       </footer>
 
       <Toaster position="bottom-center" richColors />

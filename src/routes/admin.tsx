@@ -834,6 +834,10 @@ function AdminRoutePage() {
           >
             ← Voltar para a vitrine pública
           </a>
+
+          <div className="mt-6 pt-4 border-t border-slate-800 text-center text-[11px] text-slate-500">
+            © 2026 FCIA • Todos os direitos reservados.
+          </div>
         </div>
         <Toaster position="bottom-center" richColors />
       </div>
@@ -1983,6 +1987,11 @@ function AdminRoutePage() {
           )}
         </Tabs>
       </main>
+
+      {/* Rodapé Institucional FCIA */}
+      <footer className="mt-12 border-t border-slate-800/80 bg-[#0F172A] py-6 px-4 text-center text-xs text-slate-400">
+        <p>© 2026 FCIA • Todos os direitos reservados.</p>
+      </footer>
 
       {/* Modal de Criação de Loja (Super Admin) */}
       {newStoreModal && (

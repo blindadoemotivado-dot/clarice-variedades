@@ -832,10 +832,24 @@ function Storefront() {
         <p className="mx-auto max-w-2xl">
           A {store.nomeLoja} é uma curadora afiliada oficial do Mercado Livre e Shopee. Não vendemos diretamente: toda compra, pagamento, entrega e garantia acontecem nas plataformas parceiras. Podemos receber comissão pelas indicações, sem custo extra para você.
         </p>
+
+        {/* Assinatura Institucional FCIA */}
+        <div className="mt-5 pt-3 border-t border-border/40 flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground/80">
+          <span>Tecnologia por <strong className="font-bold text-foreground">FCIA</strong></span>
+          <span>•</span>
+          <a
+            href="/criar-loja"
+            className="font-semibold text-ml hover:underline inline-flex items-center gap-1 transition"
+          >
+            <span>Crie sua própria vitrine de achadinhos</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+
         <button
           type="button"
           onClick={handleOpenAdmin}
-          className="mt-4 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"
+          className="mt-3 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"
         >
           <Lock className="h-3 w-3" /> Painel da Loja (Admin)
         </button>
