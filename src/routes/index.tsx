@@ -210,6 +210,32 @@ function Storefront() {
     setVisibleCount(ITEMS_PER_PAGE);
   }, [category, marketplaceFilter, query, sort, favoritesOnly]);
 
+  // Rola suavemente até o produto se houver ?produto=ID na URL (link do Disparador VIP)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const prodParam = params.get('produto');
+    if (prodParam && c.products.length > 0) {
+      const target = c.products.find((p) => p.id === prodParam || p.mlbId === prodParam);
+      if (target) {
+        const targetIndex = c.products.findIndex((p) => p.id === target.id);
+        if (targetIndex >= visibleCount) {
+          setVisibleCount(targetIndex + 8);
+        }
+        setTimeout(() => {
+          const el = document.getElementById(`produto-${target.id}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-4', 'ring-[#FFE600]', 'transition-all');
+            setTimeout(() => {
+              el.classList.remove('ring-4', 'ring-[#FFE600]');
+            }, 3000);
+          }
+        }, 400);
+      }
+    }
+  }, [c.products]);
+
   const hasBothMarketplaces = useMemo(() => {
     if (!c.products || c.products.length === 0) return false;
     const hasML = c.products.some((p) => !p.marketplace || p.marketplace === 'mercadolivre');
@@ -494,6 +520,7 @@ function Storefront() {
           onVip={() => (store.whatsappVipUrl ? window.open(store.whatsappVipUrl, '_blank') : openVipGroup())}
           storeName={store.nomeLoja}
           mascoteUrl={store.heroMascoteUrl}
+          bannerUrl={store.heroMascoteUrl}
           vipUrl={store.whatsappVipUrl}
           accentColor={store.corDestaque}
           storeSlug={store.slug}

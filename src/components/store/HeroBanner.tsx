@@ -5,6 +5,7 @@ interface HeroBannerProps {
   onVip?: () => void;
   storeName?: string;
   mascoteUrl?: string;
+  bannerUrl?: string;
   vipUrl?: string;
   accentColor?: string;
   storeSlug?: string;
@@ -15,6 +16,7 @@ export function HeroBanner({
   onVip,
   storeName = 'Clarice Achadinhos',
   mascoteUrl,
+  bannerUrl,
   vipUrl,
   accentColor,
   storeSlug = 'clarice',
@@ -26,9 +28,10 @@ export function HeroBanner({
     `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`;
 
   const isClarice = (storeSlug || '').toLowerCase() === 'clarice' || storeName === 'Clarice Achadinhos';
-  const hasCustomImage = Boolean(mascoteUrl && mascoteUrl.trim() !== '');
+  const customImage = (mascoteUrl && mascoteUrl.trim() !== '') ? mascoteUrl.trim() : (bannerUrl && bannerUrl.trim() !== '') ? bannerUrl.trim() : '';
+  const hasCustomImage = Boolean(customImage);
   const showMascot = hasCustomImage || isClarice;
-  const resolvedMascote = hasCustomImage ? mascoteUrl : isClarice ? '/brand/clarice-hero.png' : undefined;
+  const resolvedMascote = hasCustomImage ? customImage : isClarice ? '/brand/clarice-hero.png' : undefined;
   const effectiveAccent = accentColor || '#FFE600';
 
   const handleVipClick = () => {
@@ -141,7 +144,11 @@ export function HeroBanner({
                 alt={`${storeName} - Curadoria Oficial`}
                 width={340}
                 height={380}
-                className="h-48 sm:h-64 md:h-[340px] lg:h-[385px] w-auto object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
+                className={
+                  isClarice
+                    ? "h-48 sm:h-64 md:h-[340px] lg:h-[385px] w-auto object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
+                    : "max-h-52 sm:max-h-64 md:max-h-[320px] lg:max-h-[360px] max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg w-auto rounded-2xl object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
+                }
               />
               <div
                 className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-black uppercase text-slate-950 shadow-lg ring-2 ring-slate-900/60"

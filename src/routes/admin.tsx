@@ -7,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Copy,
   CreditCard,
   Crown,
   DollarSign,
@@ -20,11 +21,13 @@ import {
   Loader2,
   Lock,
   Mail,
+  MessageCircle,
   Palette,
   Phone,
   Plus,
   RefreshCw,
   Search,
+  Send,
   Settings,
   Share2,
   ShieldAlert,
@@ -63,10 +66,16 @@ import {
   type SubscriptionPlan,
   type SubscriptionStatus,
 } from '@/types/tenant';
-import { formatBRL, isValidShopeeUrl, extractMlbId } from '@/lib/catalog';
+import { formatBRL, isValidShopeeUrl, extractMlbId, productFromUrl } from '@/lib/catalog';
 import { isValidMercadoLivreUrl } from '@/components/store/AdminSheet';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+
+function hash(s: string): number {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return h;
+}
 
 export const Route = createFileRoute('/admin')({
   head: () => ({
@@ -211,6 +220,328 @@ function AdminRoutePage() {
       toast.error(`Erro ao subir banner/mascote: ${err.message || 'Falha no upload'}`);
     } finally {
       setUploadingMascote(false);
+    }
+  };
+
+  // Modo de Entrada de Produtos (Individual vs. Lote)
+  const [productInputMode, setProductInputMode] = useState<'individual' | 'batch'>('individual');
+  const [batchLinksText, setBatchLinksText] = useState('');
+  const [batchDefaultCategory, setBatchDefaultCategory] = useState<AffiliateProduct['category']>('Casa & Cozinha');
+  const [batchParsedProducts, setBatchParsedProducts] = useState<AffiliateProduct[]>([]);
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
+
+  // Estados do Disparador VIP (WhatsApp)
+  type VipTemplate = 'urgencia' | 'achadinho' | 'unidades';
+  const [selectedVipProduct, setSelectedVipProduct] = useState<AffiliateProduct | null>(null);
+  const [vipTemplate, setVipTemplate] = useState<VipTemplate>('achadinho');
+  const [customCopyText, setCustomCopyText] = useState('');
+  const [vipSearch, setVipSearch] = useState('');
+  const [vipFilter, setVipFilter] = useState<'todos' | 'nao_disparados' | 'disparados'>('todos');
+  const [disparosMap, setDisparosMap] = useState<Record<string, string>>({});
+
+  const getTodayDateStr = () => new Date().toISOString().slice(0, 10);
+
+  // Carrega mapa de disparos de hoje para a loja logada
+  useEffect(() => {
+    if (loggedStore?.slug) {
+      try {
+        const saved = localStorage.getItem(`disparos_vip_${loggedStore.slug}`);
+        if (saved) {
+          setDisparosMap(JSON.parse(saved));
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [loggedStore?.slug]);
+
+  // Helper para gerar copy persuasiva
+  const generateVipCopy = (
+    product: AffiliateProduct,
+    template: VipTemplate,
+    storeName: string,
+    storeSlug: string
+  ): string => {
+    const isShopee = product.marketplace === 'shopee';
+    const canal = isShopee ? 'SHOPEE' : 'MERCADO LIVRE';
+    const vitrineUrl = `https://clariceachadinhos.vercel.app/?loja=${storeSlug}&produto=${product.id}`;
+    const precoAntigo = formatBRL(product.originalPrice);
+    const precoAtual = formatBRL(product.currentPrice);
+    const desconto = product.discountPercent;
+    const parcelas = product.installmentsText || 'em até 6x sem juros';
+    const lojaNome = storeName || 'Nossa Loja';
+
+    if (template === 'urgencia') {
+      return (
+        `🚨 *OFERTA RELÂMPAGO • PREÇO BAIXOU AGORA!*\n` +
+        `🔥 *${product.title}*\n\n` +
+        `~De: ${precoAntigo}~\n` +
+        `💥 *Por apenas: ${precoAtual}* (${desconto}% OFF)\n` +
+        `💳 ${parcelas}\n` +
+        `⚡ *Envio Rápido & Compra 100% Garantida no app ${canal}*\n\n` +
+        `👉 *Ver fotos e garantir na nossa vitrine:*\n${vitrineUrl}\n\n` +
+        `🛒 *Ou compre direto pelo link oficial:*\n${product.affiliateUrl}\n\n` +
+        `⏰ _Atenção: Promoção por tempo limitado enquanto durar o estoque promocional!_`
+      );
+    }
+
+    if (template === 'unidades') {
+      return (
+        `⚠️ *ÚLTIMAS UNIDADES COM ESSE PREÇO!*\n` +
+        `🏷️ *${product.title}*\n\n` +
+        `Estoque com desconto quase esgotado no ${canal}!\n\n` +
+        `~De: ${precoAntigo}~\n` +
+        `✅ *Por apenas: ${precoAtual}* (${desconto}% OFF)\n` +
+        `💳 ${parcelas}\n\n` +
+        `👉 *Garanta o seu antes que volte ao preço normal:*\n${vitrineUrl}\n\n` +
+        `🔗 *Link direto oficial:* ${product.affiliateUrl}\n\n` +
+        `🏃‍♂️💨 _Corre antes que acabe! Equipe ${lojaNome}_`
+      );
+    }
+
+    // Default: 'achadinho'
+    return (
+      `⭐ *ACHADINHO DO DIA • CURADORIA ${lojaNome.toUpperCase()}*\n` +
+      `🛍️ *${product.title}*\n\n` +
+      `Garimpamos essa oferta exclusiva com desconto real verificado no ${canal}:\n\n` +
+      `~De: ${precoAntigo}~\n` +
+      `✅ *Por apenas: ${precoAtual}* (${desconto}% OFF)\n` +
+      `💳 ${parcelas}\n` +
+      `🚚 ${product.freeShipping ? 'Frete Grátis disponível' : 'Envio Rápido'}\n\n` +
+      `👉 *Ver detalhes e fotos completas na vitrine:*\n${vitrineUrl}\n\n` +
+      `🔗 *Link do produto:* ${product.affiliateUrl}\n\n` +
+      `✨ _Selecionado especialmente para os membros do nosso Grupo VIP!_`
+    );
+  };
+
+  // Atualiza a copy sempre que o produto selecionado ou o template mudar
+  useEffect(() => {
+    if (selectedVipProduct && loggedStore) {
+      setCustomCopyText(
+        generateVipCopy(selectedVipProduct, vipTemplate, loggedStore.nomeLoja, loggedStore.slug)
+      );
+    }
+  }, [selectedVipProduct, vipTemplate, loggedStore]);
+
+  const markProductAsDispatched = (productId: string) => {
+    if (!loggedStore?.slug) return;
+    const today = getTodayDateStr();
+    const updated = { ...disparosMap, [productId]: today };
+    setDisparosMap(updated);
+    try {
+      localStorage.setItem(`disparos_vip_${loggedStore.slug}`, JSON.stringify(updated));
+    } catch {}
+
+    if (isSupabaseConfigured) {
+      supabase
+        .from('produtos_clarice')
+        .update({ ultimo_disparo_em: new Date().toISOString() })
+        .eq('id', productId)
+        .then(() => {})
+        .catch(() => {});
+    }
+  };
+
+  const resetProductDispatch = (productId: string) => {
+    if (!loggedStore?.slug) return;
+    const updated = { ...disparosMap };
+    delete updated[productId];
+    setDisparosMap(updated);
+    try {
+      localStorage.setItem(`disparos_vip_${loggedStore.slug}`, JSON.stringify(updated));
+    } catch {}
+  };
+
+  const handleCopyVip = () => {
+    if (!customCopyText.trim()) return;
+    navigator.clipboard.writeText(customCopyText);
+    toast.success('Copy copiada para a área de transferência!');
+  };
+
+  const handleFireWhatsApp = () => {
+    if (!selectedVipProduct || !customCopyText.trim()) {
+      toast.error('Selecione um produto e revise a copy antes de disparar.');
+      return;
+    }
+    markProductAsDispatched(selectedVipProduct.id);
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(customCopyText)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    toast.success('WhatsApp aberto e produto marcado como Disparado Hoje!');
+  };
+
+  // Processamento do Lote de Produtos
+  const handleProcessBatch = () => {
+    const lines = batchLinksText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      toast.error('Cole ao menos um link válido para processar.');
+      return;
+    }
+
+    const limitedLines = lines.slice(0, 20);
+    if (lines.length > 20) {
+      toast.info('Processando os primeiros 20 links da lista.');
+    }
+
+    setIsProcessingBatch(true);
+    try {
+      const targetLoja =
+        userRole === 'lojista' && loggedStore
+          ? loggedStore.slug
+          : selectedStoreFilter !== 'todos'
+          ? selectedStoreFilter
+          : 'clarice';
+
+      const parsed: AffiliateProduct[] = [];
+
+      for (let i = 0; i < limitedLines.length; i++) {
+        const url = limitedLines[i];
+        const isShopee = url.includes('shopee.com') || url.includes('shp.ee');
+
+        if (isShopee) {
+          const slugMatch = url.match(/shopee\.com\.br\/([^?]+)-i\./i);
+          const slug = slugMatch ? decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim() : '';
+          const title = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : `Oferta Shopee #${i + 1}`;
+          const hashVal = Math.abs(hash(url) || Date.now() + i);
+          const mlbId = `SHP-${String(hashVal).slice(0, 8)}`;
+          const origPrice = 79.9 + (hashVal % 180) + 0.9;
+          const disc = 20 + (hashVal % 35);
+          const curPrice = Math.round(origPrice * (100 - disc)) / 100;
+
+          parsed.push({
+            id: `${mlbId}-${Date.now()}-${i}`,
+            mlbId,
+            title,
+            originalPrice: origPrice,
+            currentPrice: curPrice,
+            discountPercent: disc,
+            installmentsText: 'em até 6x sem juros',
+            imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+            affiliateUrl: url,
+            category: batchDefaultCategory,
+            freeShipping: true,
+            isFull: false,
+            rating: 4.8,
+            reviewsCount: 190,
+            featured: false,
+            status: 'ativo',
+            marketplace: 'shopee',
+            lojaSlug: targetLoja,
+          });
+        } else {
+          // Mercado Livre
+          const p = productFromUrl(url, batchDefaultCategory, url, true);
+          if (p) {
+            parsed.push({
+              ...p,
+              marketplace: 'mercadolivre',
+              lojaSlug: targetLoja,
+              status: 'ativo',
+            });
+          } else {
+            const mlb = extractMlbId(url) || `MLB-${Date.now().toString().slice(-8)}`;
+            const origPrice = 129.9;
+            const disc = 25;
+            const curPrice = Math.round(origPrice * (100 - disc)) / 100;
+            parsed.push({
+              id: `${mlb}-${Date.now()}-${i}`,
+              mlbId: mlb,
+              title: `Produto Mercado Livre ${mlb}`,
+              originalPrice: origPrice,
+              currentPrice: curPrice,
+              discountPercent: disc,
+              installmentsText: 'em até 6x sem juros',
+              imageUrl: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?auto=format&fit=crop&w=600&q=80',
+              affiliateUrl: url,
+              category: batchDefaultCategory,
+              freeShipping: true,
+              isFull: true,
+              rating: 4.9,
+              reviewsCount: 320,
+              featured: false,
+              status: 'ativo',
+              marketplace: 'mercadolivre',
+              lojaSlug: targetLoja,
+            });
+          }
+        }
+      }
+
+      setBatchParsedProducts(parsed);
+      toast.success(`${parsed.length} link(s) processado(s) com sucesso! Confira a prévia.`);
+    } catch (err: any) {
+      toast.error(`Erro ao processar lote: ${err?.message || 'Falha ao analisar links'}`);
+    } finally {
+      setIsProcessingBatch(false);
+    }
+  };
+
+  // Salvar Todos os Produtos do Lote
+  const handleSaveBatch = async () => {
+    if (batchParsedProducts.length === 0) return;
+
+    const targetLoja =
+      userRole === 'lojista' && loggedStore
+        ? loggedStore.slug
+        : selectedStoreFilter !== 'todos'
+        ? selectedStoreFilter
+        : 'clarice';
+
+    // Trava de limite de produtos para plano Start (máximo 50)
+    if (userRole === 'lojista' && loggedStore?.plano === 'start') {
+      const currentCount = c.products.filter((p) => p.lojaSlug === targetLoja).length;
+      const limit = 50;
+      if (currentCount + batchParsedProducts.length > limit) {
+        const remaining = Math.max(0, limit - currentCount);
+        toast.error(
+          `⚠️ Limite de 50 produtos do Plano Start atingido! Você possui ${currentCount} produtos ativos. Vagas restantes: ${remaining}. Faça upgrade para o Plano Pro na aba 'Minha Assinatura' para cadastrar produtos ilimitados!`
+        );
+        return;
+      }
+    }
+
+    setIsSavingBatch(true);
+    try {
+      c.add(batchParsedProducts);
+
+      if (isSupabaseConfigured) {
+        const rows = batchParsedProducts.map((p) => ({
+          id: p.id,
+          mlb_id: p.mlbId,
+          title: p.title,
+          original_price: p.originalPrice,
+          current_price: p.currentPrice,
+          discount_percent: p.discountPercent,
+          installments_text: p.installmentsText,
+          image_url: p.imageUrl,
+          affiliate_url: p.affiliateUrl,
+          category: p.category,
+          free_shipping: p.freeShipping,
+          is_full: p.isFull,
+          rating: p.rating,
+          reviews_count: p.reviewsCount,
+          featured: p.featured,
+          active: true,
+          status: 'ativo',
+          marketplace: p.marketplace,
+          loja_slug: p.lojaSlug,
+        }));
+
+        await supabase.from('produtos_clarice').insert(rows);
+      }
+
+      toast.success(`🎉 ${batchParsedProducts.length} produtos importados com sucesso na sua vitrine!`);
+      setBatchLinksText('');
+      setBatchParsedProducts([]);
+      setProductInputMode('individual');
+    } catch (err: any) {
+      toast.error(`Erro ao salvar lote: ${err?.message || 'Falha ao salvar'}`);
+    } finally {
+      setIsSavingBatch(false);
     }
   };
 
@@ -442,6 +773,17 @@ function AdminRoutePage() {
       userRole === 'lojista' && loggedStore
         ? loggedStore.slug
         : (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter);
+
+    // Trava de limite de produtos para plano Start (máximo 50)
+    if (userRole === 'lojista' && loggedStore?.plano === 'start' && !editingProductId) {
+      const currentCount = c.products.filter((p) => p.lojaSlug === assignedLojaSlug).length;
+      if (currentCount >= 50) {
+        toast.error(
+          `⚠️ Limite de 50 produtos do Plano Start atingido! Você possui 50 produtos ativos. Faça upgrade para o Plano Pro na aba 'Minha Assinatura' para cadastrar produtos ilimitados!`
+        );
+        return;
+      }
+    }
 
     const newProduct: AffiliateProduct = {
       id: editingProductId || `${mlbId}-${Date.now()}`,
@@ -701,6 +1043,40 @@ function AdminRoutePage() {
     });
   }, [c.products, productSearch, marketFilter, userRole, loggedStore]);
 
+  // Produtos disponíveis para o Disparador VIP
+  const filteredVipProducts = useMemo(() => {
+    return c.products.filter((p) => {
+      if (userRole === 'lojista' && loggedStore) {
+        if (p.lojaSlug !== loggedStore.slug) return false;
+      }
+      if (p.status === 'inativo') return false;
+      if (vipSearch.trim()) {
+        const q = vipSearch.toLowerCase();
+        if (!p.title.toLowerCase().includes(q) && !p.mlbId.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [c.products, userRole, loggedStore, vipSearch]);
+
+  const todayStr = getTodayDateStr();
+  const dispatchedTodayCount = useMemo(() => {
+    return filteredVipProducts.filter((p) => disparosMap[p.id] === todayStr).length;
+  }, [filteredVipProducts, disparosMap, todayStr]);
+
+  const nonDispatchedCount = filteredVipProducts.length - dispatchedTodayCount;
+
+  const displayedVipProducts = useMemo(() => {
+    if (vipFilter === 'disparados') {
+      return filteredVipProducts.filter((p) => disparosMap[p.id] === todayStr);
+    }
+    if (vipFilter === 'nao_disparados') {
+      return filteredVipProducts.filter((p) => disparosMap[p.id] !== todayStr);
+    }
+    return filteredVipProducts;
+  }, [filteredVipProducts, vipFilter, disparosMap, todayStr]);
+
   // =========================================================================
   // TELA DE LOGIN (DUAL: SUPER ADMIN PIN OU LOJISTA E-MAIL)
   // =========================================================================
@@ -868,8 +1244,10 @@ function AdminRoutePage() {
           <div className="flex items-center gap-3">
             <a
               href={userRole === 'lojista' && loggedStore ? `/?loja=${loggedStore.slug}` : '/'}
+              target={userRole === 'lojista' && loggedStore ? '_blank' : undefined}
+              rel={userRole === 'lojista' && loggedStore ? 'noreferrer' : undefined}
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition"
-              title="Ver vitrine pública"
+              title={userRole === 'lojista' ? 'Ver Minha Vitrine (Nova Aba)' : 'Ver vitrine pública'}
             >
               <ArrowLeft className="h-4 w-4" />
             </a>
@@ -900,6 +1278,18 @@ function AdminRoutePage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {userRole === 'lojista' && loggedStore && (
+              <a
+                href={`/?loja=${loggedStore.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFE600] hover:bg-yellow-400 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
+                title="Abrir minha vitrine pública em nova aba"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>↗ Ver Minha Vitrine</span>
+              </a>
+            )}
             <button
               onClick={handleLogout}
               className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
@@ -913,13 +1303,8 @@ function AdminRoutePage() {
       {/* Conteúdo Principal com Abas */}
       <main className="mx-auto max-w-7xl px-4 py-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Barra de Abas: Super Admin vê 4 abas, Lojista vê 3 abas limpas */}
-          <TabsList
-            className={cn(
-              'grid w-full bg-slate-900 border border-slate-800 p-1 rounded-2xl mb-6',
-              userRole === 'super_admin' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'
-            )}
-          >
+          {/* Barra de Abas: Super Admin e Lojista com 4 abas estruturadas */}
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-slate-900 border border-slate-800 p-1 rounded-2xl mb-6">
             {userRole === 'super_admin' ? (
               <>
                 <TabsTrigger
@@ -961,6 +1346,13 @@ function AdminRoutePage() {
                   Meus Produtos ({filteredProducts.length})
                 </TabsTrigger>
                 <TabsTrigger
+                  value="disparador-vip"
+                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                >
+                  <MessageCircle className="h-4 w-4 mr-1.5" />
+                  Disparador VIP
+                </TabsTrigger>
+                <TabsTrigger
                   value="minha-loja"
                   className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
                 >
@@ -985,32 +1377,67 @@ function AdminRoutePage() {
             <div className="grid gap-6 lg:grid-cols-12">
               {/* Formulário de Cadastro / Edição */}
               <div className="lg:col-span-5 rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Plus className="h-4 w-4 text-[#FFE600]" />
-                    <h2 className="font-black text-white text-base">
-                      {editingProductId ? 'Editar Oferta' : 'Cadastrar Nova Oferta'}
-                    </h2>
-                  </div>
-                  {editingProductId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingProductId(null);
-                        setProductTitle('');
-                        setProductAffiliateUrl('');
-                        setProductCurrentPrice('');
-                        setProductOriginalPrice('');
-                        setProductImageUrl('');
-                      }}
-                      className="text-xs text-slate-400 hover:text-white"
-                    >
-                      Cancelar
-                    </button>
-                  )}
+                {/* Seletor de Modo: Cadastro Individual vs. Importação em Lote */}
+                <div className="flex rounded-2xl bg-slate-950 p-1 border border-slate-800 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setProductInputMode('individual')}
+                    className={cn(
+                      'flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5',
+                      productInputMode === 'individual'
+                        ? 'bg-[#FFE600] text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    )}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>{editingProductId ? 'Editar Oferta' : 'Cadastro Individual'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingProductId(null);
+                      setProductInputMode('batch');
+                    }}
+                    className={cn(
+                      'flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5',
+                      productInputMode === 'batch'
+                        ? 'bg-[#FFE600] text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    )}
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    <span>⚡ Importar em Lote</span>
+                  </button>
                 </div>
 
-                <form onSubmit={handleSaveProduct} className="space-y-4">
+                {productInputMode === 'individual' ? (
+                  <>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Plus className="h-4 w-4 text-[#FFE600]" />
+                        <h2 className="font-black text-white text-base">
+                          {editingProductId ? 'Editar Oferta' : 'Cadastrar Nova Oferta'}
+                        </h2>
+                      </div>
+                      {editingProductId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProductId(null);
+                            setProductTitle('');
+                            setProductAffiliateUrl('');
+                            setProductCurrentPrice('');
+                            setProductOriginalPrice('');
+                            setProductImageUrl('');
+                          }}
+                          className="text-xs text-slate-400 hover:text-white"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+
+                    <form onSubmit={handleSaveProduct} className="space-y-4">
                   {/* Seletor de Marketplace */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -1216,11 +1643,152 @@ function AdminRoutePage() {
                     {editingProductId ? 'Salvar Alterações' : 'Publicar na Vitrine'}
                   </button>
                 </form>
-              </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="border-b border-slate-800 pb-3 mb-1">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-[#FFE600]" />
+                    <h2 className="font-black text-white text-base">
+                      Importação em Lote (ML / Shopee)
+                    </h2>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Cole uma lista de links oficiais. O robô extrai os dados e prepara as ofertas automaticamente.
+                  </p>
+                </div>
 
-              {/* Listagem de Produtos */}
-              <div className="lg:col-span-7 rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Lista de Links (1 por linha)
+                    </label>
+                    <span className="text-[11px] text-[#FFE600] font-bold">
+                      Máx. 20 por lote
+                    </span>
+                  </div>
+                  <textarea
+                    rows={7}
+                    value={batchLinksText}
+                    onChange={(e) => setBatchLinksText(e.target.value)}
+                    placeholder={"https://meli.la/123456\nhttps://s.shopee.com.br/...\nhttps://produto.mercadolivre.com.br/MLB-..."}
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-3.5 text-xs text-white font-mono leading-relaxed outline-none focus:ring-2 focus:ring-[#FFE600]"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Suporta links do Mercado Livre (mercadolivre.com / meli.la) e Shopee (shopee.com.br / shp.ee).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Categoria Padrão do Lote
+                  </label>
+                  <select
+                    value={batchDefaultCategory}
+                    onChange={(e) => setBatchDefaultCategory(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                  >
+                    {CATEGORIES.filter((c) => c !== 'Todos').map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!batchLinksText.trim() || isProcessingBatch}
+                  onClick={handleProcessBatch}
+                  className="w-full rounded-2xl bg-slate-800 hover:bg-slate-700 py-3 text-xs sm:text-sm font-bold text-white flex items-center justify-center gap-2 transition disabled:opacity-50 border border-slate-700"
+                >
+                  {isProcessingBatch ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-[#FFE600]" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 text-[#FFE600]" />
+                  )}
+                  <span>{isProcessingBatch ? 'Processando links...' : '🔍 Processar & Visualizar Lote'}</span>
+                </button>
+
+                {/* Prévia dos Produtos do Lote */}
+                {batchParsedProducts.length > 0 && (
+                  <div className="space-y-3 pt-3 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-xs font-bold text-white">
+                      <span>Prévia Identificada ({batchParsedProducts.length} itens)</span>
+                      <button
+                        type="button"
+                        onClick={() => setBatchParsedProducts([])}
+                        className="text-[11px] text-red-400 hover:underline"
+                      >
+                        Limpar Prévia
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {batchParsedProducts.map((p, idx) => (
+                        <div key={idx} className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+                          <img src={p.imageUrl} alt="" className="h-10 w-10 rounded-lg object-contain bg-white p-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-white truncate">{p.title}</p>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                              <span className={cn(
+                                'px-1 py-0.2 rounded font-bold uppercase text-[9px]',
+                                p.marketplace === 'shopee' ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'
+                              )}>
+                                {p.marketplace === 'shopee' ? 'Shopee' : 'Mercado Livre'}
+                              </span>
+                              <span className="text-emerald-400 font-bold">{formatBRL(p.currentPrice)}</span>
+                              <span>• {p.category}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isSavingBatch}
+                      onClick={handleSaveBatch}
+                      className="w-full rounded-2xl bg-[#FFE600] hover:bg-yellow-400 py-3 text-xs sm:text-sm font-black text-slate-950 shadow-lg shadow-yellow-500/20 transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isSavingBatch ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                      ) : (
+                        <Zap className="h-4 w-4 text-slate-950" />
+                      )}
+                      <span>{isSavingBatch ? 'Salvando lote...' : `Salvar Todos na Minha Loja (${batchParsedProducts.length})`}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Listagem de Produtos */}
+          <div className="lg:col-span-7 rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
+            {/* Indicador de Limite do Plano para Lojista */}
+            {userRole === 'lojista' && loggedStore && (
+              <div className="mb-4 px-3.5 py-2.5 rounded-2xl border border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <Store className="h-3.5 w-3.5 text-[#FFE600]" />
+                  <span className="text-slate-300">
+                    Plano: <strong className="text-white uppercase">{loggedStore.plano}</strong>
+                  </span>
+                </div>
+                <div className="text-slate-400 font-medium">
+                  {loggedStore.plano === 'start' ? (
+                    <span>
+                      <strong className="text-[#FFE600]">{c.products.filter((p) => p.lojaSlug === loggedStore.slug).length}</strong>/50 produtos cadastrados
+                    </span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">
+                      Produtos Ilimitados ({c.products.filter((p) => p.lojaSlug === loggedStore.slug).length} ativos)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
                   <div>
                     <h2 className="font-black text-white text-base">
                       {userRole === 'lojista' ? 'Produtos da Minha Loja' : 'Catálogo Geral de Produtos'} ({filteredProducts.length})
@@ -1336,7 +1904,274 @@ function AdminRoutePage() {
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 2 (LOJISTA): MINHA LOJA (CUSTOMIZAÇÃO DE BRANDING) */}
+          {/* ABA 2 (LOJISTA): DISPARADOR VIP PARA WHATSAPP */}
+          {/* ========================================================================= */}
+          {userRole === 'lojista' && loggedStore && (
+            <TabsContent value="disparador-vip" className="space-y-6">
+              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+                  <div>
+                    <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                        <MessageCircle className="h-4 w-4 fill-current" />
+                      </span>
+                      Disparador VIP • Grupos de WhatsApp
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Gere copies persuasivas em 1 clique e envie para o seu Grupo VIP ou canais sem repetir promoções já enviadas hoje.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-12">
+                  {/* Coluna Esquerda: Lista de Produtos para Selecionar */}
+                  <div className="lg:col-span-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={vipSearch}
+                        onChange={(e) => setVipSearch(e.target.value)}
+                        placeholder="Buscar nos meus produtos..."
+                        className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-[#FFE600]"
+                      />
+                    </div>
+
+                    {/* Filtros de Status de Disparo */}
+                    <div className="flex gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setVipFilter('todos')}
+                        className={cn(
+                          'flex-1 py-1.5 rounded-lg text-center transition',
+                          vipFilter === 'todos' ? 'bg-[#FFE600] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                        )}
+                      >
+                        Todos ({filteredVipProducts.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVipFilter('nao_disparados')}
+                        className={cn(
+                          'flex-1 py-1.5 rounded-lg text-center transition',
+                          vipFilter === 'nao_disparados' ? 'bg-[#FFE600] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                        )}
+                      >
+                        Não Enviados ({nonDispatchedCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVipFilter('disparados')}
+                        className={cn(
+                          'flex-1 py-1.5 rounded-lg text-center transition',
+                          vipFilter === 'disparados' ? 'bg-[#FFE600] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                        )}
+                      >
+                        Disparados Hoje ({dispatchedTodayCount})
+                      </button>
+                    </div>
+
+                    {/* Lista com Scroll */}
+                    <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
+                      {displayedVipProducts.length === 0 ? (
+                        <div className="py-12 text-center text-slate-500 text-xs">
+                          Nenhum produto encontrado com este filtro.
+                        </div>
+                      ) : (
+                        displayedVipProducts.map((p) => {
+                          const isDispatched = disparosMap[p.id] === getTodayDateStr();
+                          const isSelected = selectedVipProduct?.id === p.id;
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => setSelectedVipProduct(p)}
+                              className={cn(
+                                'flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition select-none',
+                                isSelected
+                                  ? 'border-[#FFE600] bg-yellow-500/10 shadow-md'
+                                  : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900/60'
+                              )}
+                            >
+                              <img
+                                src={p.imageUrl}
+                                alt={p.title}
+                                className="h-14 w-14 rounded-xl object-contain bg-white p-1 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span
+                                    className={cn(
+                                      'px-1.5 py-0.2 rounded text-[9px] font-bold uppercase',
+                                      p.marketplace === 'shopee'
+                                        ? 'bg-orange-500/20 text-orange-400'
+                                        : 'bg-yellow-500/20 text-yellow-400'
+                                    )}
+                                  >
+                                    {p.marketplace === 'shopee' ? 'Shopee' : 'Mercado Livre'}
+                                  </span>
+                                  {isDispatched ? (
+                                    <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-400 flex items-center gap-0.5">
+                                      <CheckCircle2 className="h-2.5 w-2.5" /> Disparado Hoje
+                                    </span>
+                                  ) : (
+                                    <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] font-medium text-slate-400 flex items-center gap-0.5">
+                                      <Clock className="h-2.5 w-2.5" /> Pronto
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs font-bold text-white truncate">{p.title}</p>
+                                <p className="text-xs font-black text-emerald-400 mt-0.5">
+                                  {formatBRL(p.currentPrice)}{' '}
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    ({p.discountPercent}% OFF)
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Coluna Direita: Editor de Copy & Ação de Disparo */}
+                  <div className="lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 flex flex-col justify-between">
+                    {!selectedVipProduct ? (
+                      <div className="py-24 text-center text-slate-500">
+                        <MessageCircle className="mx-auto h-12 w-12 mb-3 opacity-30 text-emerald-400" />
+                        <p className="text-sm font-bold text-slate-300">Nenhum produto selecionado</p>
+                        <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                          Clique em qualquer produto da lista ao lado para carregar a copy automática pronta para disparo.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Cabeçalho do Produto Selecionado */}
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={selectedVipProduct.imageUrl}
+                              alt={selectedVipProduct.title}
+                              className="h-12 w-12 rounded-xl object-contain bg-white p-1 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{selectedVipProduct.title}</p>
+                              <p className="text-xs font-black text-emerald-400">
+                                {formatBRL(selectedVipProduct.currentPrice)}{' '}
+                                <span className="text-[10px] text-slate-400 line-through font-normal">
+                                  {formatBRL(selectedVipProduct.originalPrice)}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {disparosMap[selectedVipProduct.id] === getTodayDateStr() && (
+                            <button
+                              type="button"
+                              onClick={() => resetProductDispatch(selectedVipProduct.id)}
+                              className="text-[10px] text-slate-500 hover:text-slate-300 underline shrink-0"
+                              title="Desmarcar se desejar disparar novamente hoje"
+                            >
+                              Resetar disparo de hoje
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Seletor de Templates */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-2">
+                            Escolha o Template de Mensagem:
+                          </label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setVipTemplate('achadinho')}
+                              className={cn(
+                                'py-2 px-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1',
+                                vipTemplate === 'achadinho'
+                                  ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
+                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                              )}
+                            >
+                              <span className="text-sm">⭐</span>
+                              <span>Achadinho do Dia</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setVipTemplate('urgencia')}
+                              className={cn(
+                                'py-2 px-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1',
+                                vipTemplate === 'urgencia'
+                                  ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
+                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                              )}
+                            >
+                              <span className="text-sm">🔥</span>
+                              <span>Urgência / Relâmpago</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setVipTemplate('unidades')}
+                              className={cn(
+                                'py-2 px-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1',
+                                vipTemplate === 'unidades'
+                                  ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
+                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                              )}
+                            >
+                              <span className="text-sm">🚨</span>
+                              <span>Últimas Unidades</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Textarea Editável */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="block text-xs font-semibold text-slate-300">
+                              Mensagem Formatada para WhatsApp (Editável):
+                            </label>
+                            <span className="text-[10px] text-slate-400">
+                              Emojis e links verificados
+                            </span>
+                          </div>
+                          <textarea
+                            rows={10}
+                            value={customCopyText}
+                            onChange={(e) => setCustomCopyText(e.target.value)}
+                            className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 p-3.5 text-xs text-slate-100 font-mono leading-relaxed outline-none focus:ring-2 focus:ring-[#FFE600]"
+                          />
+                        </div>
+
+                        {/* Botões de Ação */}
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={handleCopyVip}
+                            className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 hover:bg-slate-700 py-3.5 text-xs sm:text-sm font-bold text-white transition active:scale-95 shadow-md"
+                          >
+                            <Copy className="h-4 w-4" />
+                            <span>Copiar Copy</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleFireWhatsApp}
+                            className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] py-3.5 text-xs sm:text-sm font-black text-slate-950 transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                          >
+                            <MessageCircle className="h-4 w-4 fill-current" />
+                            <span>Abrir WhatsApp & Disparar</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          )}
+
+          {/* ========================================================================= */}
+          {/* ABA 3 (LOJISTA): MINHA LOJA (CUSTOMIZAÇÃO DE BRANDING) */}
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
             <TabsContent value="minha-loja" className="space-y-6">
@@ -1478,16 +2313,21 @@ function AdminRoutePage() {
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold text-slate-300">
-                          Mascote / Banner Hero
-                        </label>
-                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-lg text-[11px] font-bold cursor-pointer border border-slate-700 transition">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300">
+                            Banner Hero / Imagem Destaque da Vitrine
+                          </label>
+                          <p className="text-[10px] text-slate-400">
+                            Exibido no lado direito do banner no topo da sua vitrine.
+                          </p>
+                        </div>
+                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-xl text-[11px] font-bold cursor-pointer border border-slate-700 transition shrink-0">
                           {uploadingMascote ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Upload className="h-3.5 w-3.5" />
                           )}
-                          <span>{uploadingMascote ? 'Enviando...' : '📤 Subir Banner / Mascote'}</span>
+                          <span>{uploadingMascote ? 'Enviando...' : '📤 Subir Banner Hero'}</span>
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/webp,image/jpg"
@@ -1497,27 +2337,37 @@ function AdminRoutePage() {
                           />
                         </label>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="url"
-                          value={storeBrandMascoteUrl}
-                          onChange={(e) => setStoreBrandMascoteUrl(e.target.value)}
-                          placeholder="https://... ou suba a imagem ao lado"
-                          className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                        />
-                        {storeBrandMascoteUrl && (
-                          <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center p-0.5">
+                      <input
+                        type="url"
+                        value={storeBrandMascoteUrl}
+                        onChange={(e) => setStoreBrandMascoteUrl(e.target.value)}
+                        placeholder="https://... ou clique em 'Subir Banner Hero'"
+                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                      />
+                      {storeBrandMascoteUrl && (
+                        <div className="mt-2.5 rounded-2xl border border-slate-800 bg-slate-950/80 p-2.5">
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5 px-1">
+                            <span className="font-semibold text-slate-300">Prévia do Banner Hero da Vitrine:</span>
+                            <button
+                              type="button"
+                              onClick={() => setStoreBrandMascoteUrl('')}
+                              className="text-red-400 hover:text-red-300 underline text-[10px]"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                          <div className="h-44 sm:h-52 w-full rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-slate-800/80 p-1">
                             <img
                               src={storeBrandMascoteUrl}
-                              alt="Banner"
+                              alt="Prévia do Banner Hero"
                               className="h-full w-full object-contain"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
