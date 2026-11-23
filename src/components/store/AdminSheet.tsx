@@ -1656,6 +1656,16 @@ export function AdminSheet({ open, onOpenChange, ...rest }: AdminSheetProps) {
           <SheetDescription className="text-xs text-zinc-400">
             Gestão simplificada do catálogo, radar de ofertas, copies e configurações unificadas • {rest.products.length} ativas • {pendingCount} no radar
           </SheetDescription>
+          <div className="pt-2">
+            <a
+              href="/admin"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFE600] px-3 py-1.5 text-xs font-black text-slate-950 hover:bg-yellow-400 transition shadow-sm"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              <span>Abrir Painel SaaS & Shopee (/admin)</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
         </SheetHeader>
 
         <div className="mt-4">

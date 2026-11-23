@@ -12,9 +12,13 @@ interface FeaturedDealCardProps {
 }
 
 export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: FeaturedDealCardProps) {
+  const isShopee = p.marketplace === 'shopee';
+
   const handleLinkClick = () => {
     toast.info('Ativando link de apoio...', {
-      description: 'Redirecionando para o ambiente seguro do Mercado Livre.',
+      description: isShopee
+        ? 'Redirecionando para o ambiente seguro da Shopee.'
+        : 'Redirecionando para o ambiente seguro do Mercado Livre.',
     });
   };
 
@@ -23,18 +27,42 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
   return (
     <section id="achadinho-do-dia" className="relative mb-8 scroll-mt-24">
       {/* Glow de fundo */}
-      <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-amber-400/30 via-yellow-400/20 to-blue-500/20 blur-xl opacity-75 -z-10" />
+      <div
+        className={cn(
+          "absolute -inset-1 rounded-3xl blur-xl opacity-75 -z-10",
+          isShopee
+            ? "bg-gradient-to-r from-orange-500/30 via-red-500/20 to-amber-500/20"
+            : "bg-gradient-to-r from-amber-400/30 via-yellow-400/20 to-blue-500/20"
+        )}
+      />
 
-      <div className="overflow-hidden rounded-3xl border-2 border-amber-400/60 bg-gradient-to-b from-card via-card to-amber-500/5 p-4 shadow-xl sm:p-6">
+      <div
+        className={cn(
+          "overflow-hidden rounded-3xl border-2 p-4 shadow-xl sm:p-6",
+          isShopee
+            ? "border-orange-500/60 bg-gradient-to-b from-card via-card to-orange-500/5"
+            : "border-amber-400/60 bg-gradient-to-b from-card via-card to-amber-500/5"
+        )}
+      >
         {/* Barra de destaque superior */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border/80 pb-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-sm">
-              ⭐
+            <span
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-full font-black text-xs shadow-sm",
+                isShopee ? "bg-[#EE4D2D] text-white" : "bg-amber-400 text-slate-950"
+              )}
+            >
+              {isShopee ? '🛍️' : '⭐'}
             </span>
             <div>
-              <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider text-amber-500">
-                Curadoria Especial
+              <span
+                className={cn(
+                  "inline-block text-[11px] font-extrabold uppercase tracking-wider",
+                  isShopee ? "text-[#EE4D2D]" : "text-amber-500"
+                )}
+              >
+                {isShopee ? 'Curadoria Oficial Shopee' : 'Curadoria Especial'}
               </span>
               <h2 className="text-base font-black tracking-tight text-foreground sm:text-lg">
                 Achadinho do Dia
@@ -66,9 +94,16 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
               className="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105"
             />
 
-            <span className="absolute left-3 top-3 rounded-xl bg-[#FFE600] px-2.5 py-1 text-xs font-black uppercase text-slate-950 shadow-md">
-              {p.discountPercent}% OFF
-            </span>
+            <div className="absolute left-3 top-3 flex flex-col gap-1 items-start">
+              <span
+                className={cn(
+                  "rounded-xl px-2.5 py-1 text-xs font-black uppercase shadow-md",
+                  isShopee ? "bg-[#EE4D2D] text-white" : "bg-[#FFE600] text-slate-950"
+                )}
+              >
+                {isShopee ? 'Shopee • ' : ''}{p.discountPercent}% OFF
+              </span>
+            </div>
 
             <div className="absolute right-3 top-3 flex flex-col gap-2">
               <button
@@ -105,6 +140,14 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
                 <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
                   <Star className="h-3.5 w-3.5 fill-current" />
                   {p.rating.toLocaleString('pt-BR')} ({p.reviewsCount.toLocaleString('pt-BR')} avaliações)
+                </span>
+                <span
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-[11px] font-extrabold uppercase",
+                    isShopee ? "bg-[#EE4D2D]/10 text-[#EE4D2D]" : "bg-[#FFE600]/20 text-slate-800"
+                  )}
+                >
+                  {isShopee ? 'Shopee' : 'Mercado Livre'}
                 </span>
               </div>
 
@@ -144,9 +187,14 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleLinkClick}
-                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-[#FFE600] hover:bg-yellow-400 active:bg-yellow-500 text-slate-950 font-black text-sm px-5 py-3.5 shadow-lg shadow-yellow-500/20 transition transform active:scale-[0.98]"
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 rounded-2xl font-black text-sm px-5 py-3.5 shadow-lg transition transform active:scale-[0.98]",
+                  isShopee
+                    ? "bg-[#EE4D2D] hover:bg-[#d83f21] active:bg-[#c2361a] text-white shadow-[#EE4D2D]/20"
+                    : "bg-[#FFE600] hover:bg-yellow-400 active:bg-yellow-500 text-slate-950 shadow-yellow-500/20"
+                )}
               >
-                <span>Garantir Oferta no Mercado Livre</span>
+                <span>{isShopee ? 'Garantir Oferta na Shopee' : 'Garantir Oferta no Mercado Livre'}</span>
                 <ExternalLink className="h-4 w-4 shrink-0" />
               </a>
 
@@ -161,7 +209,9 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
             </div>
 
             <p className="mt-2 text-center text-[11px] text-muted-foreground/80 md:text-left">
-              🔒 Redirecionado com segurança para o ambiente oficial do Mercado Livre
+              {isShopee
+                ? '🔒 Redirecionado com segurança para o ambiente oficial da Shopee'
+                : '🔒 Redirecionado com segurança para o ambiente oficial do Mercado Livre'}
             </p>
           </div>
         </div>

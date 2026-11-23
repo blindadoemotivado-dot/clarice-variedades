@@ -14,8 +14,14 @@ export async function copyText(text: string, success: string) {
 const floatBtn = 'flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card/90 shadow-2xs backdrop-blur-xs transition-colors';
 
 export function ProductCard({ product: p, isFavorite, onToggleFavorite }: ProductCardProps) {
+  const isShopee = p.marketplace === 'shopee';
+
   const handleLinkClick = () => {
-    toast.info('Ativando link de apoio...', { description: 'Redirecionando para o ambiente seguro do ML.' });
+    toast.info('Ativando link de apoio...', {
+      description: isShopee
+        ? 'Redirecionando para o ambiente seguro da Shopee.'
+        : 'Redirecionando para o ambiente seguro do ML.',
+    });
   };
 
   const analysisPoints = [
@@ -40,7 +46,22 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
           }}
           className="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105"
         />
-        {p.badgeText && <span className="absolute left-2 top-2 rounded-md bg-badge px-2 py-0.5 text-[10px] font-extrabold uppercase text-on-brand shadow-2xs">{p.badgeText}</span>}
+        <div className="absolute left-2 top-2 flex flex-col gap-1 items-start">
+          {isShopee ? (
+            <span className="rounded-md bg-[#EE4D2D] px-2 py-0.5 text-[10px] font-extrabold uppercase text-white shadow-xs">
+              Shopee
+            </span>
+          ) : (
+            <span className="rounded-md bg-[#FFE600] px-2 py-0.5 text-[10px] font-black uppercase text-slate-950 shadow-xs">
+              ML
+            </span>
+          )}
+          {p.badgeText && (
+            <span className="rounded-md bg-badge px-2 py-0.5 text-[10px] font-extrabold uppercase text-on-brand shadow-2xs">
+              {p.badgeText}
+            </span>
+          )}
+        </div>
         <div className="absolute right-2 top-2 flex flex-col gap-1.5">
           <button type="button" onClick={() => onToggleFavorite(p.id)} aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'} aria-pressed={isFavorite} className={cn(floatBtn, isFavorite ? 'text-destructive' : 'text-muted-foreground hover:text-destructive')}>
             <Heart className={cn('h-3.5 w-3.5', isFavorite && 'fill-current')} />
@@ -67,20 +88,20 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
         </div>
         <div className="mt-2.5 border-t border-border/60 pt-2">
           <details className="group/analysis mb-2 rounded-xl bg-muted/50 px-2.5 py-2 text-xs text-muted-foreground">
-            <summary className="flex cursor-pointer list-none items-center gap-1 font-semibold text-[#2968C8] hover:underline">
+            <summary className={cn("flex cursor-pointer list-none items-center gap-1 font-semibold hover:underline", isShopee ? "text-[#EE4D2D]" : "text-[#2968C8]")}>
               <Sparkles className="h-3.5 w-3.5" /> Vale a pena?
             </summary>
             <ul className="mt-2 space-y-1.5 border-t border-border/70 pt-2 leading-relaxed">
-              {analysisPoints.map((point) => <li key={point} className="flex gap-1.5"><span className="text-[#3483FA]">•</span><span>{point}</span></li>)}
+              {analysisPoints.map((point) => <li key={point} className="flex gap-1.5"><span className={isShopee ? "text-[#EE4D2D]" : "text-[#3483FA]"}>•</span><span>{point}</span></li>)}
             </ul>
             <a
               href={p.affiliateUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleLinkClick}
-              className="mt-2.5 inline-flex items-center gap-1 font-semibold text-[#2968C8] hover:underline"
+              className={cn("mt-2.5 inline-flex items-center gap-1 font-semibold hover:underline", isShopee ? "text-[#EE4D2D]" : "text-[#2968C8]")}
             >
-              Garantir Oferta no ML <ExternalLink className="h-3 w-3" />
+              {isShopee ? 'Garantir Oferta na Shopee' : 'Garantir Oferta no ML'} <ExternalLink className="h-3 w-3" />
             </a>
           </details>
           <a
@@ -88,12 +109,19 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleLinkClick}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-ml px-3 py-2 text-xs font-bold text-on-brand shadow-xs transition-all hover:bg-ml-hover active:scale-[0.98] sm:py-2.5 sm:text-sm"
+            className={cn(
+              "flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold shadow-xs transition-all active:scale-[0.98] sm:py-2.5 sm:text-sm",
+              isShopee
+                ? "bg-[#EE4D2D] text-white hover:bg-[#d83f21] shadow-md shadow-[#EE4D2D]/20"
+                : "bg-ml text-on-brand hover:bg-ml-hover"
+            )}
           >
-            Garantir Oferta no ML <ExternalLink className="h-3.5 w-3.5" />
+            {isShopee ? 'Garantir Oferta na Shopee' : 'Garantir Oferta no ML'} <ExternalLink className="h-3.5 w-3.5" />
           </a>
           <p className="mt-1.5 text-center text-[10px] text-muted-foreground/80 leading-tight">
-            Direcionado com segurança para o ambiente oficial do Mercado Livre
+            {isShopee
+              ? 'Direcionado com segurança para o ambiente oficial da Shopee'
+              : 'Direcionado com segurança para o ambiente oficial do Mercado Livre'}
           </p>
         </div>
       </div>

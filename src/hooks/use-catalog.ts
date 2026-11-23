@@ -43,9 +43,16 @@ interface SupabaseProductRow {
   featured: boolean | null;
   active: boolean | null;
   status?: string | null;
+  marketplace?: string | null;
+  loja_slug?: string | null;
 }
 
 function mapRowToProduct(row: SupabaseProductRow): AffiliateProduct {
+  const isShopee =
+    row.marketplace === 'shopee' ||
+    (typeof row.affiliate_url === 'string' &&
+      (row.affiliate_url.includes('shopee.com') || row.affiliate_url.includes('shp.ee')));
+
   return {
     id: row.id,
     mlbId: row.mlb_id,
@@ -64,6 +71,8 @@ function mapRowToProduct(row: SupabaseProductRow): AffiliateProduct {
     reviewsCount: Number(row.reviews_count ?? 0),
     featured: Boolean(row.featured),
     status: row.status ?? (row.active ? 'ativo' : 'pendente_afiliado'),
+    marketplace: isShopee ? 'shopee' : 'mercadolivre',
+    lojaSlug: row.loja_slug || 'clarice',
   };
 }
 

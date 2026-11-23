@@ -1,4 +1,4 @@
-import type { AffiliateProduct, ProductCategory } from '@/types/product';
+import type { AffiliateProduct, ProductCategory, Marketplace } from '@/types/product';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 export const formatBRL = (value: number): string => brl.format(value);
@@ -8,14 +8,34 @@ export function extractMlbId(url: string): string | null {
   return m ? `MLB-${m[1]}` : null;
 }
 
+export function isValidShopeeUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim().toLowerCase();
+  return (
+    (trimmed.startsWith('http://') || trimmed.startsWith('https://')) &&
+    (trimmed.includes('shopee.com.br') || trimmed.includes('s.shopee.com.br') || trimmed.includes('shp.ee'))
+  );
+}
+
 export function buildWhatsAppCopy(p: AffiliateProduct): string {
-  return `🔥 *ACHADINHO CLARICE ACHADINHOS*\n\n🛍️ *${p.title}*\n~De: ${formatBRL(p.originalPrice)}~\n✅ *Por apenas: ${formatBRL(p.currentPrice)}* (${p.discountPercent}% OFF)\n💳 ${p.installmentsText}\n\n👉 *Compre no Mercado Livre pelo link oficial:* ${p.affiliateUrl}`;
+  const isShopee = p.marketplace === 'shopee';
+  const channel = isShopee ? 'SHOPEE' : 'MERCADO LIVRE';
+  const destination = isShopee ? 'na Shopee' : 'no Mercado Livre';
+  return `🔥 *ACHADINHO ${channel} • CLARICE ACHADINHOS*\n\n🛍️ *${p.title}*\n~De: ${formatBRL(p.originalPrice)}~\n✅ *Por apenas: ${formatBRL(p.currentPrice)}* (${p.discountPercent}% OFF)\n💳 ${p.installmentsText}\n\n👉 *Compre ${destination} pelo link oficial:* ${p.affiliateUrl}`;
 }
 
 export type SortKey = 'relevance' | 'price' | 'discount';
 export type CategoryFilter = ProductCategory | 'Relâmpago';
+export type MarketplaceFilter = 'todos' | Marketplace;
 
-export interface FilterOptions { query: string; category: CategoryFilter; favoritesOnly: boolean; favorites: string[]; sort: SortKey }
+export interface FilterOptions {
+  query: string;
+  category: CategoryFilter;
+  favoritesOnly: boolean;
+  favorites: string[];
+  sort: SortKey;
+  marketplaceFilter?: MarketplaceFilter;
+}
 
 export function filterProducts(list: AffiliateProduct[], o: FilterOptions): AffiliateProduct[] {
   const q = o.query.trim().toLowerCase();
@@ -23,6 +43,10 @@ export function filterProducts(list: AffiliateProduct[], o: FilterOptions): Affi
     if (q && !p.title.toLowerCase().includes(q) && !p.mlbId.toLowerCase().includes(q)) return false;
     if (o.favoritesOnly && !o.favorites.includes(p.id)) return false;
     if (o.category === 'Relâmpago') return p.badgeText === 'Oferta Relâmpago';
+    if (o.marketplaceFilter && o.marketplaceFilter !== 'todos') {
+      const pMarket = p.marketplace || 'mercadolivre';
+      if (pMarket !== o.marketplaceFilter) return false;
+    }
     return o.category === 'Todos' || p.category === o.category;
   });
   if (o.sort === 'price') return [...out].sort((a, b) => a.currentPrice - b.currentPrice);

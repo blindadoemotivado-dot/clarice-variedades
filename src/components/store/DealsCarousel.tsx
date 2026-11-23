@@ -42,9 +42,11 @@ export function DealsCarousel({
     });
   };
 
-  const handleLinkClick = () => {
+  const handleLinkClick = (isShopee: boolean) => {
     toast.info('Ativando link de apoio...', {
-      description: 'Redirecionando para o ambiente seguro do Mercado Livre.',
+      description: isShopee
+        ? 'Redirecionando para o ambiente seguro da Shopee.'
+        : 'Redirecionando para o ambiente seguro do Mercado Livre.',
     });
   };
 
@@ -102,6 +104,7 @@ export function DealsCarousel({
       >
         {products.map((p) => {
           const isFavorite = favorites.includes(p.id);
+          const isShopee = p.marketplace === 'shopee';
 
           return (
             <article
@@ -123,8 +126,13 @@ export function DealsCarousel({
                   className="h-full w-full object-contain transition-transform duration-300 hover:scale-105"
                 />
 
-                <span className="absolute left-2 top-2 rounded-md bg-[#FFE600] px-1.5 py-0.5 text-[10px] font-black text-slate-950 shadow-xs">
-                  {p.discountPercent}% OFF
+                <span
+                  className={cn(
+                    "absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-black shadow-xs",
+                    isShopee ? "bg-[#EE4D2D] text-white" : "bg-[#FFE600] text-slate-950"
+                  )}
+                >
+                  {isShopee ? 'Shopee ' : ''}{p.discountPercent}% OFF
                 </span>
 
                 <div className="absolute right-2 top-2 flex flex-col gap-1">
@@ -183,10 +191,15 @@ export function DealsCarousel({
                   href={p.affiliateUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={handleLinkClick}
-                  className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-xl bg-ml px-2.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-ml-hover active:scale-95 transition"
+                  onClick={() => handleLinkClick(isShopee)}
+                  className={cn(
+                    "mt-2.5 flex w-full items-center justify-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold shadow-xs active:scale-95 transition",
+                    isShopee
+                      ? "bg-[#EE4D2D] text-white hover:bg-[#d83f21] shadow-[#EE4D2D]/20"
+                      : "bg-ml text-on-brand hover:bg-ml-hover"
+                  )}
                 >
-                  <span>Garantir Oferta</span>
+                  <span>{isShopee ? 'Garantir na Shopee' : 'Garantir Oferta'}</span>
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               </div>

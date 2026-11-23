@@ -29,7 +29,8 @@ import { AdminSheet } from '@/components/store/AdminSheet';
 import { AdminPinDialog } from '@/components/store/AdminPinDialog';
 import { askClariceAi } from '@/services/clariceAiService';
 import { useCatalog } from '@/hooks/use-catalog';
-import { filterProducts, type CategoryFilter, type SortKey } from '@/lib/catalog';
+import { useTenant } from '@/hooks/use-tenant';
+import { filterProducts, type CategoryFilter, type SortKey, type MarketplaceFilter } from '@/lib/catalog';
 import { CATEGORIES } from '@/types/product';
 import { cn } from '@/lib/utils';
 
@@ -173,9 +174,11 @@ function AiSearchPanel({
 
 function Storefront() {
   const c = useCatalog();
+  const { store, isSuspended } = useTenant();
   const [settings] = useStoreSettings();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('Todos');
+  const [marketplaceFilter, setMarketplaceFilter] = useState<MarketplaceFilter>('todos');
   const [sort, setSort] = useState<SortKey>('relevance');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [concierge, setConcierge] = useState(false);
@@ -197,7 +200,14 @@ function Storefront() {
   // Reseta a paginação ao trocar de categoria, busca ou ordenação
   useEffect(() => {
     setVisibleCount(ITEMS_PER_PAGE);
-  }, [category, query, sort, favoritesOnly]);
+  }, [category, marketplaceFilter, query, sort, favoritesOnly]);
+
+  const hasBothMarketplaces = useMemo(() => {
+    if (!c.products || c.products.length === 0) return false;
+    const hasML = c.products.some((p) => !p.marketplace || p.marketplace === 'mercadolivre');
+    const hasShopee = c.products.some((p) => p.marketplace === 'shopee');
+    return hasML && hasShopee;
+  }, [c.products]);
 
   const visible = filterProducts(c.products, {
     query,
@@ -205,6 +215,7 @@ function Storefront() {
     sort,
     favoritesOnly,
     favorites: c.favorites,
+    marketplaceFilter,
   });
 
   const displayedProducts = visible.slice(0, visibleCount);
@@ -292,12 +303,57 @@ function Storefront() {
     setQuery('');
   };
 
+  if (isSuspended) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0F172A] px-4 text-center text-white">
+        <div className="mx-auto max-w-md rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
+            <Lock className="h-8 w-8" />
+          </div>
+          <h1 className="text-xl font-black tracking-tight sm:text-2xl">
+            Vitrine Temporariamente Indisponível
+          </h1>
+          <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+            Esta vitrine está passando por manutenção ou atualização de plano. Para falar com o suporte ou reativar o acesso, entre em contato abaixo.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <a
+              href={store.whatsappVipUrl || "https://wa.me/5511999999999"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Falar com o Suporte
+            </a>
+            <button
+              onClick={() => setPinOpen(true)}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-300 transition"
+            >
+              Acesso Administrativo
+            </button>
+          </div>
+        </div>
+        <AdminPinDialog open={pinOpen} onOpenChange={setPinOpen} onSuccess={() => setAdmin(true)} />
+        <AdminSheet
+          open={admin}
+          onOpenChange={setAdmin}
+          products={c.products}
+          onAdd={c.add}
+          onRemove={c.remove}
+          onToggleFeatured={c.toggleFeatured}
+          onReset={c.reset}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 overflow-x-hidden">
       {/* Header Sticky com Safe Area para Notch do iPhone */}
       <header className="sticky top-0 z-40 bg-promo pt-[env(safe-area-inset-top,0px)]">
         <div className="flex items-center justify-center gap-1.5 bg-promo px-3 py-1.5 text-center text-[11px] font-semibold text-promo-foreground sm:text-xs">
-          ⚡ Clarice Achadinhos • Ofertas selecionadas com redirecionamento 100% seguro para o Mercado Livre
+          ⚡ Clarice Achadinhos • Ofertas selecionadas no Mercado Livre e Shopee com redirecionamento 100% seguro
         </div>
         <div className="border-b border-border bg-card px-4 py-3 shadow-2xs">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 md:flex-nowrap">
@@ -477,6 +533,55 @@ function Storefront() {
               </select>
             </div>
           </div>
+
+          {/* Filtro Rápido Opcional por Marketplace: Exibido automaticamente sempre que houver itens de ambos os marketplaces */}
+          {hasBothMarketplaces && (
+            <div className="mb-3.5 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground mr-1">
+                Marketplace:
+              </span>
+              <div className="inline-flex rounded-xl bg-muted/80 p-1 border border-border/70 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setMarketplaceFilter('todos')}
+                  className={cn(
+                    'rounded-lg px-3 py-1 text-xs font-bold transition',
+                    marketplaceFilter === 'todos'
+                      ? 'bg-card text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarketplaceFilter('mercadolivre')}
+                  className={cn(
+                    'rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1.5',
+                    marketplaceFilter === 'mercadolivre'
+                      ? 'bg-[#FFE600] text-slate-950 shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <span className="h-2 w-2 rounded-full bg-[#FFE600] ring-1 ring-slate-900" />
+                  Mercado Livre
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarketplaceFilter('shopee')}
+                  className={cn(
+                    'rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1.5',
+                    marketplaceFilter === 'shopee'
+                      ? 'bg-[#EE4D2D] text-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <span className="h-2 w-2 rounded-full bg-[#EE4D2D] ring-1 ring-white" />
+                  Shopee
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Filtros em Pílulas */}
           <div className="no-scrollbar mb-5 flex items-center gap-2 overflow-x-auto pb-1">

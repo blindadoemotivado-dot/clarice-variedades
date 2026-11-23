@@ -8,6 +8,7 @@ import {
   normalizeTitle,
   calculateSimilarity,
   normalizeImageUrl,
+  isValidShopeeUrl,
 } from './catalog';
 import { isValidMercadoLivreUrl, isMonetizedUrl } from '@/components/store/AdminSheet';
 import { applyAffiliateTag, getStoreSettings } from '@/lib/store-settings';
@@ -39,6 +40,27 @@ describe('catalog', () => {
     const monetized = applyAffiliateTag(url, 'clarice-achadinhos');
     expect(monetized).toContain('matt_tool=clarice-achadinhos');
     expect(getStoreSettings().mlAffiliateTag).toBe('clarice-achadinhos');
+  });
+  it('valida URLs da Shopee', () => {
+    expect(isValidShopeeUrl('https://shopee.com.br/product-123')).toBe(true);
+    expect(isValidShopeeUrl('https://s.shopee.com.br/abc123xyz')).toBe(true);
+    expect(isValidShopeeUrl('https://shp.ee/xyz123')).toBe(true);
+    expect(isValidShopeeUrl('https://amazon.com.br/dp/123')).toBe(false);
+  });
+  it('gera copy de WhatsApp personalizada para Shopee', () => {
+    const shopeeItem = { ...MOCK_PRODUCTS[0]!, marketplace: 'shopee' as const };
+    const copy = buildWhatsAppCopy(shopeeItem);
+    expect(copy).toContain('ACHADINHO SHOPEE');
+    expect(copy).toContain('Compre na Shopee pelo link oficial');
+  });
+  it('filtra por marketplace quando especificado', () => {
+    const list = [
+      { ...MOCK_PRODUCTS[0]!, id: 'ml-1', marketplace: 'mercadolivre' as const },
+      { ...MOCK_PRODUCTS[1]!, id: 'sh-1', marketplace: 'shopee' as const },
+    ];
+    expect(filterProducts(list, { ...base, marketplaceFilter: 'shopee' })).toHaveLength(1);
+    expect(filterProducts(list, { ...base, marketplaceFilter: 'mercadolivre' })).toHaveLength(1);
+    expect(filterProducts(list, { ...base, marketplaceFilter: 'todos' })).toHaveLength(2);
   });
 
   describe('deduplicação de títulos e similaridade', () => {
