@@ -3,6 +3,7 @@ import { useState, useEffect, useTransition, useMemo, type FormEvent } from 'rea
 import {
   ArrowLeft,
   BadgeCheck,
+  Camera,
   Check,
   CheckCircle2,
   Clock,
@@ -16,6 +17,7 @@ import {
   Globe,
   KeyRound,
   Layers,
+  Loader2,
   Lock,
   Mail,
   Palette,
@@ -32,6 +34,7 @@ import {
   Store,
   Tag,
   Trash2,
+  Upload,
   Users,
   Zap,
 } from 'lucide-react';
@@ -41,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useCatalog } from '@/hooks/use-catalog';
 import { CATEGORIES, type AffiliateProduct, type Marketplace } from '@/types/product';
+import { uploadStoreImage } from '@/services/storageService';
 import {
   listAllStores,
   createStore,
@@ -151,6 +155,64 @@ function AdminRoutePage() {
 
   // Assinatura Asaas (Lojista)
   const [isGeneratingAsaas, setIsGeneratingAsaas] = useState(false);
+
+  // Estados de Upload de Imagens
+  const [uploadingProductImage, setUploadingProductImage] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingMascote, setUploadingMascote] = useState(false);
+
+  const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingProductImage(true);
+      const targetLoja =
+        userRole === 'lojista' && loggedStore
+          ? loggedStore.slug
+          : selectedStoreFilter !== 'todos'
+          ? selectedStoreFilter
+          : 'clarice';
+      const publicUrl = await uploadStoreImage(file, 'produtos', targetLoja);
+      setProductImageUrl(publicUrl);
+      toast.success('Foto do produto enviada com sucesso!');
+    } catch (err: any) {
+      toast.error(`Erro ao subir imagem: ${err.message || 'Falha no upload'}`);
+    } finally {
+      setUploadingProductImage(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingLogo(true);
+      const targetLoja = userRole === 'lojista' && loggedStore ? loggedStore.slug : 'clarice';
+      const publicUrl = await uploadStoreImage(file, 'logos', targetLoja);
+      setStoreBrandLogoUrl(publicUrl);
+      toast.success('Logotipo enviado com sucesso!');
+    } catch (err: any) {
+      toast.error(`Erro ao subir logo: ${err.message || 'Falha no upload'}`);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleMascoteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingMascote(true);
+      const targetLoja = userRole === 'lojista' && loggedStore ? loggedStore.slug : 'clarice';
+      const publicUrl = await uploadStoreImage(file, 'banners', targetLoja);
+      setStoreBrandMascoteUrl(publicUrl);
+      toast.success('Banner/Mascote enviado com sucesso!');
+    } catch (err: any) {
+      toast.error(`Erro ao subir banner/mascote: ${err.message || 'Falha no upload'}`);
+    } finally {
+      setUploadingMascote(false);
+    }
+  };
 
   // Checagem de autenticação no sessionStorage
   useEffect(() => {
@@ -1090,18 +1152,49 @@ function AdminRoutePage() {
                     </div>
                   </div>
 
-                  {/* URL da Imagem */}
+                  {/* URL da Imagem com Botão de Upload */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      URL da Imagem do Anúncio
-                    </label>
-                    <input
-                      type="url"
-                      value={productImageUrl}
-                      onChange={(e) => setProductImageUrl(e.target.value)}
-                      placeholder="https://..."
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-300">
+                        Imagem do Produto
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-lg text-[11px] font-bold cursor-pointer border border-slate-700 transition">
+                        {uploadingProductImage ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Camera className="h-3.5 w-3.5" />
+                        )}
+                        <span>{uploadingProductImage ? 'Enviando...' : '📷 Enviar Foto'}</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/jpg"
+                          className="hidden"
+                          disabled={uploadingProductImage}
+                          onChange={handleProductImageUpload}
+                        />
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="url"
+                        value={productImageUrl}
+                        onChange={(e) => setProductImageUrl(e.target.value)}
+                        placeholder="https://... ou envie a foto acima"
+                        className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                      />
+                      {productImageUrl && (
+                        <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center p-0.5">
+                          <img
+                            src={productImageUrl}
+                            alt="Prévia"
+                            className="h-full w-full object-contain"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Toggles */}
@@ -1341,28 +1434,90 @@ function AdminRoutePage() {
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        URL da Logo (Ícone)
-                      </label>
-                      <input
-                        type="url"
-                        value={storeBrandLogoUrl}
-                        onChange={(e) => setStoreBrandLogoUrl(e.target.value)}
-                        placeholder="https://... ou /icons/icon-192x192.png"
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-300">
+                          Logo da Loja (Ícone)
+                        </label>
+                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-lg text-[11px] font-bold cursor-pointer border border-slate-700 transition">
+                          {uploadingLogo ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5" />
+                          )}
+                          <span>{uploadingLogo ? 'Enviando...' : '📤 Subir Logo'}</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/jpg"
+                            className="hidden"
+                            disabled={uploadingLogo}
+                            onChange={handleLogoUpload}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="url"
+                          value={storeBrandLogoUrl}
+                          onChange={(e) => setStoreBrandLogoUrl(e.target.value)}
+                          placeholder="https://... ou suba seu logo ao lado"
+                          className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                        />
+                        {storeBrandLogoUrl && (
+                          <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center p-0.5">
+                            <img
+                              src={storeBrandLogoUrl}
+                              alt="Logo"
+                              className="h-full w-full object-cover rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        URL da Mascote / Banner Hero
-                      </label>
-                      <input
-                        type="url"
-                        value={storeBrandMascoteUrl}
-                        onChange={(e) => setStoreBrandMascoteUrl(e.target.value)}
-                        placeholder="https://... ou /brand/clarice-hero.png"
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-300">
+                          Mascote / Banner Hero
+                        </label>
+                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-lg text-[11px] font-bold cursor-pointer border border-slate-700 transition">
+                          {uploadingMascote ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5" />
+                          )}
+                          <span>{uploadingMascote ? 'Enviando...' : '📤 Subir Banner / Mascote'}</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/jpg"
+                            className="hidden"
+                            disabled={uploadingMascote}
+                            onChange={handleMascoteUpload}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="url"
+                          value={storeBrandMascoteUrl}
+                          onChange={(e) => setStoreBrandMascoteUrl(e.target.value)}
+                          placeholder="https://... ou suba a imagem ao lado"
+                          className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                        />
+                        {storeBrandMascoteUrl && (
+                          <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center p-0.5">
+                            <img
+                              src={storeBrandMascoteUrl}
+                              alt="Banner"
+                              className="h-full w-full object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
+  Camera,
   CheckCheck,
   CheckCircle2,
   CheckSquare,
@@ -11,6 +12,7 @@ import {
   FileText,
   KeyRound,
   Link2,
+  Loader2,
   MessageCircle,
   Radar,
   RefreshCw,
@@ -30,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { CATEGORIES, type AffiliateProduct } from '@/types/product';
 import { buildWhatsAppCopy, formatBRL, productFromUrl } from '@/lib/catalog';
+import { uploadStoreImage } from '@/services/storageService';
 import {
   DEFAULT_STORE_SETTINGS,
   applyAffiliateTag,
@@ -108,6 +111,23 @@ function MagicTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
   const [cat, setCat] = useState<Cat>('Casa & Cozinha');
   const [ai, setAi] = useState(true);
   const [preview, setPreview] = useState<AffiliateProduct | null>(null);
+  const [customImageUrl, setCustomImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingImage(true);
+      const publicUrl = await uploadStoreImage(file, 'produtos', 'clarice');
+      setCustomImageUrl(publicUrl);
+      toast.success('Foto enviada com sucesso!');
+    } catch (err: any) {
+      toast.error(`Erro ao subir imagem: ${err.message || 'Falha no upload'}`);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleApplyDefaultTag = () => {
     if (!url.trim()) {
@@ -142,10 +162,14 @@ function MagicTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
       toast.error('Não foi possível processar a URL informada.');
       return;
     }
+    if (customImageUrl.trim()) {
+      p.imageUrl = customImageUrl.trim();
+    }
     setPreview(p);
     onAdd([p]);
     setUrl('');
     setAff('');
+    setCustomImageUrl('');
     toast.success('Produto monetizado e publicado com sucesso no catálogo!');
   };
 
@@ -195,6 +219,42 @@ function MagicTab({ onAdd }: Pick<AdminSheetProps, 'onAdd'>) {
         <div>
           <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Categoria do Produto</label>
           <CategorySelect value={cat} onChange={setCat} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Foto do Produto (Opcional)</label>
+          <div className="flex gap-2">
+            <input
+              className={cn(field, 'flex-1')}
+              value={customImageUrl}
+              onChange={(e) => setCustomImageUrl(e.target.value)}
+              placeholder="https://... ou faça upload da foto ao lado"
+            />
+            <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold cursor-pointer border border-white/10 shrink-0 transition">
+              {uploadingImage ? (
+                <Loader2 className="h-4 w-4 animate-spin text-[#FFE600]" />
+              ) : (
+                <Camera className="h-4 w-4 text-[#FFE600]" />
+              )}
+              <span>{uploadingImage ? 'Enviando...' : '📷 Enviar Foto'}</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/jpg"
+                className="hidden"
+                disabled={uploadingImage}
+                onChange={handleImageUpload}
+              />
+            </label>
+          </div>
+          {customImageUrl && (
+            <div className="mt-2 flex items-center gap-2">
+              <img
+                src={customImageUrl}
+                alt="Prévia"
+                className="h-12 w-12 rounded-lg object-contain bg-white/5 border border-white/10"
+              />
+              <span className="text-[11px] text-zinc-400 truncate max-w-xs">{customImageUrl}</span>
+            </div>
+          )}
         </div>
         <label className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-950/60 px-3.5 py-3 text-sm text-zinc-200">
           <span className="flex items-center gap-2">
