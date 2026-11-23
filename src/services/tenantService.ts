@@ -48,6 +48,7 @@ export function mapRowToStore(row: any): LojaAfiliado {
     shopeeAppId: row.shopee_app_id || '',
     shopeeSecret: row.shopee_secret || '',
     ownerEmail: row.owner_email || '',
+    ownerPassword: row.owner_password || undefined,
     ownerUserId: row.owner_user_id || '',
     asaasCustomerId: row.asaas_customer_id || '',
     asaasSubscriptionId: row.asaas_subscription_id || '',
@@ -247,6 +248,7 @@ export async function createStore(input: {
           shopee_app_id: newStore.shopeeAppId,
           shopee_secret: newStore.shopeeSecret,
           owner_email: newStore.ownerEmail,
+          owner_password: newStore.ownerPassword || null,
           dominio_customizado: newStore.dominioCustomizado || null,
           whatsapp_contato: newStore.whatsappContato || null,
           cpf_cnpj: newStore.cpfCnpj || null,
@@ -457,5 +459,34 @@ export async function approveStore(idOrSlug: string): Promise<boolean> {
 
 export async function rejectStore(idOrSlug: string): Promise<boolean> {
   return await updateStoreSubscriptionStatus(idOrSlug, 'suspenso');
+}
+
+export async function updateStorePassword(idOrSlug: string, newPassword: string): Promise<boolean> {
+  if (!newPassword) return false;
+  const cleanPassword = newPassword.trim();
+  const local = getLocalStores();
+  const target = local.find((s) => s.id === idOrSlug || s.slug === idOrSlug);
+  if (target) {
+    target.ownerPassword = cleanPassword;
+    saveLocalStores(local);
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+      const query = supabase.from('lojas_afiliados').update({ owner_password: cleanPassword });
+      const { error } = isUuid ? await query.eq('id', idOrSlug) : await query.eq('slug', idOrSlug);
+      if (error) {
+        console.warn('[tenantService] Aviso ao atualizar senha no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[tenantService] Erro ao atualizar senha:', err);
+      return false;
+    }
+  }
+
+  return true;
 }
 

@@ -20,6 +20,7 @@ export interface LojaAfiliado {
   shopeeAppId?: string;
   shopeeSecret?: string;
   ownerEmail?: string;
+  ownerPassword?: string;
   ownerUserId?: string;
   asaasCustomerId?: string;
   asaasSubscriptionId?: string;

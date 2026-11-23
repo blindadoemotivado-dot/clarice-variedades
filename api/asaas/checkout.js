@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     body = {};
   }
 
-  const { loja_slug, nome, email, cpfCnpj, whatsapp, plano = 'start' } = body;
+  const { loja_slug, nome, email, password, cpfCnpj, whatsapp, plano = 'start' } = body;
 
   if (!loja_slug || !email) {
     const errorMsg = 'Parâmetros obrigatórios ausentes: loja_slug e email são necessários.';
@@ -177,6 +177,7 @@ export default async function handler(req, res) {
             asaas_subscription_id: subscriptionId,
             asaas_payment_url: paymentUrl,
             plano,
+            ...(password ? { owner_password: password } : {}),
             ...(whatsapp ? { whatsapp_contato: whatsapp } : {}),
             ...(cpfCnpj ? { cpf_cnpj: cpfCnpj } : {}),
           })

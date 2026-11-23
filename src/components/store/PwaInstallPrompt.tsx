@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from '@tanstack/react-router';
 import { Download, Share, X } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -7,6 +8,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function PwaInstallPrompt() {
+  const location = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIos, setIsIos] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -67,7 +69,10 @@ export function PwaInstallPrompt() {
     localStorage.setItem('clarice_pwa_prompt_dismissed', Date.now().toString());
   };
 
-  if (isStandalone || dismissed) return null;
+  const pathname = location?.pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
+  const isHiddenRoute = pathname.startsWith('/criar-loja') || pathname.startsWith('/admin');
+
+  if (isStandalone || dismissed || isHiddenRoute) return null;
 
   // Banner para Android / Desktop (Chrome / Edge)
   if (deferredPrompt) {

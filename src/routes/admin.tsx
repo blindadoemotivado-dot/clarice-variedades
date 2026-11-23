@@ -51,6 +51,7 @@ import {
   createAsaasCheckout,
   approveStore,
   rejectStore,
+  updateStorePassword,
 } from '@/services/tenantService';
 import {
   PLANO_PRICES,
@@ -84,6 +85,8 @@ function AdminRoutePage() {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   const [lojistaEmailInput, setLojistaEmailInput] = useState('');
+  const [lojistaPasswordInput, setLojistaPasswordInput] = useState('');
+  const [showLojistaPassword, setShowLojistaPassword] = useState(false);
   const [lojistaLoginLoading, setLojistaLoginLoading] = useState(false);
 
   // Controle de Abas Ativas com startTransition
@@ -224,10 +227,12 @@ function AdminRoutePage() {
     }
   };
 
-  // Login Lojista via E-mail
+  // Login Lojista via E-mail + Senha
   const handleLojistaLogin = async (e: FormEvent) => {
     e.preventDefault();
     const email = lojistaEmailInput.trim().toLowerCase();
+    const password = lojistaPasswordInput.trim();
+
     if (!email || !email.includes('@')) {
       toast.error('Informe um e-mail válido.');
       return;
@@ -239,6 +244,23 @@ function AdminRoutePage() {
       if (!store) {
         toast.error('Nenhuma loja encontrada para este e-mail. Fale com o suporte ou crie sua conta.');
         return;
+      }
+
+      // Validação de senha com compatibilidade para lojas antigas
+      if (store.ownerPassword && store.ownerPassword.trim() !== '') {
+        if (!password) {
+          toast.error('Informe sua senha de acesso.');
+          return;
+        }
+        if (password !== store.ownerPassword.trim()) {
+          toast.error('Senha incorreta para esta loja. Tente novamente.');
+          return;
+        }
+      } else {
+        // Loja antiga sem senha: se o lojista digitou uma senha, salva para os próximos logins
+        if (password) {
+          updateStorePassword(store.slug, password).catch(() => {});
+        }
       }
 
       try {
@@ -273,6 +295,7 @@ function AdminRoutePage() {
     setLoggedStore(null);
     setPinInput('');
     setLojistaEmailInput('');
+    setLojistaPasswordInput('');
   };
 
   // Transição segura de abas com React.startTransition
@@ -710,8 +733,34 @@ function AdminRoutePage() {
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-4 py-3.5 text-sm font-semibold text-white outline-none transition focus:ring-2 focus:ring-[#FFE600]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Senha de Acesso
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type={showLojistaPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={lojistaPasswordInput}
+                    onChange={(e) => setLojistaPasswordInput(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-10 py-3.5 text-sm font-semibold text-white outline-none transition focus:ring-2 focus:ring-[#FFE600]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLojistaPassword(!showLojistaPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    title={showLojistaPassword ? 'Ocultar senha' : 'Ver senha'}
+                  >
+                    {showLojistaPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 <p className="mt-1.5 text-[11px] text-slate-400">
-                  Acesso seguro restrito exclusivamente ao catálogo da sua loja afiliada.
+                  Acesso seguro restrito exclusivamente ao catálogo da sua vitrine afiliada.
                 </p>
               </div>
 

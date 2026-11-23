@@ -8,6 +8,8 @@ import {
   Clock,
   CreditCard,
   ExternalLink,
+  Eye,
+  EyeOff,
   Globe,
   HelpCircle,
   Lock,
@@ -46,6 +48,8 @@ function CriarLojaPage() {
   // Dados Pessoais / Lojista
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [whatsapp, setWhatsapp] = useState('');
   const [cpfCnpj, setCpfCnpj] = useState('');
 
@@ -130,8 +134,13 @@ function CriarLojaPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!nome.trim() || !email.trim() || !whatsapp.trim() || !cpfCnpj.trim() || !nomeLoja.trim() || !slug.trim()) {
+    if (!nome.trim() || !email.trim() || !password.trim() || !whatsapp.trim() || !cpfCnpj.trim() || !nomeLoja.trim() || !slug.trim()) {
       toast.error('Preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    if (password.trim().length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres.');
       return;
     }
 
@@ -150,6 +159,7 @@ function CriarLojaPage() {
         plano,
         statusAssinatura: 'pendente',
         ownerEmail: email.trim().toLowerCase(),
+        ownerPassword: password.trim(),
         whatsappContato: whatsapp.trim(),
         cpfCnpj: cpfCnpj.trim(),
       });
@@ -159,6 +169,7 @@ function CriarLojaPage() {
         loja_slug: created.slug,
         nome: nome.trim(),
         email: email.trim().toLowerCase(),
+        password: password.trim(),
         cpfCnpj: cpfCnpj.replace(/\D/g, ''),
         whatsapp: whatsapp.replace(/\D/g, ''),
         plano,
@@ -362,6 +373,34 @@ function CriarLojaPage() {
                   placeholder="000.000.000-00 ou CNPJ"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
                 />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Senha de Acesso ao Painel *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Defina uma senha segura (mínimo 6 caracteres)"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-3.5 pr-10 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    title={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Esta senha será usada junto com seu e-mail para acessar seu catálogo exclusivo em <strong>/admin</strong>.
+                </p>
               </div>
             </div>
           </div>
