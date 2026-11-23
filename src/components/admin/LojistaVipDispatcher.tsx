@@ -223,10 +223,32 @@ export function LojistaVipDispatcher({
     toast.info('Status de disparo resetado para este produto.');
   };
 
-  const handleCopyVip = () => {
+  const handleCopyVip = async () => {
     if (!customCopyText.trim()) return;
-    navigator.clipboard.writeText(customCopyText);
-    toast.success('Copy copiada para a área de transferência!');
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(customCopyText);
+      } else {
+        throw new Error('Clipboard API indisponível');
+      }
+      toast.success('Copy copiada para a área de transferência!');
+    } catch {
+      // Fallback seguro usando elemento textarea temporário
+      try {
+        const el = document.createElement('textarea');
+        el.value = customCopyText;
+        el.setAttribute('readonly', '');
+        el.style.position = 'absolute';
+        el.style.left = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        toast.success('Copy copiada para a área de transferência!');
+      } catch {
+        toast.info('Selecione e copie a copy diretamente na caixa de texto.');
+      }
+    }
   };
 
   const handleFireWhatsApp = () => {

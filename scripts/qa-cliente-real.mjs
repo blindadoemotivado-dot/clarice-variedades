@@ -360,6 +360,7 @@ async function run() {
     {
       const context = await browser.newContext({
         viewport: { width: 1280, height: 850 },
+        permissions: ['clipboard-read', 'clipboard-write'],
       });
       const page = await context.newPage();
       attachMonitors(page, 'J4-Admin');
