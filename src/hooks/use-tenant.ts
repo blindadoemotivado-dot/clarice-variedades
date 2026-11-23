@@ -3,7 +3,23 @@ import { DEFAULT_CLARICE_STORE, type LojaAfiliado } from '@/types/tenant';
 import { fetchStoreBySlug, fetchStoreByDomain } from '@/services/tenantService';
 
 export function useTenant() {
-  const [store, setStore] = useState<LojaAfiliado>(DEFAULT_CLARICE_STORE);
+  const [store, setStore] = useState<LojaAfiliado>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const paramSlug = params.get('loja')?.trim().toLowerCase();
+      if (paramSlug && paramSlug !== 'clarice') {
+        return {
+          ...DEFAULT_CLARICE_STORE,
+          id: `tenant-${paramSlug}`,
+          slug: paramSlug,
+          nomeLoja: paramSlug === 'loja-demo' ? 'Achadinhos Demo FCIA' : paramSlug,
+          logoUrl: undefined,
+          heroMascoteUrl: undefined,
+        };
+      }
+    }
+    return DEFAULT_CLARICE_STORE;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

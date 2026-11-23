@@ -532,8 +532,55 @@ function Storefront() {
 
         <AiSearchPanel result={aiResult} loading={aiLoading} onClear={clearAiSearch} />
 
-        {/* 2. Hierarquia de Curadoria: Destaques antes da Grade Geral (exibidos na visualização padrão) */}
-        {isBrowsingAll && !loading && (
+        {/* Estado Vazio Limpo para Lojas Parceiras sem Produtos */}
+        {store.slug !== 'clarice' && !loading && c.products.length === 0 ? (
+          <section className="my-10 rounded-3xl border border-border/80 bg-card p-8 sm:p-14 text-center shadow-sm">
+            <div
+              className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl font-black text-2xl text-slate-950 shadow-md ring-4 ring-card"
+              style={{ backgroundColor: store.corDestaque || '#FFE600' }}
+            >
+              <PackageSearch className="h-10 w-10 text-slate-950" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-ml/10 px-3 py-1 text-xs font-bold text-ml mb-3">
+              <span>Vitrine Oficial em Preparação</span>
+            </div>
+            <h2 className="text-xl sm:text-3xl font-black text-foreground tracking-tight max-w-lg mx-auto">
+              Vitrine em preparação
+            </h2>
+            <p className="mt-2.5 mx-auto max-w-md text-sm sm:text-base text-muted-foreground leading-relaxed">
+              Em breve os melhores achadinhos selecionados por <strong className="text-foreground">{store.nomeLoja}</strong>.
+            </p>
+
+            {store.whatsappVipUrl && (
+              <div className="mt-8 flex flex-col items-center gap-2">
+                <a
+                  href={store.whatsappVipUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] text-slate-950 font-black text-sm sm:text-base px-7 py-4 shadow-lg shadow-emerald-500/25 transition active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-5 w-5 text-slate-950 shrink-0" />
+                  <span>Entrar no Grupo VIP WhatsApp</span>
+                </a>
+                <p className="text-xs text-muted-foreground">
+                  Receba as primeiras ofertas exclusivas direto no WhatsApp
+                </p>
+              </div>
+            )}
+
+            <div className="mt-10 pt-6 border-t border-border/60">
+              <a
+                href="/admin"
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground transition underline underline-offset-4"
+              >
+                É o dono desta loja? Cadastre seu primeiro produto no Painel
+              </a>
+            </div>
+          </section>
+        ) : (
+          <>
+            {/* 2. Hierarquia de Curadoria: Destaques antes da Grade Geral (exibidos na visualização padrão) */}
+            {isBrowsingAll && !loading && (
           <>
             {/* ⭐ Vitrine 1: Achadinho do Dia */}
             {achadinhoDoDia && (
@@ -747,6 +794,8 @@ function Storefront() {
             </>
           )}
         </section>
+          </>
+        )}
       </main>
 
       <footer className="mt-8 border-t border-border bg-card px-4 py-8 pb-24 md:pb-12 text-center text-xs text-muted-foreground">

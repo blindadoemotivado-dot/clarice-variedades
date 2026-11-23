@@ -75,9 +75,14 @@ export function LojistaVipDispatcher({
     }
   }, [permissions.vipDispatcherMode, vipTemplate]);
 
-  // Filtra produtos da loja
+  // Filtra produtos da loja com isolamento estrito
   const storeProducts = useMemo(() => {
-    return products.filter((p) => !p.lojaSlug || p.lojaSlug === store.slug);
+    return products.filter((p) => {
+      if (store.slug === 'clarice') {
+        return !p.lojaSlug || p.lojaSlug === 'clarice';
+      }
+      return p.lojaSlug === store.slug;
+    });
   }, [products, store.slug]);
 
   const searchedProducts = useMemo(() => {

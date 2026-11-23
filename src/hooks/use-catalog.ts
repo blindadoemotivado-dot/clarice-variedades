@@ -4,12 +4,12 @@ import { MOCK_PRODUCTS } from '@/data/mockProducts';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { RadarSyncResult } from '@/services/radarServerFn';
 
-const KEY = 'clarice_v2';
 const FAV_KEY = 'clarice:favorites:v1';
 const LEGACY_FAV_KEY = 'zizi:favorites:v1';
 const DEMO_MLB_IDS = new Set(MOCK_PRODUCTS.map((p) => p.mlbId));
 
 function read<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
   try {
     const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
@@ -77,14 +77,35 @@ function mapRowToProduct(row: SupabaseProductRow): AffiliateProduct {
 }
 
 export function useCatalog(lojaSlug?: string) {
-  const [products, setProducts] = useState<AffiliateProduct[]>([]);
+  const activeSlug = (lojaSlug || 'clarice').trim().toLowerCase();
+  const isClarice = activeSlug === 'clarice' || activeSlug === 'todos';
+
+  // Chaves de cache estritamente isoladas por tenant
+  const storeKey = isClarice ? 'clarice_v2' : `clarice_catalog_cache_${activeSlug}`;
+  const favKey = isClarice ? FAV_KEY : `clarice_favorites_${activeSlug}`;
+
+  // Estado inicial: para lojas parceiras, NUNCA usa dados da clarice
+  const [products, setProducts] = useState<AffiliateProduct[]>(() => {
+    if (typeof window === 'undefined') return [];
+    const cached = read<AffiliateProduct[]>(storeKey, []);
+    return isClarice ? cached : cached.filter((p) => p.lojaSlug === activeSlug);
+  });
   const [pendingProducts, setPendingProducts] = useState<AffiliateProduct[]>([]);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    return isClarice ? readWithLegacy(favKey, LEGACY_FAV_KEY, []) : read(favKey, []);
+  });
   const [loaded, setLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchCatalog = useCallback(async () => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      if (!isClarice) {
+        setProducts([]);
+      }
+      return;
+    }
+
     setIsSyncing(true);
     try {
       let activeQuery = supabase
@@ -92,19 +113,18 @@ export function useCatalog(lojaSlug?: string) {
         .select('*')
         .eq('active', true);
 
-      if (lojaSlug && lojaSlug !== 'todos') {
-        if (lojaSlug === 'clarice') {
-          activeQuery = activeQuery.or('loja_slug.eq.clarice,loja_slug.is.null');
-        } else {
-          activeQuery = activeQuery.eq('loja_slug', lojaSlug);
-        }
+      if (isClarice) {
+        activeQuery = activeQuery.or('loja_slug.eq.clarice,loja_slug.is.null');
+      } else {
+        // FILTRO RÍGIDO E OBRIGATÓRIO: somente produtos exclusivos do tenant
+        activeQuery = activeQuery.eq('loja_slug', activeSlug);
       }
 
       const [activeRes, pendingRes] = await Promise.all([
         activeQuery
           .order('featured', { ascending: false })
           .order('created_at', { ascending: false }),
-        lojaSlug && lojaSlug !== 'clarice' && lojaSlug !== 'todos'
+        !isClarice
           ? Promise.resolve({ data: [] as SupabaseProductRow[], error: null })
           : supabase
               .from('produtos_clarice')
@@ -113,42 +133,66 @@ export function useCatalog(lojaSlug?: string) {
               .order('created_at', { ascending: false }),
       ]);
 
-      if (!activeRes.error && activeRes.data) {
-        setProducts((activeRes.data as SupabaseProductRow[]).map(mapRowToProduct));
+      if (!activeRes.error && Array.isArray(activeRes.data)) {
+        const mapped = (activeRes.data as SupabaseProductRow[]).map(mapRowToProduct);
+        // Trava inquebrável em memória
+        const strictlyIsolated = isClarice
+          ? mapped
+          : mapped.filter((p) => p.lojaSlug === activeSlug);
+        setProducts(strictlyIsolated);
       } else if (activeRes.error) {
         console.warn('[useCatalog] Aviso ao buscar produtos ativos:', activeRes.error.message);
+        if (!isClarice) {
+          // Zero fallback para lojas parceiras em caso de erro!
+          setProducts([]);
+        }
+      } else if (!isClarice) {
+        setProducts([]);
       }
 
-      if (!pendingRes.error && pendingRes.data) {
+      if (!pendingRes.error && Array.isArray(pendingRes.data)) {
         setPendingProducts((pendingRes.data as SupabaseProductRow[]).map(mapRowToProduct));
-      } else if (pendingRes.error) {
-        console.warn('[useCatalog] Aviso ao buscar produtos pendentes:', pendingRes.error.message);
+      } else if (!isClarice) {
+        setPendingProducts([]);
       }
     } catch (err) {
       console.warn('[useCatalog] Conexão com Supabase indisponível:', err);
+      if (!isClarice) {
+        setProducts([]);
+      }
     } finally {
       setIsSyncing(false);
     }
-  }, [lojaSlug]);
+  }, [isClarice, activeSlug]);
 
   useEffect(() => {
-    // 1. Carrega inicial do cache local sem fallback fictício
-    const initialLocal = read<AffiliateProduct[]>(KEY, []);
-    setProducts(initialLocal);
-    setFavorites(readWithLegacy(FAV_KEY, LEGACY_FAV_KEY, []));
+    if (typeof window === 'undefined') return;
+
+    // 1. Carrega inicial do cache local estritamente isolado
+    const cached = read<AffiliateProduct[]>(storeKey, []);
+    const strictlyIsolated = isClarice ? cached : cached.filter((p) => p.lojaSlug === activeSlug);
+    setProducts(strictlyIsolated);
+    setFavorites(isClarice ? readWithLegacy(favKey, LEGACY_FAV_KEY, []) : read(favKey, []));
     setLoaded(true);
 
-    // 2. Conecta ao Supabase para carregar produtos_clarice reais
+    // 2. Conecta ao Supabase para carregar produtos reais
     fetchCatalog();
-  }, [fetchCatalog]);
+  }, [fetchCatalog, storeKey, favKey, isClarice, activeSlug]);
 
   useEffect(() => {
-    if (loaded) localStorage.setItem(KEY, JSON.stringify(products));
-  }, [products, loaded]);
+    if (loaded && typeof window !== 'undefined') {
+      const strictlyIsolated = isClarice
+        ? products
+        : products.filter((p) => p.lojaSlug === activeSlug);
+      localStorage.setItem(storeKey, JSON.stringify(strictlyIsolated));
+    }
+  }, [products, loaded, storeKey, isClarice, activeSlug]);
 
   useEffect(() => {
-    if (loaded) localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
-  }, [favorites, loaded]);
+    if (loaded && typeof window !== 'undefined') {
+      localStorage.setItem(favKey, JSON.stringify(favorites));
+    }
+  }, [favorites, loaded, favKey]);
 
   const approveProduct = useCallback(async (id: string, customAffiliateUrl?: string) => {
     const target = pendingProducts.find((p) => p.id === id);
@@ -159,6 +203,7 @@ export function useCatalog(lojaSlug?: string) {
       ...target,
       affiliateUrl: finalUrl,
       status: 'ativo',
+      lojaSlug: isClarice ? target.lojaSlug || 'clarice' : activeSlug,
     };
 
     setPendingProducts((prev) => prev.filter((p) => p.id !== id));
@@ -182,7 +227,7 @@ export function useCatalog(lojaSlug?: string) {
         console.error('[useCatalog] Falha de conexão ao aprovar:', err);
       }
     }
-  }, [pendingProducts]);
+  }, [pendingProducts, isClarice, activeSlug]);
 
   const rejectPending = useCallback(async (id: string) => {
     setPendingProducts((prev) => prev.filter((p) => p.id !== id));
@@ -265,9 +310,15 @@ export function useCatalog(lojaSlug?: string) {
     clearDemoProducts,
     approveProduct,
     rejectPending,
-    add: useCallback((items: AffiliateProduct[]) => {
-      setProducts((p) => [...items, ...p]);
-    }, []),
+    add: useCallback(
+      (items: AffiliateProduct[]) => {
+        const tagged = isClarice
+          ? items
+          : items.map((p) => ({ ...p, lojaSlug: activeSlug }));
+        setProducts((p) => [...tagged, ...p]);
+      },
+      [isClarice, activeSlug]
+    ),
     remove: useCallback(async (id: string) => {
       setProducts((p) => p.filter((x) => x.id !== id));
       if (isSupabaseConfigured) {
@@ -301,16 +352,18 @@ export function useCatalog(lojaSlug?: string) {
       setProducts([]);
       if (isSupabaseConfigured) {
         try {
-          const { error } = await supabase
-            .from('produtos_clarice')
-            .delete()
-            .or('active.eq.true,status.eq.ativo');
-          if (error) console.warn('[useCatalog] Erro ao esvaziar catálogo:', error.message);
+          let query = supabase.from('produtos_clarice').delete();
+          if (isClarice) {
+            query = query.or('loja_slug.eq.clarice,loja_slug.is.null');
+          } else {
+            query = query.eq('loja_slug', activeSlug);
+          }
+          await query;
         } catch (err) {
           console.warn('[useCatalog] Falha de conexão ao esvaziar catálogo:', err);
         }
       }
-    }, []),
+    }, [isClarice, activeSlug]),
     batchRejectPending: useCallback(async (ids: string[]) => {
       const set = new Set(ids);
       setPendingProducts((p) => p.filter((x) => !set.has(x.id)));
@@ -350,6 +403,7 @@ export function useCatalog(lojaSlug?: string) {
           affiliateUrl: urlMap.get(p.id) || p.affiliateUrl,
           active: true,
           status: 'ativo',
+          lojaSlug: isClarice ? p.lojaSlug || 'clarice' : activeSlug,
         }));
 
         setPendingProducts((prev) => prev.filter((p) => !set.has(p.id)));
@@ -372,7 +426,7 @@ export function useCatalog(lojaSlug?: string) {
           }
         }
       },
-      [pendingProducts]
+      [pendingProducts, isClarice, activeSlug]
     ),
     toggleFeatured: useCallback((id: string) => {
       setProducts((p) => p.map((x) => (x.id === id ? { ...x, featured: !x.featured } : x)));
@@ -383,8 +437,8 @@ export function useCatalog(lojaSlug?: string) {
     reset: useCallback(() => {
       setProducts([]);
       if (typeof window !== 'undefined') {
-        localStorage.removeItem(KEY);
+        localStorage.removeItem(storeKey);
       }
-    }, []),
+    }, [storeKey]),
   };
 }
