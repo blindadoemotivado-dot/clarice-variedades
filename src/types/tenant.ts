@@ -1,7 +1,7 @@
 export type Marketplace = 'mercadolivre' | 'shopee';
 
 export type SubscriptionPlan = 'start' | 'pro' | 'advanced';
-export type SubscriptionStatus = 'ativo' | 'trial' | 'inadimplente' | 'suspenso';
+export type SubscriptionStatus = 'ativo' | 'trial' | 'inadimplente' | 'suspenso' | 'pendente';
 
 export interface LojaAfiliado {
   id: string;
@@ -25,6 +25,8 @@ export interface LojaAfiliado {
   asaasSubscriptionId?: string;
   asaasPaymentUrl?: string;
   dominioCustomizado?: string;
+  whatsappContato?: string;
+  cpfCnpj?: string;
   createdAt?: string;
 }
 
@@ -48,4 +50,5 @@ export const DEFAULT_CLARICE_STORE: LojaAfiliado = {
   plano: 'advanced',
   statusAssinatura: 'ativo',
   ownerEmail: 'admin@clariceachadinhos.com.br',
+  whatsappContato: '5511999999999',
 };

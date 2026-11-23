@@ -16,8 +16,6 @@ export interface AdminPinDialogProps {
   onSuccess: () => void;
 }
 
-const DEFAULT_PINS = ['clarice2026', '1234', '2026'];
-
 export function AdminPinDialog({ open, onOpenChange, onSuccess }: AdminPinDialogProps) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
@@ -25,7 +23,7 @@ export function AdminPinDialog({ open, onOpenChange, onSuccess }: AdminPinDialog
   const configuredPin = getStoreSettings().adminPin?.trim();
   const envPin = (import.meta.env.VITE_ADMIN_PIN as string | undefined)?.trim();
   const validPins = Array.from(
-    new Set([configuredPin, envPin, ...DEFAULT_PINS].filter(Boolean) as string[])
+    new Set([configuredPin, envPin].filter(Boolean) as string[])
   );
 
   const handleSubmit = (e: FormEvent) => {

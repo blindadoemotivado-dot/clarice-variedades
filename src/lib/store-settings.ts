@@ -13,7 +13,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   mlAffiliateTag: 'clarice-achadinhos',
   whatsappNumber: '5511999999999',
   whatsappVipGroupUrl: 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o',
-  adminPin: 'clarice2026',
+  adminPin: '',
   generalAffiliateUrl: 'https://www.mercadolivre.com.br/ofertas?matt_tool=clarice-achadinhos',
 };
 

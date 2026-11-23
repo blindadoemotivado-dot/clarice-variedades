@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Check,
   CheckCircle2,
+  Clock,
   CreditCard,
   Crown,
   DollarSign,
@@ -18,6 +19,7 @@ import {
   Lock,
   Mail,
   Palette,
+  Phone,
   Plus,
   RefreshCw,
   Search,
@@ -47,6 +49,8 @@ import {
   fetchStoreByOwnerEmail,
   fetchStoreBySlug,
   createAsaasCheckout,
+  approveStore,
+  rejectStore,
 } from '@/services/tenantService';
 import {
   PLANO_PRICES,
@@ -66,7 +70,7 @@ export const Route = createFileRoute('/admin')({
   component: AdminRoutePage,
 });
 
-const DEFAULT_PIN = import.meta.env.VITE_ADMIN_PIN || 'clarice2026';
+const DEFAULT_PIN = (import.meta.env.VITE_ADMIN_PIN as string | undefined)?.trim() || '';
 
 type UserRole = 'super_admin' | 'lojista';
 
@@ -202,7 +206,7 @@ function AdminRoutePage() {
   // Login Super Admin via PIN
   const handlePinSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (pinInput.trim() === DEFAULT_PIN || pinInput.trim() === 'clarice2026') {
+    if (DEFAULT_PIN && pinInput.trim() === DEFAULT_PIN) {
       try {
         sessionStorage.setItem('clarice_admin_authenticated', 'true');
         sessionStorage.setItem('clarice_admin_role', 'super_admin');
@@ -503,6 +507,36 @@ function AdminRoutePage() {
     });
   };
 
+  // Aprovar Loja Pendente (Super Admin)
+  const handleApproveStore = (storeId: string) => {
+    startTransition(async () => {
+      const ok = await approveStore(storeId);
+      if (ok) {
+        setStores((prev) =>
+          prev.map((s) => (s.id === storeId ? { ...s, statusAssinatura: 'ativo' } : s))
+        );
+        toast.success('Loja aprovada e liberada com sucesso!');
+      } else {
+        toast.error('Erro ao aprovar loja.');
+      }
+    });
+  };
+
+  // Recusar / Suspender Loja (Super Admin)
+  const handleRejectStore = (storeId: string) => {
+    startTransition(async () => {
+      const ok = await rejectStore(storeId);
+      if (ok) {
+        setStores((prev) =>
+          prev.map((s) => (s.id === storeId ? { ...s, statusAssinatura: 'suspenso' } : s))
+        );
+        toast.success('Loja suspensa/recusada.');
+      } else {
+        toast.error('Erro ao suspender loja.');
+      }
+    });
+  };
+
   // Criar Nova Loja (Super Admin)
   const handleCreateStoreSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -550,13 +584,18 @@ function AdminRoutePage() {
   const saasMetrics = useMemo(() => {
     const total = stores.length;
     const active = stores.filter((s) => s.statusAssinatura === 'ativo').length;
+    const pending = stores.filter((s) => s.statusAssinatura === 'pendente').length;
     const suspended = stores.filter(
       (s) => s.statusAssinatura === 'inadimplente' || s.statusAssinatura === 'suspenso'
     ).length;
     const mrr = stores
       .filter((s) => s.statusAssinatura === 'ativo')
       .reduce((acc, s) => acc + (PLANO_PRICES[s.plano]?.value || 67), 0);
-    return { total, active, suspended, mrr };
+    return { total, active, pending, suspended, mrr };
+  }, [stores]);
+
+  const pendingStores = useMemo(() => {
+    return stores.filter((s) => s.statusAssinatura === 'pendente');
   }, [stores]);
 
   // Produtos filtrados para a listagem
@@ -626,14 +665,15 @@ function AdminRoutePage() {
                 </label>
                 <input
                   type="password"
-                  maxLength={20}
+                  autoComplete="current-password"
+                  maxLength={40}
                   autoFocus
                   value={pinInput}
                   onChange={(e) => {
                     setPinInput(e.target.value);
                     setPinError(false);
                   }}
-                  placeholder="Digite o PIN (ex: clarice2026)"
+                  placeholder="••••••••"
                   className={cn(
                     'w-full rounded-2xl border bg-slate-950 px-4 py-3.5 text-center text-lg font-bold tracking-widest text-white outline-none transition focus:ring-2 focus:ring-[#FFE600]',
                     pinError ? 'border-red-500' : 'border-slate-800'
@@ -682,6 +722,15 @@ function AdminRoutePage() {
               >
                 {lojistaLoginLoading ? 'Verificando loja...' : 'Entrar na Minha Loja'}
               </button>
+
+              <div className="pt-2 text-center">
+                <a
+                  href="/criar-loja"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FFE600] hover:underline transition"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Ainda não tem uma loja? Criar minha loja
+                </a>
+              </div>
             </form>
           )}
 
@@ -1427,10 +1476,16 @@ function AdminRoutePage() {
           {userRole === 'super_admin' && (
             <TabsContent value="saas" className="space-y-6">
               {/* Cards de Métricas SaaS */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                 <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-4">
                   <span className="text-xs font-bold text-slate-400">Total de Lojas</span>
                   <p className="mt-1 text-2xl font-black text-white">{saasMetrics.total}</p>
+                </div>
+                <div className="rounded-3xl border border-amber-500/30 bg-amber-950/20 p-4">
+                  <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" /> Aguardando Aprovação
+                  </span>
+                  <p className="mt-1 text-2xl font-black text-amber-400">{saasMetrics.pending}</p>
                 </div>
                 <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-4">
                   <span className="text-xs font-bold text-emerald-400">Assinaturas Ativas</span>
@@ -1445,6 +1500,104 @@ function AdminRoutePage() {
                   <p className="mt-1 text-2xl font-black text-[#FFE600]">{formatBRL(saasMetrics.mrr)}</p>
                 </div>
               </div>
+
+              {/* Fila de Aprovação de Novos Lojistas (Pendente) */}
+              {pendingStores.length > 0 && (
+                <div className="rounded-3xl border-2 border-amber-500/40 bg-[#0F172A] p-5 shadow-xl relative overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 border-b border-amber-500/20 pb-4 mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+                        <Clock className="h-5 w-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
+                          Lojas Aguardando Aprovação ({pendingStores.length})
+                          <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-amber-400">
+                            Ação Necessária
+                          </span>
+                        </h2>
+                        <p className="text-xs text-slate-400">
+                          Novos lojistas cadastrados via auto-cadastro aguardando confirmação cadastral ou pagamento.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {pendingStores.map((store) => (
+                      <div
+                        key={store.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-amber-500/20 bg-slate-900/60 p-4"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-white text-sm">{store.nomeLoja}</span>
+                            <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[11px] text-[#FFE600]">
+                              /{store.slug}
+                            </span>
+                            <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400 uppercase">
+                              Plano {store.plano}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
+                            {store.ownerEmail && (
+                              <span className="flex items-center gap-1 text-slate-300">
+                                <Mail className="h-3 w-3 text-slate-500" /> {store.ownerEmail}
+                              </span>
+                            )}
+                            {store.whatsappContato && (
+                              <a
+                                href={`https://wa.me/55${store.whatsappContato.replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1 text-emerald-400 hover:underline"
+                              >
+                                <Phone className="h-3 w-3" /> WhatsApp: {store.whatsappContato}
+                              </a>
+                            )}
+                            {store.cpfCnpj && (
+                              <span className="text-slate-400">
+                                CPF/CNPJ: <strong className="text-slate-300 font-mono">{store.cpfCnpj}</strong>
+                              </span>
+                            )}
+                          </div>
+                          {store.asaasPaymentUrl && (
+                            <div className="pt-1">
+                              <a
+                                href={store.asaasPaymentUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:underline"
+                              >
+                                Link de Cobrança Asaas <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleApproveStore(store.id)}
+                            className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-black text-slate-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400 transition disabled:opacity-50"
+                          >
+                            <Check className="h-3.5 w-3.5" /> Aprovar & Liberar Loja
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleRejectStore(store.id)}
+                            className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 transition disabled:opacity-50"
+                          >
+                            Recusar / Suspender
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Tabela de Lojas SaaS */}
               <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
@@ -1510,10 +1663,16 @@ function AdminRoutePage() {
                                   'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
                                   s.statusAssinatura === 'ativo'
                                     ? 'bg-emerald-500/20 text-emerald-400'
+                                    : s.statusAssinatura === 'pendente'
+                                    ? 'bg-amber-500/20 text-amber-400'
                                     : 'bg-red-500/20 text-red-400'
                                 )}
                               >
-                                {s.statusAssinatura === 'ativo' ? '🟢 Ativo' : '🔴 Inadimplente'}
+                                {s.statusAssinatura === 'ativo'
+                                  ? '🟢 Ativo'
+                                  : s.statusAssinatura === 'pendente'
+                                  ? '🟡 Pendente'
+                                  : '🔴 Inadimplente'}
                               </span>
                             </td>
                             <td className="py-3">
@@ -1532,19 +1691,42 @@ function AdminRoutePage() {
                             </td>
                             <td className="py-3 pr-2 text-right">
                               {s.slug !== 'clarice' && (
-                                <button
-                                  type="button"
-                                  disabled={isPending}
-                                  onClick={() => handleToggleStoreStatus(s.id, s.statusAssinatura)}
-                                  className={cn(
-                                    'rounded-lg px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-50',
-                                    s.statusAssinatura === 'ativo'
-                                      ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
-                                      : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {s.statusAssinatura === 'pendente' ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        disabled={isPending}
+                                        onClick={() => handleApproveStore(s.id)}
+                                        className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition disabled:opacity-50"
+                                      >
+                                        Aprovar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={isPending}
+                                        onClick={() => handleRejectStore(s.id)}
+                                        className="rounded-lg bg-red-500/20 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
+                                      >
+                                        Recusar
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={isPending}
+                                      onClick={() => handleToggleStoreStatus(s.id, s.statusAssinatura)}
+                                      className={cn(
+                                        'rounded-lg px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-50',
+                                        s.statusAssinatura === 'ativo'
+                                          ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                                          : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                                      )}
+                                    >
+                                      {s.statusAssinatura === 'ativo' ? 'Bloquear' : 'Desbloquear'}
+                                    </button>
                                   )}
-                                >
-                                  {s.statusAssinatura === 'ativo' ? 'Bloquear' : 'Desbloquear'}
-                                </button>
+                                </div>
                               )}
                             </td>
                           </tr>

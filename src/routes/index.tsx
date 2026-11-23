@@ -5,6 +5,7 @@ import {
   ArrowUp,
   BadgeCheck,
   ChevronDown,
+  Clock,
   ExternalLink,
   Heart,
   Home,
@@ -308,13 +309,17 @@ function Storefront() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#0F172A] px-4 text-center text-white">
         <div className="mx-auto max-w-md rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
-            <Lock className="h-8 w-8" />
+            {store.statusAssinatura === 'pendente' ? <Clock className="h-8 w-8" /> : <Lock className="h-8 w-8" />}
           </div>
           <h1 className="text-xl font-black tracking-tight sm:text-2xl">
-            Vitrine Temporariamente Indisponível
+            {store.statusAssinatura === 'pendente'
+              ? 'Loja em fase de ativação e revisão cadastral'
+              : 'Vitrine Temporariamente Indisponível'}
           </h1>
           <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-            Esta vitrine está passando por manutenção ou atualização de plano. Para falar com o suporte ou reativar o acesso, entre em contato abaixo.
+            {store.statusAssinatura === 'pendente'
+              ? `O cadastro da vitrine "${store.nomeLoja}" foi recebido e está em processo de verificação e liberação pela nossa equipe. Em breve você terá acesso às melhores ofertas com descontos verificados!`
+              : 'Esta vitrine está passando por manutenção ou atualização de plano. Para falar com o suporte ou reativar o acesso, entre em contato abaixo.'}
           </p>
           <div className="mt-6 flex flex-col gap-3">
             <a

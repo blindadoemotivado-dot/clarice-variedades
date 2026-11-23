@@ -1219,7 +1219,7 @@ function SettingsTab({
     const cleanTag = affTag.trim() || 'clarice-achadinhos';
     const cleanNum = whatsNum.replace(/\D/g, '') || '5511999999999';
     const cleanVip = vipUrl.trim();
-    const cleanPin = pin.trim() || 'clarice2026';
+    const cleanPin = pin.trim();
     const cleanGenUrl = genAffUrl.trim();
 
     try {
@@ -1227,7 +1227,7 @@ function SettingsTab({
         mlAffiliateTag: cleanTag,
         whatsappNumber: cleanNum,
         whatsappVipGroupUrl: cleanVip,
-        adminPin: cleanPin,
+        ...(cleanPin ? { adminPin: cleanPin } : {}),
         generalAffiliateUrl: cleanGenUrl,
       });
 
@@ -1446,10 +1446,11 @@ function SettingsTab({
           <div className="relative">
             <input
               type={showPin ? 'text' : 'password'}
+              autoComplete="current-password"
               className={cn(field, 'pr-10')}
               value={pin}
               onChange={(e) => setPin(e.target.value)}
-              placeholder="Digite o novo PIN (ex: clarice2026)"
+              placeholder="••••••••"
             />
             <button
               type="button"
@@ -1467,9 +1468,13 @@ function SettingsTab({
             <button
               type="button"
               onClick={async () => {
-                const clean = pin.trim() || 'clarice2026';
+                const clean = pin.trim();
+                if (!clean) {
+                  toast.error('Informe um PIN antes de salvar.');
+                  return;
+                }
                 await updateSettings({ adminPin: clean });
-                toast.success(`PIN atualizado para: "${clean}" e salvo no Supabase!`);
+                toast.success('PIN atualizado com sucesso e salvo no Supabase!');
               }}
               className="rounded-lg bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 px-3 py-1 text-xs font-bold transition"
             >

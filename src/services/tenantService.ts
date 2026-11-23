@@ -53,6 +53,8 @@ export function mapRowToStore(row: any): LojaAfiliado {
     asaasSubscriptionId: row.asaas_subscription_id || '',
     asaasPaymentUrl: row.asaas_payment_url || '',
     dominioCustomizado: row.dominio_customizado || '',
+    whatsappContato: row.whatsapp_contato || '',
+    cpfCnpj: row.cpf_cnpj || '',
     createdAt: row.created_at || new Date().toISOString(),
   };
 }
@@ -189,6 +191,8 @@ export async function createStore(input: {
   shopeeSecret?: string;
   ownerEmail?: string;
   dominioCustomizado?: string;
+  whatsappContato?: string;
+  cpfCnpj?: string;
 }): Promise<LojaAfiliado> {
   const newStore: LojaAfiliado = {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `store-${Date.now()}`,
@@ -207,6 +211,8 @@ export async function createStore(input: {
     shopeeSecret: input.shopeeSecret?.trim() || '',
     ownerEmail: input.ownerEmail?.trim().toLowerCase() || '',
     dominioCustomizado: input.dominioCustomizado?.trim().toLowerCase() || '',
+    whatsappContato: input.whatsappContato?.trim() || '',
+    cpfCnpj: input.cpfCnpj?.trim() || '',
     createdAt: new Date().toISOString(),
   };
 
@@ -242,12 +248,45 @@ export async function createStore(input: {
           shopee_secret: newStore.shopeeSecret,
           owner_email: newStore.ownerEmail,
           dominio_customizado: newStore.dominioCustomizado || null,
+          whatsapp_contato: newStore.whatsappContato || null,
+          cpf_cnpj: newStore.cpfCnpj || null,
         })
         .select()
         .single();
 
       if (!error && data) {
         return mapRowToStore(data);
+      }
+
+      // Fallback seguro se as colunas da migration 0003 ainda não tiverem sido aplicadas
+      if (error && (error.message.includes('column') || error.message.includes('status_assinatura'))) {
+        const fallbackStatus = newStore.statusAssinatura === 'pendente' ? 'trial' : newStore.statusAssinatura;
+        const { data: fbData, error: fbError } = await supabase
+          .from('lojas_afiliados')
+          .insert({
+            id: newStore.id,
+            slug: newStore.slug,
+            nome_loja: newStore.nomeLoja,
+            subtitulo: newStore.subtitulo,
+            cor_primaria: newStore.corPrimaria,
+            cor_destaque: newStore.corDestaque,
+            logo_url: newStore.logoUrl,
+            hero_mascote_url: newStore.heroMascoteUrl,
+            whatsapp_vip_url: newStore.whatsappVipUrl,
+            instagram_url: newStore.instagramUrl,
+            plano: newStore.plano,
+            status_assinatura: fallbackStatus,
+            shopee_app_id: newStore.shopeeAppId,
+            shopee_secret: newStore.shopeeSecret,
+            owner_email: newStore.ownerEmail,
+            dominio_customizado: newStore.dominioCustomizado || null,
+          })
+          .select()
+          .single();
+
+        if (!fbError && fbData) {
+          return mapRowToStore(fbData);
+        }
       }
     } catch (err) {
       console.warn('[tenantService] Erro ao criar loja no Supabase, mantido em cache local:', err);
@@ -338,6 +377,7 @@ export async function createAsaasCheckout(payload: {
   nome: string;
   email: string;
   cpfCnpj?: string;
+  whatsapp?: string;
   plano: SubscriptionPlan;
 }): Promise<{ success: boolean; paymentUrl?: string; error?: string }> {
   try {
@@ -354,3 +394,68 @@ export async function createAsaasCheckout(payload: {
     };
   }
 }
+
+export async function checkSlugAvailable(slug: string): Promise<boolean> {
+  const clean = slug.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  if (!clean || clean.length < 3) return false;
+
+  const reserved = ['admin', 'api', 'clarice', 'login', 'criar-loja', 'suporte', 'checkout', 'webhook'];
+  if (reserved.includes(clean)) return false;
+
+  const localStores = getLocalStores();
+  if (localStores.some((s) => s.slug === clean)) return false;
+
+  if (!isSupabaseConfigured) return true;
+
+  try {
+    const { data, error } = await supabase
+      .from('lojas_afiliados')
+      .select('slug')
+      .eq('slug', clean)
+      .maybeSingle();
+
+    if (!error && data) return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+export async function approveStore(idOrSlug: string): Promise<boolean> {
+  const nextDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const local = getLocalStores();
+  const target = local.find((s) => s.id === idOrSlug || s.slug === idOrSlug);
+  if (target) {
+    target.statusAssinatura = 'ativo';
+    target.vencimentoEm = nextDueDate;
+    saveLocalStores(local);
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const { error } = await supabase
+        .from('lojas_afiliados')
+        .update({
+          status_assinatura: 'ativo',
+          vencimento_em: nextDueDate,
+        })
+        .or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`);
+
+      if (error) {
+        console.warn('[tenantService] Falha ao aprovar loja no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[tenantService] Erro ao aprovar loja:', err);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export async function rejectStore(idOrSlug: string): Promise<boolean> {
+  return await updateStoreSubscriptionStatus(idOrSlug, 'suspenso');
+}
+
