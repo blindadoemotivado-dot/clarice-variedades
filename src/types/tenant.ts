@@ -37,7 +37,7 @@ export const DEFAULT_CLARICE_STORE: LojaAfiliado = {
   corDestaque: '#FFE600',
   logoUrl: '/icons/icon-192x192.png',
   heroMascoteUrl: '/brand/clarice-hero.png',
-  whatsappVipUrl: 'https://chat.whatsapp.com/invite/clarice',
+  whatsappVipUrl: 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o',
   instagramUrl: 'https://instagram.com/clariceachadinhos',
   plano: 'advanced',
   statusAssinatura: 'ativo',

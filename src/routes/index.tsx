@@ -318,7 +318,7 @@ function Storefront() {
           </p>
           <div className="mt-6 flex flex-col gap-3">
             <a
-              href={store.whatsappVipUrl || "https://wa.me/5511999999999"}
+              href={store.whatsappVipUrl || "https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o"}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition"
@@ -701,6 +701,21 @@ function Storefront() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Botão Oficial Grupo VIP WhatsApp */}
+        <div className="mx-auto mb-4 max-w-md px-2">
+          <button
+            type="button"
+            onClick={() => openVipGroup()}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-black text-sm px-5 py-3.5 shadow-lg shadow-emerald-500/20 transition transform active:scale-[0.98]"
+          >
+            <MessageCircle className="h-4 w-4 text-slate-950" />
+            <span>Entrar no Grupo VIP Oficial no WhatsApp</span>
+          </button>
+          <p className="mt-2 text-[11px] text-muted-foreground/80">
+            Receba ofertas selecionadas e descontos exclusivos diretamente no seu WhatsApp
+          </p>
         </div>
 
         {/* Botão Amarelo de Afiliado Geral Mercado Livre */}

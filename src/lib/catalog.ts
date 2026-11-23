@@ -21,7 +21,7 @@ export function buildWhatsAppCopy(p: AffiliateProduct): string {
   const isShopee = p.marketplace === 'shopee';
   const channel = isShopee ? 'SHOPEE' : 'MERCADO LIVRE';
   const destination = isShopee ? 'na Shopee' : 'no Mercado Livre';
-  return `🔥 *ACHADINHO ${channel} • CLARICE ACHADINHOS*\n\n🛍️ *${p.title}*\n~De: ${formatBRL(p.originalPrice)}~\n✅ *Por apenas: ${formatBRL(p.currentPrice)}* (${p.discountPercent}% OFF)\n💳 ${p.installmentsText}\n\n👉 *Compre ${destination} pelo link oficial:* ${p.affiliateUrl}`;
+  return `🔥 *ACHADINHO ${channel} • CLARICE ACHADINHOS*\n\n🛍️ *${p.title}*\n~De: ${formatBRL(p.originalPrice)}~\n✅ *Por apenas: ${formatBRL(p.currentPrice)}* (${p.discountPercent}% OFF)\n💳 ${p.installmentsText}\n\n👉 *Compre ${destination} pelo link oficial:* ${p.affiliateUrl}\n\n📲 *Participe do nosso Grupo VIP no WhatsApp:* https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o`;
 }
 
 export type SortKey = 'relevance' | 'price' | 'discount';

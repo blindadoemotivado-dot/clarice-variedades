@@ -75,12 +75,13 @@ INSERT INTO public.lojas_afiliados (
     '#FFE600',
     '/icons/icon-192x192.png',
     '/brand/clarice-hero.png',
-    'https://chat.whatsapp.com/invite/clarice',
+    'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o',
     'https://instagram.com/clariceachadinhos',
     'advanced',
     'ativo'
 )
 ON CONFLICT (slug) DO UPDATE SET
     nome_loja = EXCLUDED.nome_loja,
+    whatsapp_vip_url = 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o',
     plano = 'advanced',
     status_assinatura = 'ativo';

@@ -12,7 +12,7 @@ export interface StoreSettings {
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   mlAffiliateTag: 'clarice-achadinhos',
   whatsappNumber: '5511999999999',
-  whatsappVipGroupUrl: 'https://chat.whatsapp.com/ClariceAchadinhosVIP',
+  whatsappVipGroupUrl: 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o',
   adminPin: 'clarice2026',
   generalAffiliateUrl: 'https://www.mercadolivre.com.br/ofertas?matt_tool=clarice-achadinhos',
 };
@@ -31,11 +31,13 @@ export function getStoreSettings(): StoreSettings {
 
     const envPin = (import.meta.env.VITE_ADMIN_PIN as string | undefined)?.trim();
     const fallbackPin = envPin || DEFAULT_STORE_SETTINGS.adminPin;
+    const envVip = (import.meta.env.VITE_WHATSAPP_VIP_URL as string | undefined)?.trim();
+    const fallbackVip = envVip || DEFAULT_STORE_SETTINGS.whatsappVipGroupUrl;
 
     return {
       mlAffiliateTag: parsed.mlAffiliateTag?.trim() || DEFAULT_STORE_SETTINGS.mlAffiliateTag,
       whatsappNumber: parsed.whatsappNumber?.trim() || DEFAULT_STORE_SETTINGS.whatsappNumber,
-      whatsappVipGroupUrl: parsed.whatsappVipGroupUrl?.trim() || DEFAULT_STORE_SETTINGS.whatsappVipGroupUrl,
+      whatsappVipGroupUrl: parsed.whatsappVipGroupUrl?.trim() || fallbackVip,
       adminPin: parsed.adminPin?.trim() || fallbackPin,
       generalAffiliateUrl: parsed.generalAffiliateUrl?.trim() || DEFAULT_STORE_SETTINGS.generalAffiliateUrl,
     };
@@ -81,7 +83,7 @@ export async function fetchStoreSettingsFromSupabase(): Promise<StoreSettings> {
       const fromCloud: StoreSettings = {
         mlAffiliateTag: data.affiliate_tag?.trim() || DEFAULT_STORE_SETTINGS.mlAffiliateTag,
         whatsappNumber: data.whatsapp_number?.trim() || DEFAULT_STORE_SETTINGS.whatsappNumber,
-        whatsappVipGroupUrl: data.whatsapp_group_url?.trim() || '',
+        whatsappVipGroupUrl: data.whatsapp_group_url?.trim() || DEFAULT_STORE_SETTINGS.whatsappVipGroupUrl,
         adminPin: data.admin_pin_hash?.trim() || DEFAULT_STORE_SETTINGS.adminPin,
         generalAffiliateUrl: data.general_affiliate_url?.trim() || DEFAULT_STORE_SETTINGS.generalAffiliateUrl,
       };

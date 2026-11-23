@@ -52,6 +52,7 @@ describe('catalog', () => {
     const copy = buildWhatsAppCopy(shopeeItem);
     expect(copy).toContain('ACHADINHO SHOPEE');
     expect(copy).toContain('Compre na Shopee pelo link oficial');
+    expect(copy).toContain('https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o');
   });
   it('filtra por marketplace quando especificado', () => {
     const list = [
