@@ -323,10 +323,10 @@ export function useCatalog(lojaSlug?: string) {
       setProducts((p) => p.filter((x) => x.id !== id));
       if (isSupabaseConfigured) {
         try {
-          const { error } = await supabase
-            .from('produtos_clarice')
-            .delete()
-            .eq('id', id);
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+          let query = supabase.from('produtos_clarice').delete();
+          query = isUuid ? query.eq('id', id) : query.eq('mlb_id', id);
+          const { error } = await query;
           if (error) console.warn('[useCatalog] Erro ao remover do Supabase:', error.message);
         } catch (err) {
           console.warn('[useCatalog] Falha ao deletar item do Supabase:', err);

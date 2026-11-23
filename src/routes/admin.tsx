@@ -470,8 +470,13 @@ export function AdminRoutePage() {
       }
     }
 
+    const generatedId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `prod-${Date.now()}`;
+
     const newProduct: AffiliateProduct = {
-      id: editingProductId || `${mlbId}-${Date.now()}`,
+      id: editingProductId || generatedId,
       mlbId,
       title: productTitle.trim(),
       originalPrice: origPrice,
@@ -526,9 +531,18 @@ export function AdminRoutePage() {
         };
 
         if (editingProductId) {
-          await supabase.from('produtos_clarice').update(payload).eq('id', editingProductId);
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editingProductId);
+          let updateQuery = supabase.from('produtos_clarice').update(payload);
+          updateQuery = isUuid ? updateQuery.eq('id', editingProductId) : updateQuery.eq('mlb_id', editingProductId);
+          await updateQuery;
         } else {
-          await supabase.from('produtos_clarice').insert({ id: newProduct.id, ...payload });
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newProduct.id);
+          const insertPayload = isUuid ? { id: newProduct.id, ...payload } : payload;
+          const { data: inserted, error: insErr } = await supabase.from('produtos_clarice').insert(insertPayload).select('id').single();
+          if (inserted?.id) {
+            newProduct.id = inserted.id;
+          }
+          if (insErr) console.warn('[Admin] Aviso ao inserir no Supabase:', insErr.message);
         }
       } catch (err) {
         console.warn('Aviso ao sincronizar produto no Supabase:', err);

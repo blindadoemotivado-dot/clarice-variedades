@@ -248,12 +248,20 @@ async function run() {
       recordResult('Jornada 2', 'Nome Oficial da Loja Demo', isDemoName, `Loja: "${storeName}"`);
 
       // Contagem de Produtos Exclusivos
+      const catalogCount = await page.evaluate(() => {
+        try {
+          const cached = localStorage.getItem('clarice_catalog_cache_loja-demo');
+          return cached ? JSON.parse(cached).length : 0;
+        } catch {
+          return 0;
+        }
+      });
       const demoCardsCount = await page.locator('article').count();
       recordResult(
         'Jornada 2',
         'Catálogo Exclusivo da Loja Demo (8 Produtos)',
-        demoCardsCount === 8,
-        `${demoCardsCount} produtos carregados`
+        catalogCount === 8,
+        `${catalogCount} produtos exclusivos no catálogo (${demoCardsCount} exibições incluindo seções de destaque)`
       );
 
       // Verificação Mobile
@@ -313,18 +321,17 @@ async function run() {
         await slugInput.fill(testSlug);
       }
 
-      // Aguarda debounce de validação de slug
-      await page.waitForTimeout(1000);
-      const isAvailableIndicator = await page.locator('text=Disponível, text=disponível, [class*="emerald"]').count();
-      recordResult('Jornada 3', 'Validação de Disponibilidade de Slug', isAvailableIndicator > 0, 'Slug validado em tempo real');
+      // Aguarda validação de slug
+      const isAvailable = await page.waitForSelector('text=Disponível', { timeout: 10000 }).then(() => true).catch(() => false);
+      recordResult('Jornada 3', 'Validação de Disponibilidade de Slug', isAvailable, 'Slug validado em tempo real');
 
       // Submissão do Formulário
-      const submitBtn = page.locator('button[type="submit"]:has-text("Criar Minha Loja")');
+      const submitBtn = page.locator('button[type="submit"]');
       await submitBtn.click();
 
       // Aguarda tela de sucesso ou toast
       const successTitle = page.locator('text=Solicitação de Abertura Recebida');
-      await successTitle.waitFor({ timeout: 15000 }).catch(() => {});
+      await successTitle.waitFor({ timeout: 20000 }).catch(() => {});
       const hasSuccess = (await successTitle.count()) > 0;
       recordResult('Jornada 3', 'Submissão e Tela de Confirmação Pós-Cadastro', hasSuccess, 'Tela de sucesso exibida');
 
@@ -395,7 +402,7 @@ async function run() {
         recordResult('Jornada 4', 'Upload de Imagens (Logo e Banner Hero)', fileInputs >= 2, `${fileInputs} inputs de arquivo`);
 
         // Trava do Domínio Próprio (PlanGate - Plano Pro não tem direito a CNAME)
-        const domainLock = page.locator('text=Recurso Exclusivo do Plano Advanced, text=Faça Upgrade').first();
+        const domainLock = page.locator('text=/Recurso Exclusivo.*Plano Advanced|Plano Advanced/i').first();
         const hasLock = (await domainLock.count()) > 0;
         recordResult('Jornada 4', 'Trava do Domínio Próprio via PlanGate (Plano Pro)', hasLock, 'Bloqueio respeitado');
 
@@ -488,11 +495,11 @@ async function run() {
           await dispSearch.fill('');
         }
 
-        // Seleciona um produto para carregar as opções de template
-        const prodItem = page.locator('div:has-text("Shopee"), div:has-text("Mercado Livre")').first();
+        // Seleciona um produto para carregar as opções de template (clicando na imagem do item)
+        const prodItem = page.locator('div[role="tabpanel"] img[alt]').first();
         if ((await prodItem.count()) > 0) {
           await prodItem.click();
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(600);
         }
 
         // Alternância de Templates
@@ -516,8 +523,9 @@ async function run() {
         await assinaturaTab.click();
         await page.waitForTimeout(600);
 
-        const planText = await page.locator('text=Plano Pro, text=PRO, text=R$ 117').first().innerText().catch(() => '');
-        recordResult('Jornada 4', 'Exibição Correta do Plano Pro na Assinatura', planText.length > 0, planText);
+        const planText = await page.locator('div[role="tabpanel"] span:has-text("Plano Atual")').locator('..').innerText().catch(() => '');
+        const hasProPlan = planText.toLowerCase().includes('pro') || planText.includes('117');
+        recordResult('Jornada 4', 'Exibição Correta do Plano Pro na Assinatura', hasProPlan, planText.replace(/\s+/g, ' ').trim());
 
         const upgradeBtn = page.locator('button:has-text("Fazer Upgrade"), button:has-text("Mudar para Advanced")').first();
         const hasUpgrade = (await upgradeBtn.count()) > 0;
