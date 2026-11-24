@@ -935,8 +935,10 @@ function Storefront() {
           </button>
           <a
             href={
-              settings.generalAffiliateUrl ||
-              `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`
+              store.mlAffiliateTag
+                ? `https://www.mercadolivre.com.br/ofertas?matt_word=${encodeURIComponent(store.mlAffiliateTag)}`
+                : settings.generalAffiliateUrl ||
+                  `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`
             }
             target="_blank"
             rel="noopener noreferrer"
