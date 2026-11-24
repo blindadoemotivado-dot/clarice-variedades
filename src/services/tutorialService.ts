@@ -168,15 +168,50 @@ export async function uploadTutorialVideo(file: File, lessonId: string): Promise
   }
 
   // 2. Faz o upload direto para a Signed URL do Supabase Storage
-  const { error: uploadError } = await supabase.storage
-    .from('tutoriais')
-    .uploadToSignedUrl(signResult.path, signResult.token, file, {
-      contentType: file.type || 'video/mp4',
-      upsert: true,
-    });
+  let uploadSucceeded = false;
+  let lastErrorMsg = '';
 
-  if (uploadError) {
-    throw new Error(`Falha no upload do vídeo: ${uploadError.message}`);
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from('tutoriais')
+      .uploadToSignedUrl(signResult.path, signResult.token, file, {
+        contentType: file.type || 'video/mp4',
+        upsert: true,
+      });
+
+    if (!uploadError) {
+      uploadSucceeded = true;
+    } else {
+      lastErrorMsg = uploadError.message;
+    }
+  } catch (err: any) {
+    lastErrorMsg = err?.message || 'Falha no upload assinado';
+  }
+
+  // Fallback direto via fetch PUT para a Signed URL caso o SDK cliente encontre inconsistência
+  if (!uploadSucceeded && signResult.signedUrl) {
+    try {
+      const putRes = await fetch(signResult.signedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type || 'video/mp4',
+          'x-upsert': 'true',
+        },
+        body: file,
+      });
+      if (putRes.ok) {
+        uploadSucceeded = true;
+      } else {
+        const errorText = await putRes.text();
+        lastErrorMsg = errorText || lastErrorMsg;
+      }
+    } catch (fetchErr: any) {
+      lastErrorMsg = fetchErr?.message || lastErrorMsg;
+    }
+  }
+
+  if (!uploadSucceeded) {
+    throw new Error(`Falha no upload do vídeo: ${lastErrorMsg}`);
   }
 
   return signResult.publicUrl;
