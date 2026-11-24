@@ -183,24 +183,24 @@ export function LojistaTutorialGuide({
   const isFeaturedCompleted = Boolean(completedMap[featuredLesson.id]);
 
   return (
-    <div className={cn('space-y-8', className)}>
+    <div className={cn('space-y-4 sm:space-y-8', className)}>
       {/* ───────────────────────────────────────────────────────────────── */}
       {/* 1. BANNER DE BOAS-VINDAS COM A MASCOTE CLARICE                   */}
       {/* ───────────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0A0E1A] p-4 sm:p-8 shadow-2xl backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0A0E1A] p-3.5 sm:p-8 shadow-2xl backdrop-blur-xl">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-full bg-yellow-500/10 blur-3xl"
         />
 
         <div className="relative z-10 flex flex-row items-center gap-3 sm:gap-6 justify-between">
-          <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-3 text-left">
+          <div className="flex-1 min-w-0 space-y-1 sm:space-y-3 text-left">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-[#FFE600]/40 bg-[#FFE600]/10 px-2.5 py-0.5 sm:px-3.5 sm:py-1 text-[10px] sm:text-xs font-black uppercase text-[#FFE600]">
               <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               <span>Central de Treinamento Oficial</span>
             </div>
 
-            <h1 className="text-base sm:text-2xl md:text-3xl font-black tracking-tight text-white">
+            <h1 className="text-sm sm:text-2xl md:text-3xl font-black tracking-tight text-white">
               Aprenda em 1 Minuto com a Clarice 🎓
             </h1>
 
@@ -211,14 +211,14 @@ export function LojistaTutorialGuide({
             </p>
 
             {/* Barra de Progresso do Lojista */}
-            <div className="pt-1 sm:pt-2 max-w-md">
-              <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-slate-300 mb-1">
+            <div className="pt-0.5 sm:pt-2 max-w-md">
+              <div className="flex items-center justify-between text-[10px] sm:text-xs font-bold text-slate-300 mb-0.5 sm:mb-1">
                 <span>Seu Progresso:</span>
                 <span className="text-[#FFE600]">
                   {completedCount} de {totalCount} {totalCount === 1 ? 'aula' : 'aulas'} ({progressPercent}%)
                 </span>
               </div>
-              <div className="h-2 sm:h-2.5 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
+              <div className="h-1.5 sm:h-2.5 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 to-[#FFE600] transition-all duration-500 rounded-full"
                   style={{ width: `${progressPercent}%` }}
@@ -229,7 +229,7 @@ export function LojistaTutorialGuide({
 
           {/* Imagem da Mascote Clarice */}
           <div className="relative shrink-0 flex items-center justify-center">
-            <div className="h-14 w-14 sm:h-36 sm:w-36 rounded-full bg-[#FFE600]/10 border-2 border-[#FFE600]/30 flex items-center justify-center shadow-inner overflow-hidden p-1.5 sm:p-2">
+            <div className="h-12 w-12 sm:h-36 sm:w-36 rounded-full bg-[#FFE600]/10 border-2 border-[#FFE600]/30 flex items-center justify-center shadow-inner overflow-hidden p-1 sm:p-2">
               <img
                 src="/brand/clarice-hero.png"
                 alt="Mascote Clarice"
@@ -238,7 +238,7 @@ export function LojistaTutorialGuide({
                   e.currentTarget.style.display = 'none';
                 }}
               />
-              <GraduationCap className="h-7 w-7 sm:h-16 sm:w-16 text-[#FFE600] opacity-40 absolute" />
+              <GraduationCap className="h-6 w-6 sm:h-16 sm:w-16 text-[#FFE600] opacity-40 absolute" />
             </div>
           </div>
         </div>
@@ -247,11 +247,11 @@ export function LojistaTutorialGuide({
       {/* ───────────────────────────────────────────────────────────────── */}
       {/* 2. DESTAQUE PRINCIPAL: GUIA RÁPIDO (SLOT 1)                      */}
       {/* ───────────────────────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 sm:pb-3">
           <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-[#FFE600]" />
-            <h2 className="text-base sm:text-lg font-black text-white">
+            <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-[#FFE600]" />
+            <h2 className="text-sm sm:text-lg font-black text-white">
               Vídeo Principal em Destaque • Guia Rápido
             </h2>
           </div>
@@ -262,40 +262,40 @@ export function LojistaTutorialGuide({
 
         <div
           className={cn(
-            'relative overflow-hidden rounded-3xl border p-4 sm:p-8 shadow-2xl transition-all duration-300',
+            'relative overflow-hidden rounded-3xl border p-3.5 sm:p-8 shadow-2xl transition-all duration-300',
             isFeaturedCompleted
               ? 'border-emerald-500/40 bg-gradient-to-br from-[#0F172A] via-emerald-950/20 to-[#0F172A]'
               : 'border-[#FFE600]/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B]/70 to-[#0A0E1A]'
           )}
         >
           {/* Header do Card em Destaque */}
-          <div className="space-y-2 mb-4">
+          <div className="space-y-1 sm:space-y-2 mb-3 sm:mb-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded-lg bg-[#FFE600]/20 border border-[#FFE600]/40 px-3 py-1 font-mono text-xs font-black uppercase text-[#FFE600] flex items-center gap-1.5">
-                <Zap className="h-3.5 w-3.5" />
+              <span className="rounded-lg bg-[#FFE600]/20 border border-[#FFE600]/40 px-2.5 py-0.5 sm:px-3 sm:py-1 font-mono text-[10px] sm:text-xs font-black uppercase text-[#FFE600] flex items-center gap-1.5">
+                <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 Guia Rápido Oficial
               </span>
-              <span className="rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1 text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-[#FFE600]" /> {featuredLesson.duracao || '00:45'}
+              <span className="rounded-lg bg-slate-900 border border-slate-800 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-slate-300 flex items-center gap-1">
+                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#FFE600]" /> {featuredLesson.duracao || '00:45'}
               </span>
               {isFeaturedCompleted && (
-                <span className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5" /> Concluído
+                <span className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Concluído
                 </span>
               )}
             </div>
 
-            <h3 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+            <h3 className="text-base sm:text-2xl font-black text-white tracking-tight">
               {featuredLesson.titulo}
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl hidden sm:block">
               {featuredLesson.descricao}
             </p>
           </div>
 
           {/* Player do Vídeo Principal */}
-          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-[#FFE600]/30 bg-slate-950 shadow-2xl mb-4">
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-[#FFE600]/30 bg-slate-950 shadow-2xl mb-3.5 sm:mb-4">
             {renderVideoPlayer(featuredLesson, true)}
           </div>
 

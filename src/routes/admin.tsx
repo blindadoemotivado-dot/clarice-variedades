@@ -1137,12 +1137,12 @@ export function AdminRoutePage() {
       </header>
 
       {/* Conteúdo Principal com Abas */}
-      <main className="mx-auto max-w-7xl px-4 py-6">
+      <main className="mx-auto max-w-7xl px-3 sm:px-4 py-3 sm:py-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           {/* Barra de Abas: Super Admin e Lojista com navegação responsiva */}
           <TabsList
             className={cn(
-              'flex w-full overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl mb-5 bg-slate-900 border border-slate-800',
+              'flex w-full overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl mb-3 sm:mb-5 bg-slate-900 border border-slate-800',
               userRole === 'super_admin'
                 ? 'lg:grid lg:grid-cols-4'
                 : 'lg:grid lg:grid-cols-5'
