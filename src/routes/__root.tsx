@@ -104,12 +104,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0, viewport-fit=cover" },
-      { title: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
-      {
-        name: "description",
-        content:
-          "Curadoria diária de achadinhos com desconto verificado no Mercado Livre com frete grátis e compra 100% segura.",
-      },
       { name: "theme-color", content: "#FFE600" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -118,30 +112,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "application-name", content: "Clarice Achadinhos" },
       { name: "msapplication-TileColor", content: "#0F172A" },
       { property: "og:type", content: "website" },
-      { property: "og:site_name", content: "Clarice Achadinhos" },
-      { property: "og:url", content: "https://clariceachadinhos.vercel.app" },
-      { property: "og:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
-      {
-        property: "og:description",
-        content:
-          "Economize de verdade! Achadinhos verificados diariamente com frete rápido e compra 100% segura no Mercado Livre.",
-      },
       { property: "og:locale", content: "pt_BR" },
-      {
-        property: "og:image",
-        content: "https://clariceachadinhos.vercel.app/og-image.png",
-      },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Clarice Achadinhos — Melhores Ofertas do Mercado Livre" },
-      {
-        name: "twitter:description",
-        content:
-          "Economize de verdade! Achadinhos verificados diariamente com frete rápido e compra 100% segura no Mercado Livre.",
-      },
-      {
-        name: "twitter:image",
-        content: "https://clariceachadinhos.vercel.app/og-image.png",
-      },
     ],
     links: [
       { rel: "canonical", href: "https://clariceachadinhos.vercel.app" },

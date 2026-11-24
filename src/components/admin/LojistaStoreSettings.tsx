@@ -80,7 +80,9 @@ export function LojistaStoreSettings({
       toast.info('Otimizando e enviando logotipo...');
       const url = await uploadStoreImage(file, 'logos', store.slug);
       setStoreBrandLogoUrl(url);
-      toast.success('Logotipo enviado com sucesso!');
+      await updateStoreBranding(store.slug, { logoUrl: url });
+      if (onSaved) onSaved({ logoUrl: url });
+      toast.success('Logotipo enviado e salvo com sucesso!');
     } catch (err: any) {
       console.error('[LojistaStoreSettings] Falha no upload do logo:', err);
       toast.error(`Erro ao subir logotipo: ${err?.message || 'Tente novamente'}`);
@@ -369,6 +371,60 @@ export function LojistaStoreSettings({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Prévia ao Compartilhar no WhatsApp & Redes Sociais */}
+        <div className="rounded-2xl border border-slate-800 bg-[#0B1220] p-4 sm:p-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">💬</span>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                Prévia ao Compartilhar no WhatsApp
+              </h3>
+            </div>
+            <span className="self-start sm:self-auto text-[10px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full">
+              White-Label Ativo
+            </span>
+          </div>
+
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            É exatamente assim que seus contatos verão o card da sua loja ao receberem o link no WhatsApp, Instagram ou Facebook:
+          </p>
+
+          {/* WhatsApp Bubble Preview */}
+          <div className="max-w-md rounded-2xl overflow-hidden border border-slate-700/80 bg-[#1F2C34] shadow-xl">
+            {/* Imagem de Prévia */}
+            <div className="relative aspect-[1.91/1] w-full bg-slate-900 overflow-hidden flex items-center justify-center">
+              <img
+                src={
+                  storeBrandMascoteUrl ||
+                  storeBrandLogoUrl ||
+                  `https://clariceachadinhos.vercel.app/api/og?loja=${encodeURIComponent(store.slug)}`
+                }
+                alt="Prévia de Compartilhamento"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = `https://clariceachadinhos.vercel.app/api/og?loja=${encodeURIComponent(store.slug)}`;
+                }}
+              />
+              <div className="absolute bottom-2 right-2 bg-black/75 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded-md">
+                1200 x 630
+              </div>
+            </div>
+
+            {/* Metadados WhatsApp */}
+            <div className="p-3.5 bg-[#1F2C34] space-y-1">
+              <p className="text-[10px] uppercase font-bold text-[#8696A0] tracking-wider truncate">
+                clariceachadinhos.vercel.app
+              </p>
+              <h4 className="text-xs font-bold text-[#E9EDEF] leading-snug line-clamp-1">
+                {storeBrandName.trim() || store.nomeLoja} — Achadinhos e Ofertas Selecionadas
+              </h4>
+              <p className="text-[11px] text-[#8696A0] leading-snug line-clamp-2">
+                Confira as melhores ofertas selecionadas por {storeBrandName.trim() || store.nomeLoja} no Mercado Livre e Shopee com compra garantida.
+              </p>
+            </div>
           </div>
         </div>
 

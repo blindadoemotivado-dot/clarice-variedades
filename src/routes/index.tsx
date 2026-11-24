@@ -31,6 +31,7 @@ import { AdminPinDialog } from '@/components/store/AdminPinDialog';
 import { askClariceAi } from '@/services/clariceAiService';
 import { useCatalog } from '@/hooks/use-catalog';
 import { useTenant } from '@/hooks/use-tenant';
+import { fetchStoreBySlug } from '@/services/tenantService';
 import { filterProducts, type CategoryFilter, type SortKey, type MarketplaceFilter } from '@/lib/catalog';
 import { CATEGORIES } from '@/types/product';
 import { cn } from '@/lib/utils';
@@ -53,35 +54,74 @@ export const Route = createFileRoute('/')({
           : undefined,
     };
   },
-  head: ({ search }) => {
-    const isPartner = search?.loja && search.loja !== 'clarice';
-    const storeTitle = isPartner
-      ? `${search.loja === 'loja-demo' ? 'Achadinhos Demo FCIA' : search.loja} — Ofertas & Achadinhos`
-      : 'Clarice Achadinhos — Curadoria de Ofertas no Mercado Livre';
+  loaderDeps: ({ search: { loja } }) => ({ loja }),
+  loader: async ({ deps: { loja } }) => {
+    const slug = (loja || 'clarice').trim().toLowerCase();
+    try {
+      const store = await fetchStoreBySlug(slug);
+      return { store };
+    } catch {
+      return { store: null };
+    }
+  },
+  head: ({ loaderData, search }) => {
+    const store = loaderData?.store;
+    const slug = (search?.loja || store?.slug || 'clarice').trim().toLowerCase();
+    const isClarice = slug === 'clarice';
+
+    const storeName = store?.nomeLoja || (isClarice ? 'Clarice Achadinhos' : slug);
+    const title = isClarice
+      ? 'Clarice Achadinhos — Melhores Ofertas do Mercado Livre e Shopee'
+      : `${storeName} — Achadinhos e Ofertas Selecionadas`;
+
+    const description = isClarice
+      ? 'Curadoria diária de achadinhos verificados do Mercado Livre e Shopee com frete grátis e compra 100% segura.'
+      : `Confira as melhores ofertas selecionadas por ${storeName} no Mercado Livre e Shopee com compra garantida.`;
+
+    // Ordem de prioridade para imagem OG (White-Label):
+    // 1. loja.heroMascoteUrl / banner_url (se existir e for URL HTTPS válida);
+    // 2. loja.logoUrl (se existir e for URL HTTPS válida);
+    // 3. Fallback dinâmico white-label: https://clariceachadinhos.vercel.app/api/og?loja=${encodeURIComponent(slug)}
+    let ogImage = '';
+    const isValidHttpUrl = (url?: string) =>
+      typeof url === 'string' &&
+      (url.startsWith('https://') || url.startsWith('http://')) &&
+      !url.includes('clarice-hero') &&
+      !url.includes('icon-192x192');
+
+    if (isClarice) {
+      ogImage = 'https://clariceachadinhos.vercel.app/og-image.png';
+    } else if (isValidHttpUrl(store?.heroMascoteUrl)) {
+      ogImage = store!.heroMascoteUrl!;
+    } else if (isValidHttpUrl(store?.logoUrl)) {
+      ogImage = store!.logoUrl!;
+    } else {
+      ogImage = `https://clariceachadinhos.vercel.app/api/og?loja=${encodeURIComponent(slug)}`;
+    }
+
+    const currentUrl = isClarice
+      ? 'https://clariceachadinhos.vercel.app'
+      : `https://clariceachadinhos.vercel.app/?loja=${encodeURIComponent(slug)}`;
+
     return {
       meta: [
-        { title: storeTitle },
-        {
-          name: 'description',
-          content: isPartner
-            ? `Achadinhos exclusivos e ofertas selecionadas por ${search.loja === 'loja-demo' ? 'Achadinhos Demo FCIA' : search.loja}.`
-            : 'Curadoria diária de achadinhos verificados do Mercado Livre: eletrônicos, casa, cozinha, ferramentas e beleza com frete grátis e parcelamento sem juros.',
-        },
-        { property: 'og:title', content: storeTitle },
-        {
-          property: 'og:description',
-          content: isPartner
-            ? `Achadinhos exclusivos e ofertas selecionadas por ${search.loja === 'loja-demo' ? 'Achadinhos Demo FCIA' : search.loja}.`
-            : 'Ofertas verificadas no Mercado Livre com desconto real, frete grátis e compra garantida.',
-        },
+        { title },
+        { name: 'description', content: description },
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
         { property: 'og:type', content: 'website' },
-        { property: 'og:url', content: 'https://clariceachadinhos.vercel.app' },
-        { property: 'og:image', content: 'https://clariceachadinhos.vercel.app/og-image.png' },
+        { property: 'og:site_name', content: storeName },
+        { property: 'og:url', content: currentUrl },
+        { property: 'og:image', content: ogImage },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
         { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:image', content: 'https://clariceachadinhos.vercel.app/og-image.png' },
+        { name: 'twitter:title', content: title },
+        { name: 'twitter:description', content: description },
+        { name: 'twitter:image', content: ogImage },
       ],
       links: [
-        { rel: 'canonical', href: 'https://clariceachadinhos.vercel.app' },
+        { rel: 'canonical', href: currentUrl },
       ],
     };
   },

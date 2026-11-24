@@ -12,6 +12,7 @@ export interface LojaAfiliado {
   corDestaque: string;
   logoUrl?: string;
   heroMascoteUrl?: string;
+  bannerUrl?: string;
   whatsappVipUrl?: string;
   instagramUrl?: string;
   plano: SubscriptionPlan;
