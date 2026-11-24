@@ -163,11 +163,39 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const BOOT_CLEANUP_SCRIPT = `
+(function() {
+  try {
+    var CURRENT_BUILD = '2026-11-24-v5';
+    var savedBuild = localStorage.getItem('clarice_ui_build');
+    if (savedBuild !== CURRENT_BUILD) {
+      localStorage.setItem('clarice_ui_build', CURRENT_BUILD);
+      var unregisterAll = ('serviceWorker' in navigator)
+        ? navigator.serviceWorker.getRegistrations().then(function(regs) {
+            return Promise.all(regs.map(function(r) { return r.unregister(); }));
+          })
+        : Promise.resolve();
+      var clearCaches = ('caches' in window)
+        ? caches.keys().then(function(keys) {
+            return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+          })
+        : Promise.resolve();
+      Promise.all([unregisterAll, clearCaches]).then(function() {
+        window.location.reload();
+      }).catch(function() {
+        window.location.reload();
+      });
+    }
+  } catch (e) {}
+})();
+`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: BOOT_CLEANUP_SCRIPT }} />
       </head>
       <body>
         {children}
@@ -182,6 +210,9 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      if (localStorage.getItem('clarice_ui_build') !== '2026-11-24-v5') {
+        return;
+      }
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js")
