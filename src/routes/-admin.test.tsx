@@ -94,4 +94,33 @@ describe('AdminRoutePage (/admin)', () => {
       expect(screen.getByText(/Ver Minha Vitrine/i)).toBeInTheDocument();
     });
   });
+
+  it('permite ao Super Admin alternar rapidamente para o Painel Clarice e retornar em 1 clique', async () => {
+    sessionStorage.setItem('clarice_admin_authenticated', 'true');
+    sessionStorage.setItem('clarice_admin_role', 'super_admin');
+
+    render(<AdminRoutePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Painel Super Admin • Clarice SaaS/i)).toBeInTheDocument();
+    });
+
+    const clariceBtn = screen.getByRole('button', { name: /Painel Clarice/i });
+    expect(clariceBtn).toBeInTheDocument();
+
+    fireEvent.click(clariceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Gestão • Clarice Achadinhos/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Voltar ao Super Admin/i })).toBeInTheDocument();
+    });
+
+    const returnBtn = screen.getByRole('button', { name: /Voltar ao Super Admin/i });
+    fireEvent.click(returnBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Painel Super Admin • Clarice SaaS/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Painel Clarice/i })).toBeInTheDocument();
+    });
+  });
 });

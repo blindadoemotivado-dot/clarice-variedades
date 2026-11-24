@@ -84,6 +84,7 @@ import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import {
   fetchTutorials,
   updateTutorialVideo,
+  uploadTutorialVideo,
   type TutorialLesson,
 } from '@/services/tutorialService';
 import { formatBRL, isValidShopeeUrl, extractMlbId, productFromUrl } from '@/lib/catalog';
@@ -135,7 +136,11 @@ export function AdminRoutePage() {
   const [adminTutorials, setAdminTutorials] = useState<TutorialLesson[]>([]);
   const [loadingAdminTutorials, setLoadingAdminTutorials] = useState(false);
   const [savingTutorialId, setSavingTutorialId] = useState<string | null>(null);
+  const [uploadingTutorialId, setUploadingTutorialId] = useState<string | null>(null);
   const [tutorialUrlDrafts, setTutorialUrlDrafts] = useState<Record<string, string>>({});
+
+  // Alternância rápida entre Painel Super Admin e Painel Clarice
+  const [isSwitchedToClarice, setIsSwitchedToClarice] = useState(false);
 
   // Catálogo (se for lojista, isola estritamente na loja dele)
   const catalogLojaSlug = userRole === 'lojista' && loggedStore ? loggedStore.slug : (selectedStoreFilter === 'todos' ? undefined : selectedStoreFilter);
@@ -404,6 +409,7 @@ export function AdminRoutePage() {
     }
     setIsAuthenticated(false);
     setLoggedStore(null);
+    setIsSwitchedToClarice(false);
     setPinInput('');
     setLojistaEmailInput('');
     setLojistaPasswordInput('');
@@ -446,6 +452,64 @@ export function AdminRoutePage() {
     } else {
       toast.error(res.error || 'Erro ao atualizar vídeo tutorial.');
     }
+  };
+
+  const handleUploadTutorialFile = async (
+    lessonId: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingTutorialId(lessonId);
+      toast.loading('Enviando vídeo...', { id: `upload-tut-${lessonId}` });
+
+      const publicUrl = await uploadTutorialVideo(file, lessonId);
+
+      setTutorialUrlDrafts((prev) => ({
+        ...prev,
+        [lessonId]: publicUrl,
+      }));
+
+      const res = await updateTutorialVideo(lessonId, publicUrl);
+      if (res.success) {
+        setAdminTutorials((prev) =>
+          prev.map((l) => (l.id === lessonId ? { ...l, videoUrl: publicUrl } : l))
+        );
+        toast.success('Vídeo tutorial enviado e publicado com sucesso!', {
+          id: `upload-tut-${lessonId}`,
+        });
+      } else {
+        toast.error(res.error || 'Falha ao salvar vídeo após upload.', {
+          id: `upload-tut-${lessonId}`,
+        });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao fazer upload do vídeo.', {
+        id: `upload-tut-${lessonId}`,
+      });
+    } finally {
+      setUploadingTutorialId(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleSwitchToClaricePanel = () => {
+    const clariceStore = stores.find((s) => s.slug === 'clarice') || DEFAULT_CLARICE_STORE;
+    setLoggedStore(clariceStore);
+    setUserRole('lojista');
+    setIsSwitchedToClarice(true);
+    setActiveTab('produtos');
+    toast.success('Alternado para o Painel da Clarice Achadinhos!');
+  };
+
+  const handleReturnToSuperAdmin = () => {
+    setUserRole('super_admin');
+    setLoggedStore(null);
+    setIsSwitchedToClarice(false);
+    setActiveTab('produtos');
+    toast.success('Retornado ao Painel Super Admin!');
   };
 
   // Cálculo automático do desconto
@@ -1009,6 +1073,32 @@ export function AdminRoutePage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Se estiver no Painel Clarice após alternância rápida ou se logado na clarice */}
+            {userRole === 'lojista' && (isSwitchedToClarice || loggedStore?.slug === 'clarice') && (
+              <button
+                type="button"
+                onClick={handleReturnToSuperAdmin}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-black shadow-md shadow-purple-600/30 transition active:scale-95"
+                title="Retornar ao Painel Master Super Admin"
+              >
+                <Crown className="h-3.5 w-3.5" />
+                <span>👑 Voltar ao Super Admin</span>
+              </button>
+            )}
+
+            {/* No Painel Super Admin: botão de alternância rápida para o Painel Clarice */}
+            {userRole === 'super_admin' && (
+              <button
+                type="button"
+                onClick={handleSwitchToClaricePanel}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
+                title="Acessar o Painel de Controle oficial da Clarice Achadinhos"
+              >
+                <Store className="h-3.5 w-3.5" />
+                <span>🏪 Painel Clarice</span>
+              </button>
+            )}
+
             {userRole === 'lojista' && loggedStore && (
               <a
                 href={`/?loja=${loggedStore.slug}`}
@@ -2244,7 +2334,7 @@ export function AdminRoutePage() {
                           {lesson.descricao}
                         </p>
 
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="flex items-center gap-2 pt-1 flex-wrap sm:flex-nowrap">
                           <input
                             type="url"
                             value={tutorialUrlDrafts[lesson.id] ?? ''}
@@ -2255,8 +2345,37 @@ export function AdminRoutePage() {
                               }))
                             }
                             placeholder={idx === 0 ? "Ex: https://youtu.be/... ou URL direta .mp4 (Guia Rápido)" : "Ex: https://youtu.be/... ou URL direta .mp4"}
-                            className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-[#FFE600] focus:outline-none"
+                            className="flex-1 min-w-[200px] rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-[#FFE600] focus:outline-none"
                           />
+
+                          {/* Upload direto de vídeo MP4/WebM */}
+                          <input
+                            id={`tutorial-file-${lesson.id}`}
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime"
+                            className="hidden"
+                            onChange={(e) => handleUploadTutorialFile(lesson.id, e)}
+                          />
+                          <button
+                            type="button"
+                            disabled={uploadingTutorialId === lesson.id}
+                            onClick={() => document.getElementById(`tutorial-file-${lesson.id}`)?.click()}
+                            className="rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:text-white px-3 py-1.5 text-xs font-bold text-slate-200 transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                            title="Enviar vídeo .mp4 ou .webm do computador"
+                          >
+                            {uploadingTutorialId === lesson.id ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#FFE600]" />
+                                <span className="text-[#FFE600]">Enviando...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-3.5 w-3.5 text-[#FFE600]" />
+                                <span>📤 Enviar MP4</span>
+                              </>
+                            )}
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleSaveTutorialVideo(lesson.id)}

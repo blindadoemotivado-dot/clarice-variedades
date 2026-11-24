@@ -1,5 +1,9 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { TutorialLesson } from '@/types/tutorial';
+import {
+  createTutorialUploadUrlServerFn,
+  saveTutorialVideoServerFn,
+} from './tutorialServerFn';
 
 export const DEFAULT_TUTORIALS: TutorialLesson[] = [
   {
@@ -139,11 +143,71 @@ export function isDirectVideoFile(url: string): boolean {
 }
 
 /**
+ * Faz upload direto de um arquivo de vídeo (.mp4 / .webm) para o Supabase Storage ('tutoriais')
+ * e retorna a URL pública gerada.
+ */
+export async function uploadTutorialVideo(file: File, lessonId: string): Promise<string> {
+  const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
+  const hasValidExt = /\.(mp4|webm|mov)$/i.test(file.name);
+
+  if (!allowedTypes.includes(file.type?.toLowerCase()) && !hasValidExt) {
+    throw new Error('Formato de vídeo não suportado. Por favor, envie um arquivo .mp4 ou .webm.');
+  }
+
+  // 1. Gera URL de upload assinada através da server function com a Service Role
+  const signResult = await createTutorialUploadUrlServerFn({
+    data: {
+      lessonId,
+      fileName: file.name,
+      mimeType: file.type || 'video/mp4',
+    },
+  });
+
+  if (!signResult.success || !signResult.path || !signResult.token || !signResult.publicUrl) {
+    throw new Error(signResult.error || 'Não foi possível obter autorização para envio do vídeo.');
+  }
+
+  // 2. Faz o upload direto para a Signed URL do Supabase Storage
+  const { error: uploadError } = await supabase.storage
+    .from('tutoriais')
+    .uploadToSignedUrl(signResult.path, signResult.token, file, {
+      contentType: file.type || 'video/mp4',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw new Error(`Falha no upload do vídeo: ${uploadError.message}`);
+  }
+
+  return signResult.publicUrl;
+}
+
+/**
  * Busca todas as aulas cadastradas no Supabase com fallback seguro
  */
 export async function fetchTutorials(): Promise<TutorialLesson[]> {
   let remoteData: any[] | null = null;
+  let storageConfig: Record<string, string> = {};
 
+  // 1. Lê configuração global salva no bucket 'tutoriais' (tutorials_config.json)
+  if (isSupabaseConfigured) {
+    try {
+      const { data: pubData } = supabase.storage
+        .from('tutoriais')
+        .getPublicUrl('tutorials_config.json');
+
+      if (pubData?.publicUrl) {
+        const res = await fetch(`${pubData.publicUrl}?t=${Date.now()}`);
+        if (res.ok) {
+          storageConfig = await res.json();
+        }
+      }
+    } catch {
+      // Falha silenciosa
+    }
+  }
+
+  // 2. Lê da tabela tutoriais_saas se existir no Supabase
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
@@ -159,7 +223,7 @@ export async function fetchTutorials(): Promise<TutorialLesson[]> {
     }
   }
 
-  // Lê cache local de sobreposições de vídeo
+  // 3. Lê cache local de sobreposições de vídeo
   let cachedOverrides: Record<string, string> = {};
   if (typeof window !== 'undefined') {
     try {
@@ -175,6 +239,8 @@ export async function fetchTutorials(): Promise<TutorialLesson[]> {
     const videoUrl =
       remote?.video_url !== undefined
         ? remote.video_url
+        : storageConfig[def.id] !== undefined
+        ? storageConfig[def.id]
         : cachedOverrides[def.id] !== undefined
         ? cachedOverrides[def.id]
         : def.videoUrl;
@@ -197,7 +263,7 @@ export async function fetchTutorials(): Promise<TutorialLesson[]> {
 export async function updateTutorialVideo(
   id: string,
   videoUrl: string | null
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   const cleanUrl = videoUrl?.trim() || null;
 
   // 1. Atualiza cache local imediatamente
@@ -216,7 +282,22 @@ export async function updateTutorialVideo(
     }
   }
 
-  // 2. Persiste no Supabase caso configurado
+  // 2. Persiste globalmente via Server Function (bucket tutoriais/tutorials_config.json)
+  try {
+    const srvRes = await saveTutorialVideoServerFn({
+      data: {
+        id,
+        videoUrl: cleanUrl,
+      },
+    });
+    if (!srvRes.success) {
+      console.warn('[tutorialService] Falha no saveTutorialVideoServerFn:', srvRes.error);
+    }
+  } catch (err: any) {
+    console.warn('[tutorialService] Erro ao chamar saveTutorialVideoServerFn:', err);
+  }
+
+  // 3. Persiste no Supabase caso tabela tutoriais_saas exista
   if (isSupabaseConfigured) {
     try {
       const { error } = await supabase
@@ -229,13 +310,11 @@ export async function updateTutorialVideo(
 
       if (error) {
         console.warn('[tutorialService] Falha ao atualizar tutoriais_saas:', error.message);
-      } else {
-        return true;
       }
     } catch (err) {
       console.warn('[tutorialService] Erro ao conectar ao Supabase:', err);
     }
   }
 
-  return true;
+  return { success: true };
 }
