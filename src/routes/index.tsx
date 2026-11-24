@@ -93,7 +93,7 @@ const FILTERS: { value: CategoryFilter; label: string }[] = [
   ...CATEGORIES.map((c) => ({ value: c, label: c })),
 ];
 
-const ITEMS_PER_PAGE = 16;
+const ITEMS_PER_PAGE = 24;
 
 function getStoreInitials(name: string): string {
   if (!name) return 'LO';
