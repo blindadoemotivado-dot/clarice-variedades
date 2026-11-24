@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clarice-achadinhos-pwa-v4';
+const CACHE_NAME = 'clarice-achadinhos-pwa-v5';
 const STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',

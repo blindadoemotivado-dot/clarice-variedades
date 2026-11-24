@@ -166,7 +166,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 const BOOT_CLEANUP_SCRIPT = `
 (function() {
   try {
-    var CURRENT_BUILD = '2026-11-24-v5';
+    var CURRENT_BUILD = '2026-11-24-v6';
     var savedBuild = localStorage.getItem('clarice_ui_build');
     if (savedBuild !== CURRENT_BUILD) {
       localStorage.setItem('clarice_ui_build', CURRENT_BUILD);
@@ -210,7 +210,7 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      if (localStorage.getItem('clarice_ui_build') !== '2026-11-24-v5') {
+      if (localStorage.getItem('clarice_ui_build') !== '2026-11-24-v6') {
         return;
       }
       window.addEventListener("load", () => {
