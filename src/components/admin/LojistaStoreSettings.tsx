@@ -15,6 +15,7 @@ import type { LojaAfiliado } from '@/types/tenant';
 import type { PlanPermissions } from '@/config/planPermissions';
 import { uploadStoreImage } from '@/services/storageService';
 import { updateStoreBranding } from '@/services/tenantService';
+import { resolveMlAffiliateLinkServerFn } from '@/services/mlAffiliateServerFn';
 import { PlanGate } from './PlanGate';
 
 export interface LojistaStoreSettingsProps {
@@ -42,7 +43,10 @@ export function LojistaStoreSettings({
   const [storeBrandInstagram, setStoreBrandInstagram] = useState(store.instagramUrl || '');
   const [storeBrandDomain, setStoreBrandDomain] = useState(store.dominioCustomizado || '');
   const [storeMlAffiliateTag, setStoreMlAffiliateTag] = useState(store.mlAffiliateTag || store.shopeeSecret || '');
+  const [storeMlMattTool, setStoreMlMattTool] = useState(store.mlMattTool || '');
   const [storeShopeeAffiliateId, setStoreShopeeAffiliateId] = useState(store.shopeeAffiliateId || store.shopeeAppId || '');
+  const [extractUrlInput, setExtractUrlInput] = useState('');
+  const [isExtractingMl, setIsExtractingMl] = useState(false);
 
   // Sincroniza estado visual quando a loja for carregada ou atualizada
   useEffect(() => {
@@ -57,6 +61,7 @@ export function LojistaStoreSettings({
       setStoreBrandInstagram(store.instagramUrl || '');
       setStoreBrandDomain(store.dominioCustomizado || '');
       setStoreMlAffiliateTag(store.mlAffiliateTag || store.shopeeSecret || '');
+      setStoreMlMattTool(store.mlMattTool || '');
       setStoreShopeeAffiliateId(store.shopeeAffiliateId || store.shopeeAppId || '');
     }
   }, [store]);
@@ -123,6 +128,7 @@ export function LojistaStoreSettings({
         instagramUrl: storeBrandInstagram.trim(),
         dominioCustomizado: permissions.customDomain ? storeBrandDomain.trim() : undefined,
         mlAffiliateTag: storeMlAffiliateTag.trim(),
+        mlMattTool: storeMlMattTool.trim(),
         shopeeAffiliateId: storeShopeeAffiliateId.trim(),
         shopeeAppId: storeShopeeAffiliateId.trim(),
       };
@@ -138,6 +144,31 @@ export function LojistaStoreSettings({
       toast.error(`Erro ao salvar: ${err?.message || 'Falha inesperada'}`);
     } finally {
       setIsSavingBrand(false);
+    }
+  };
+
+  // Extração automática de matt_word e matt_tool a partir de 1 link
+  const handleExtractMlCode = async (rawUrl?: string) => {
+    const urlToTest = (rawUrl || extractUrlInput).trim();
+    if (!urlToTest) {
+      toast.error('Cole um link de afiliado do Mercado Livre para extrair.');
+      return;
+    }
+    setIsExtractingMl(true);
+    try {
+      const res = await resolveMlAffiliateLinkServerFn({ data: { url: urlToTest } });
+      if (res.success && res.mattWord && res.mattTool) {
+        setStoreMlAffiliateTag(res.mattWord);
+        setStoreMlMattTool(res.mattTool);
+        setExtractUrlInput('');
+        toast.success(`ML Extraído com Sucesso! Tag: ${res.mattWord} • Tool: ${res.mattTool}`);
+      } else {
+        toast.error(res.error || 'Falha ao extrair códigos do link.');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao conectar ao servidor para extrair o link.');
+    } finally {
+      setIsExtractingMl(false);
     }
   };
 
@@ -399,34 +430,108 @@ export function LojistaStoreSettings({
         {/* CARD DESTACADO: CREDENCIAIS PERMANENTES DE AFILIADO                      */}
         {/* ========================================================================= */}
         <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-950/15 p-4 sm:p-5 space-y-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
-              <LinkIcon className="h-4 w-4" />
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                <LinkIcon className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-xs sm:text-sm flex items-center gap-2">
+                  🔗 Credenciais Permanentes de Afiliado (Comissões Automáticas)
+                </h3>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Configure uma única vez. Seus links de produtos colarão ou injetarão suas tags automaticamente.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-white text-xs sm:text-sm flex items-center gap-2">
-                🔗 Credenciais Permanentes de Afiliado (Comissões Automáticas)
-              </h3>
-              <p className="text-[11px] text-slate-300 mt-0.5">
-                Configure uma única vez. Seus links de produtos colarão ou injetarão suas tags automaticamente.
-              </p>
+            {storeMlAffiliateTag && storeMlMattTool && (
+              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-[11px] font-black text-emerald-400">
+                ✅ ML Completo (Tag + Tool)
+              </span>
+            )}
+          </div>
+
+          {/* Extrator Automático de 1 Link ML */}
+          <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-amber-300">
+                🔗 Extrair Código ML Automático (cole 1 link de afiliado)
+              </label>
+              {storeMlAffiliateTag && storeMlMattTool ? (
+                <span className="text-[10px] font-bold text-emerald-400">
+                  Tag: {storeMlAffiliateTag} • Tool: {storeMlMattTool}
+                </span>
+              ) : (
+                <span className="text-[10px] text-amber-300/80">
+                  Tag + Tool Obrigatórios
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-300">
+              Cole qualquer link gerado pela opção &quot;Compartilhar e Ganhar&quot; do app do Mercado Livre. O sistema extrai sua Tag e Tool instantaneamente.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={extractUrlInput}
+                onChange={(e) => setExtractUrlInput(e.target.value)}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData('text');
+                  if (text && (text.includes('mercadolivre') || text.includes('meli.la'))) {
+                    setTimeout(() => handleExtractMlCode(text), 100);
+                  }
+                }}
+                placeholder="Ex: https://mercadolivre.com/sec/... ou meli.la/..."
+                className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
+              />
+              <button
+                type="button"
+                onClick={() => handleExtractMlCode()}
+                disabled={isExtractingMl || !extractUrlInput.trim()}
+                className="rounded-xl bg-[#FFE600] px-4 py-2 text-xs font-black text-slate-950 hover:bg-yellow-400 disabled:opacity-50 shrink-0 transition active:scale-95 flex items-center gap-1.5"
+              >
+                {isExtractingMl ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Extraindo...</span>
+                  </>
+                ) : (
+                  <span>Extrair Códigos</span>
+                )}
+              </button>
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Tag Social / ID Mercado Livre
+                Tag Social ML (matt_word)
               </label>
               <input
                 type="text"
                 value={storeMlAffiliateTag}
                 onChange={(e) => setStoreMlAffiliateTag(e.target.value)}
-                placeholder="Ex: seuusuario ou link social ML"
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                placeholder="Ex: tatianemirianbernardoconcei"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
               />
               <p className="mt-1 text-[10px] text-slate-400">
-                Injeta automaticamente <code className="text-[#FFE600]">matt_word</code> nos links longos do Mercado Livre.
+                Injeta <code className="text-[#FFE600]">matt_word</code>
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Tool ML (matt_tool)
+              </label>
+              <input
+                type="text"
+                value={storeMlMattTool}
+                onChange={(e) => setStoreMlMattTool(e.target.value)}
+                placeholder="Ex: 51555285"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">
+                Injeta <code className="text-[#FFE600]">matt_tool</code>
               </p>
             </div>
 
@@ -439,10 +544,10 @@ export function LojistaStoreSettings({
                 value={storeShopeeAffiliateId}
                 onChange={(e) => setStoreShopeeAffiliateId(e.target.value)}
                 placeholder="Ex: 18318420060"
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
               />
               <p className="mt-1 text-[10px] text-slate-400">
-                Injeta automaticamente <code className="text-[#FFE600]">af_siteid</code> e <code className="text-[#FFE600]">utm_source</code> nos links da Shopee.
+                Injeta <code className="text-[#FFE600]">af_siteid</code>
               </p>
             </div>
           </div>

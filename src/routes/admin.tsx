@@ -81,6 +81,8 @@ import { LojistaVipDispatcher } from '@/components/admin/LojistaVipDispatcher';
 import { LojistaStoreSettings } from '@/components/admin/LojistaStoreSettings';
 import { LojistaTutorialGuide } from '@/components/admin/LojistaTutorialGuide';
 import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
+import { cloneStarterCatalogToStore } from '@/services/starterCatalogService';
+import { resolveMlAffiliateLinkServerFn } from '@/services/mlAffiliateServerFn';
 import {
   fetchTutorials,
   updateTutorialVideo,
@@ -166,6 +168,11 @@ export function AdminRoutePage() {
   const [newStoreInstagram, setNewStoreInstagram] = useState('');
   const [newStoreShopeeAppId, setNewStoreShopeeAppId] = useState('');
   const [newStoreShopeeSecret, setNewStoreShopeeSecret] = useState('');
+  const [newStoreMlTag, setNewStoreMlTag] = useState('');
+  const [newStoreMlTool, setNewStoreMlTool] = useState('');
+  const [newStoreExtractUrl, setNewStoreExtractUrl] = useState('');
+  const [newStoreExtracting, setNewStoreExtracting] = useState(false);
+  const [isCloningStarter, setIsCloningStarter] = useState(false);
 
   // Formulário de Cadastro/Edição de Produto
   const [productMarketplace, setProductMarketplace] = useState<Marketplace>('mercadolivre');

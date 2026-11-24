@@ -163,10 +163,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+declare const __APP_BUILD_ID__: string | undefined;
+const BUILD_ID = typeof __APP_BUILD_ID__ !== 'undefined' ? __APP_BUILD_ID__ : 'dev-build';
+
 const BOOT_CLEANUP_SCRIPT = `
 (function() {
   try {
-    var CURRENT_BUILD = '2026-11-24-v6';
+    var CURRENT_BUILD = '${BUILD_ID}';
     var savedBuild = localStorage.getItem('clarice_ui_build');
     if (savedBuild !== CURRENT_BUILD) {
       localStorage.setItem('clarice_ui_build', CURRENT_BUILD);
@@ -210,7 +213,7 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      if (localStorage.getItem('clarice_ui_build') !== '2026-11-24-v6') {
+      if (localStorage.getItem('clarice_ui_build') !== BUILD_ID) {
         return;
       }
       window.addEventListener("load", () => {

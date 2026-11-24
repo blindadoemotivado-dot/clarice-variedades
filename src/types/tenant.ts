@@ -20,6 +20,7 @@ export interface LojaAfiliado {
   shopeeAppId?: string;
   shopeeSecret?: string;
   mlAffiliateTag?: string;
+  mlMattTool?: string;
   shopeeAffiliateId?: string;
   ownerEmail?: string;
   ownerPassword?: string;
@@ -55,6 +56,7 @@ export const DEFAULT_CLARICE_STORE: LojaAfiliado = {
   shopeeAppId: '18364201389',
   shopeeAffiliateId: '18364201389',
   mlAffiliateTag: 'clarice-achadinhos',
+  mlMattTool: '51555285',
   ownerEmail: 'admin@clariceachadinhos.com.br',
   whatsappContato: '5511999999999',
 };

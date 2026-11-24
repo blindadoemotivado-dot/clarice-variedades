@@ -32,6 +32,17 @@ function saveLocalStores(stores: LojaAfiliado[]) {
 
 export function mapRowToStore(row: any): LojaAfiliado {
   const isClarice = (row.slug || '').toLowerCase() === 'clarice';
+  const rawSecret = row.shopee_secret || row.ml_affiliate_tag || '';
+  let parsedTag = row.ml_affiliate_tag || rawSecret;
+  let parsedTool = row.ml_matt_tool || row.mlMattTool || '';
+
+  // Suporte a armazenamento composto tag|tool
+  if (!parsedTool && typeof rawSecret === 'string' && rawSecret.includes('|')) {
+    const parts = rawSecret.split('|');
+    parsedTag = parts[0]?.trim() || '';
+    parsedTool = parts[1]?.trim() || '';
+  }
+
   return {
     id: row.id,
     slug: row.slug || 'clarice',
@@ -48,7 +59,8 @@ export function mapRowToStore(row: any): LojaAfiliado {
     vencimentoEm: row.vencimento_em || undefined,
     shopeeAppId: row.shopee_app_id || '',
     shopeeSecret: row.shopee_secret || '',
-    mlAffiliateTag: row.ml_affiliate_tag || row.shopee_secret || '',
+    mlAffiliateTag: parsedTag || '',
+    mlMattTool: parsedTool || '',
     shopeeAffiliateId: row.shopee_affiliate_id || row.shopee_app_id || '',
     ownerEmail: row.owner_email || '',
     ownerPassword: row.owner_password || undefined,
@@ -194,6 +206,7 @@ export async function createStore(input: {
   shopeeAppId?: string;
   shopeeSecret?: string;
   mlAffiliateTag?: string;
+  mlMattTool?: string;
   shopeeAffiliateId?: string;
   ownerEmail?: string;
   dominioCustomizado?: string;
@@ -216,6 +229,7 @@ export async function createStore(input: {
     shopeeAppId: input.shopeeAppId?.trim() || '',
     shopeeSecret: input.shopeeSecret?.trim() || '',
     mlAffiliateTag: input.mlAffiliateTag?.trim() || '',
+    mlMattTool: input.mlMattTool?.trim() || '',
     shopeeAffiliateId: input.shopeeAffiliateId?.trim() || input.shopeeAppId?.trim() || '',
     ownerEmail: input.ownerEmail?.trim().toLowerCase() || '',
     dominioCustomizado: input.dominioCustomizado?.trim().toLowerCase() || '',
@@ -330,8 +344,24 @@ export async function updateStoreBranding(
       if (updates.dominioCustomizado !== undefined) dbPayload.dominio_customizado = updates.dominioCustomizado || null;
       if (updates.shopeeAppId !== undefined) dbPayload.shopee_app_id = updates.shopeeAppId;
       if (updates.shopeeSecret !== undefined) dbPayload.shopee_secret = updates.shopeeSecret;
+      const effectiveTag =
+        updates.mlAffiliateTag !== undefined
+          ? updates.mlAffiliateTag
+          : local[targetIdx]?.mlAffiliateTag || '';
+      const effectiveTool =
+        updates.mlMattTool !== undefined
+          ? updates.mlMattTool
+          : local[targetIdx]?.mlMattTool || '';
+
       if (updates.mlAffiliateTag !== undefined) {
         dbPayload.ml_affiliate_tag = updates.mlAffiliateTag || null;
+      }
+      if (updates.mlMattTool !== undefined) {
+        dbPayload.ml_matt_tool = updates.mlMattTool || null;
+      }
+      if (effectiveTool) {
+        dbPayload.shopee_secret = `${effectiveTag}|${effectiveTool}`;
+      } else if (updates.mlAffiliateTag !== undefined) {
         dbPayload.shopee_secret = updates.mlAffiliateTag || null;
       }
       if (updates.shopeeAffiliateId !== undefined) {
@@ -350,11 +380,11 @@ export async function updateStoreBranding(
         return mapRowToStore(data);
       }
 
-      // Se as colunas ml_affiliate_tag/shopee_affiliate_id ainda não foram criadas no Supabase via migração SQL,
+      // Se as colunas ml_affiliate_tag/ml_matt_tool/shopee_affiliate_id ainda não foram criadas no Supabase via migração SQL,
       // persiste nos campos de compatibilidade shopee_secret e shopee_app_id sem derrubar o salvamento
       if (error && error.message?.includes('schema cache')) {
-        const { ml_affiliate_tag, shopee_affiliate_id, ...fallbackPayload } = dbPayload;
-        if (updates.mlAffiliateTag !== undefined) fallbackPayload.shopee_secret = updates.mlAffiliateTag || null;
+        const { ml_affiliate_tag, ml_matt_tool, shopee_affiliate_id, ...fallbackPayload } = dbPayload;
+        fallbackPayload.shopee_secret = effectiveTool ? `${effectiveTag}|${effectiveTool}` : (effectiveTag || null);
         if (updates.shopeeAffiliateId !== undefined) fallbackPayload.shopee_app_id = updates.shopeeAffiliateId || null;
 
         const { data: fbData, error: fbError } = await supabase
@@ -366,7 +396,8 @@ export async function updateStoreBranding(
 
         if (!fbError && fbData) {
           const store = mapRowToStore(fbData);
-          store.mlAffiliateTag = updates.mlAffiliateTag || local[targetIdx]?.mlAffiliateTag || '';
+          store.mlAffiliateTag = effectiveTag;
+          store.mlMattTool = effectiveTool;
           store.shopeeAffiliateId = updates.shopeeAffiliateId || local[targetIdx]?.shopeeAffiliateId || '';
           return store;
         }

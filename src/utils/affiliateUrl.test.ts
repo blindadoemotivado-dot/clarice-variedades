@@ -4,6 +4,7 @@ import { applyStoreAffiliateTracking } from './affiliateUrl';
 describe('applyStoreAffiliateTracking', () => {
   const mockStore = {
     mlAffiliateTag: 'tatianemirianbernardoconcei',
+    mlMattTool: '51555285',
     shopeeAffiliateId: '18318420060',
   };
 
@@ -15,7 +16,7 @@ describe('applyStoreAffiliateTracking', () => {
       expect(result.tracked).toBe(true);
       expect(result.network).toBe('shopee');
       expect(result.finalUrl).toBe(
-        'https://shopee.com.br/Tenis-Esportivo-Macio-i.123456.789012?af_siteid=18318420060&utm_source=an_18318420060'
+        'https://shopee.com.br/Tenis-Esportivo-Macio-i.123456.789012?af_siteid=18318420060&utm_source=an_18318420060&utm_medium=affiliates'
       );
     });
 
@@ -26,13 +27,23 @@ describe('applyStoreAffiliateTracking', () => {
       expect(result.tracked).toBe(true);
       expect(result.network).toBe('shopee');
       expect(result.finalUrl).toBe(
-        'https://shopee.com.br/product-name-i.123.456?sp_atk=abcdef&af_siteid=18318420060&utm_source=an_18318420060'
+        'https://shopee.com.br/product-name-i.123.456?sp_atk=abcdef&af_siteid=18318420060&utm_source=an_18318420060&utm_medium=affiliates'
       );
     });
 
-    it('preserves Shopee links that already have af_siteid or utm_source', () => {
+    it('overwrites previous Shopee tracking with store affiliateId to avoid commission leakage', () => {
       const raw = 'https://shopee.com.br/product-i.1.2?af_siteid=999999&utm_source=an_999999';
       const result = applyStoreAffiliateTracking(raw, mockStore);
+
+      expect(result.tracked).toBe(true);
+      expect(result.finalUrl).toBe(
+        'https://shopee.com.br/product-i.1.2?af_siteid=18318420060&utm_source=an_18318420060&utm_medium=affiliates'
+      );
+    });
+
+    it('preserves existing Shopee tracking if store has no shopeeAffiliateId', () => {
+      const raw = 'https://shopee.com.br/product-i.1.2?af_siteid=999999&utm_source=an_999999';
+      const result = applyStoreAffiliateTracking(raw, { mlAffiliateTag: 'test' });
 
       expect(result.tracked).toBe(true);
       expect(result.finalUrl).toBe(raw);
@@ -66,37 +77,49 @@ describe('applyStoreAffiliateTracking', () => {
       expect(result.finalUrl).toBe('https://mercadolivre.com.br/sec/2a3b4c');
     });
 
-    it('appends matt_word to long product links when not present', () => {
+    it('injects both matt_word and matt_tool to long product links when not present', () => {
       const raw = 'https://produto.mercadolivre.com.br/MLB-12345678-tenis-esportivo-_JM';
       const result = applyStoreAffiliateTracking(raw, mockStore);
 
       expect(result.tracked).toBe(true);
       expect(result.network).toBe('ml');
       expect(result.finalUrl).toBe(
-        'https://produto.mercadolivre.com.br/MLB-12345678-tenis-esportivo-_JM?matt_word=tatianemirianbernardoconcei'
+        'https://produto.mercadolivre.com.br/MLB-12345678-tenis-esportivo-_JM?matt_word=tatianemirianbernardoconcei&matt_tool=51555285'
       );
     });
 
-    it('appends matt_word with & when long product link already has query params', () => {
+    it('injects both matt_word and matt_tool with & when long product link already has query params', () => {
       const raw = 'https://produto.mercadolivre.com.br/MLB-12345678?searchVariation=123';
       const result = applyStoreAffiliateTracking(raw, mockStore);
 
       expect(result.tracked).toBe(true);
+      expect(result.network).toBe('ml');
       expect(result.finalUrl).toBe(
-        'https://produto.mercadolivre.com.br/MLB-12345678?searchVariation=123&matt_word=tatianemirianbernardoconcei'
+        'https://produto.mercadolivre.com.br/MLB-12345678?searchVariation=123&matt_word=tatianemirianbernardoconcei&matt_tool=51555285'
       );
     });
 
-    it('preserves long ML links that already have matt_tool or matt_word', () => {
+    it('overwrites previous ML tracking with store matt_word and matt_tool to prevent commission leakage', () => {
       const raw =
         'https://produto.mercadolivre.com.br/MLB-12345678?matt_tool=456&matt_word=existente';
       const result = applyStoreAffiliateTracking(raw, mockStore);
 
       expect(result.tracked).toBe(true);
+      expect(result.finalUrl).toBe(
+        'https://produto.mercadolivre.com.br/MLB-12345678?matt_tool=51555285&matt_word=tatianemirianbernardoconcei'
+      );
+    });
+
+    it('preserves long ML links if store has neither mlAffiliateTag nor mlMattTool', () => {
+      const raw =
+        'https://produto.mercadolivre.com.br/MLB-12345678?matt_tool=456&matt_word=existente';
+      const result = applyStoreAffiliateTracking(raw, { shopeeAffiliateId: '123' });
+
+      expect(result.tracked).toBe(true);
       expect(result.finalUrl).toBe(raw);
     });
 
-    it('returns tracked: false for long ML links when store has no mlAffiliateTag', () => {
+    it('returns tracked: false for long ML links when store has no mlAffiliateTag and no mlMattTool', () => {
       const raw = 'https://produto.mercadolivre.com.br/MLB-12345678-tenis-_JM';
       const result = applyStoreAffiliateTracking(raw, { shopeeAffiliateId: '123' });
 
