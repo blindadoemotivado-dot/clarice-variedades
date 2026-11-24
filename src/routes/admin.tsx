@@ -100,7 +100,13 @@ function hash(s: string): number {
 
 export const Route = createFileRoute('/admin')({
   head: () => ({
-    meta: [{ title: 'Painel Administrativo & Gestão SaaS — Clarice Achadinhos' }],
+    meta: [
+      { title: 'Painel Administrativo & Gestão SaaS — Clarice Achadinhos' },
+      { name: 'robots', content: 'noindex, nofollow' },
+      { httpEquiv: 'Cache-Control', content: 'no-cache, no-store, must-revalidate' },
+      { httpEquiv: 'Pragma', content: 'no-cache' },
+      { httpEquiv: 'Expires', content: '0' },
+    ],
   }),
   component: AdminRoutePage,
 });

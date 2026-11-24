@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clarice-achadinhos-pwa-v3';
+const CACHE_NAME = 'clarice-achadinhos-pwa-v4';
 const STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // skipWaiting: true -> ativa imediatamente a nova versão do service worker
   event.waitUntil(
     caches
       .open(CACHE_NAME)
@@ -26,6 +27,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  // clientsClaim: true -> assume o controle de todas as abas abertas imediatamente
   event.waitUntil(
     caches
       .keys()
@@ -50,7 +52,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Requisições de navegação (páginas HTML) -> Network First com fallback para cache/offline
+  const url = new URL(request.url);
+
+  // 1. Estratégia NetworkOnly para o painel administrativo (/admin) e APIs
+  // navigateFallbackDenylist: [/^\/admin/]
+  // NUNCA busca nem armazena rotas ou recursos de /admin no Cache Storage
+  if (
+    url.pathname === '/admin' ||
+    url.pathname.startsWith('/admin/') ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.includes('admin')
+  ) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // Requisições de navegação (páginas HTML públicas) -> Network First com fallback para cache/offline
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -77,8 +94,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Recursos estáticos (imagens, ícones, fontes, CSS, JS) -> Stale While Revalidate
-  const url = new URL(request.url);
+  // Recursos estáticos públicos (imagens, ícones, fontes, CSS, JS) -> Stale While Revalidate
   const isStatic =
     url.pathname.startsWith('/icons/') ||
     url.pathname.startsWith('/brand/') ||

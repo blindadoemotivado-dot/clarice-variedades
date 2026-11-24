@@ -8,6 +8,7 @@
 // hosting already compresses at the edge.
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   tanstackStart: {
@@ -15,4 +16,22 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  plugins: [
+    VitePWA({
+      registerType: "autoUpdate",
+      strategies: "generateSW",
+      injectRegister: false,
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallbackDenylist: [/^\/admin/],
+        runtimeCaching: [
+          {
+            urlPattern: /^\/admin/,
+            handler: "NetworkOnly",
+          },
+        ],
+      },
+    }),
+  ],
 });
