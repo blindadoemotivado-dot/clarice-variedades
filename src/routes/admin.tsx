@@ -16,6 +16,7 @@ import {
   EyeOff,
   Flame,
   Globe,
+  GraduationCap,
   KeyRound,
   Layers,
   Loader2,
@@ -39,6 +40,7 @@ import {
   Trash2,
   Upload,
   Users,
+  Video,
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -75,6 +77,12 @@ import { PlanGate } from '@/components/admin/PlanGate';
 import { LojistaBatchImport } from '@/components/admin/LojistaBatchImport';
 import { LojistaVipDispatcher } from '@/components/admin/LojistaVipDispatcher';
 import { LojistaStoreSettings } from '@/components/admin/LojistaStoreSettings';
+import { LojistaTutorialGuide } from '@/components/admin/LojistaTutorialGuide';
+import {
+  fetchTutorials,
+  updateTutorialVideo,
+  type TutorialLesson,
+} from '@/services/tutorialService';
 import { formatBRL, isValidShopeeUrl, extractMlbId, productFromUrl } from '@/lib/catalog';
 import { isValidMercadoLivreUrl } from '@/components/store/AdminSheet';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -119,6 +127,12 @@ export function AdminRoutePage() {
   const [stores, setStores] = useState<LojaAfiliado[]>([]);
   const [loadingStores, setLoadingStores] = useState(false);
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('todos');
+
+  // Gestão de Vídeos Tutoriais da Clarice (Super Admin)
+  const [adminTutorials, setAdminTutorials] = useState<TutorialLesson[]>([]);
+  const [loadingAdminTutorials, setLoadingAdminTutorials] = useState(false);
+  const [savingTutorialId, setSavingTutorialId] = useState<string | null>(null);
+  const [tutorialUrlDrafts, setTutorialUrlDrafts] = useState<Record<string, string>>({});
 
   // Catálogo (se for lojista, isola estritamente na loja dele)
   const catalogLojaSlug = userRole === 'lojista' && loggedStore ? loggedStore.slug : (selectedStoreFilter === 'todos' ? undefined : selectedStoreFilter);
@@ -381,6 +395,38 @@ export function AdminRoutePage() {
     startTransition(() => {
       setActiveTab(value);
     });
+  };
+
+  // Carrega vídeos tutoriais quando o Super Admin acessa as configurações
+  useEffect(() => {
+    if (isAuthenticated && userRole === 'super_admin' && activeTab === 'config') {
+      setLoadingAdminTutorials(true);
+      fetchTutorials()
+        .then((lessons) => {
+          setAdminTutorials(lessons);
+          const drafts: Record<string, string> = {};
+          lessons.forEach((l) => {
+            drafts[l.id] = l.videoUrl || '';
+          });
+          setTutorialUrlDrafts(drafts);
+        })
+        .finally(() => setLoadingAdminTutorials(false));
+    }
+  }, [isAuthenticated, userRole, activeTab]);
+
+  const handleSaveTutorialVideo = async (id: string) => {
+    setSavingTutorialId(id);
+    const newUrl = tutorialUrlDrafts[id]?.trim() || null;
+    const res = await updateTutorialVideo(id, newUrl);
+    setSavingTutorialId(null);
+    if (res.success) {
+      toast.success('Vídeo tutorial atualizado com sucesso!');
+      setAdminTutorials((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, videoUrl: newUrl } : l))
+      );
+    } else {
+      toast.error(res.error || 'Erro ao atualizar vídeo tutorial.');
+    }
   };
 
   // Cálculo automático do desconto
@@ -945,8 +991,15 @@ export function AdminRoutePage() {
       {/* Conteúdo Principal com Abas */}
       <main className="mx-auto max-w-7xl px-4 py-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Barra de Abas: Super Admin e Lojista com 4 abas estruturadas */}
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-slate-900 border border-slate-800 p-1 rounded-2xl mb-6">
+          {/* Barra de Abas: Super Admin e Lojista com navegação responsiva */}
+          <TabsList
+            className={cn(
+              'grid w-full bg-slate-900 border border-slate-800 p-1 rounded-2xl mb-6',
+              userRole === 'super_admin'
+                ? 'grid-cols-2 sm:grid-cols-4'
+                : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+            )}
+          >
             {userRole === 'super_admin' ? (
               <>
                 <TabsTrigger
@@ -1007,6 +1060,13 @@ export function AdminRoutePage() {
                 >
                   <CreditCard className="h-4 w-4 mr-1.5" />
                   Minha Assinatura
+                </TabsTrigger>
+                <TabsTrigger
+                  value="guia-uso"
+                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                >
+                  <GraduationCap className="h-4 w-4 mr-1.5" />
+                  Guia de Uso
                 </TabsTrigger>
               </>
             )}
@@ -1638,6 +1698,18 @@ export function AdminRoutePage() {
           )}
 
           {/* ========================================================================= */}
+          {/* ABA 5 (LOJISTA): GUIA DE USO COM VÍDEOS TUTORIAIS DA CLARICE */}
+          {/* ========================================================================= */}
+          {userRole === 'lojista' && loggedStore && (
+            <TabsContent value="guia-uso" className="space-y-6">
+              <LojistaTutorialGuide
+                store={loggedStore}
+                onNavigateTab={handleTabChange}
+              />
+            </TabsContent>
+          )}
+
+          {/* ========================================================================= */}
           {/* ABA 2 (SUPER ADMIN): CLIENTES SAAS & GESTÃO MULTI-TENANT */}
           {/* ========================================================================= */}
           {userRole === 'super_admin' && (
@@ -2011,6 +2083,78 @@ export function AdminRoutePage() {
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
                     <span className="font-bold text-white">Gateway de Pagamentos Asaas:</span>{' '}
                     <span className="text-emerald-400 font-bold">🟢 Endpoints Ativos (/api/asaas/checkout + /webhook)</span>
+                  </div>
+                </div>
+
+                {/* Gerenciador de Vídeos Tutoriais da Clarice */}
+                <div className="mt-8 pt-6 border-t border-slate-800">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-black text-white text-sm sm:text-base flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4 text-[#FFE600]" />
+                        Vídeos da Central de Ajuda • Guia de Uso da Clarice
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Defina as URLs dos vídeos das 5 aulas práticas de 1 minuto para os lojistas parceiros (YouTube, Vimeo ou .mp4).
+                      </p>
+                    </div>
+                    {loadingAdminTutorials && (
+                      <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {adminTutorials.map((lesson) => (
+                      <div
+                        key={lesson.id}
+                        className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5 space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FFE600] text-slate-950 font-black text-[10px]">
+                              {lesson.ordem}
+                            </span>
+                            <span className="font-bold text-white text-xs sm:text-sm">
+                              {lesson.titulo}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            {lesson.duracao}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 line-clamp-1">
+                          {lesson.descricao}
+                        </p>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <input
+                            type="url"
+                            value={tutorialUrlDrafts[lesson.id] ?? ''}
+                            onChange={(e) =>
+                              setTutorialUrlDrafts((prev) => ({
+                                ...prev,
+                                [lesson.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Ex: https://youtu.be/... ou URL direta .mp4"
+                            className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-[#FFE600] focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveTutorialVideo(lesson.id)}
+                            disabled={savingTutorialId === lesson.id}
+                            className="rounded-xl bg-[#FFE600] hover:bg-yellow-400 px-3 py-1.5 text-xs font-bold text-slate-950 transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                          >
+                            {savingTutorialId === lesson.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" />
+                            )}
+                            <span>Salvar</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
