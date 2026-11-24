@@ -187,38 +187,38 @@ export function LojistaTutorialGuide({
       {/* ───────────────────────────────────────────────────────────────── */}
       {/* 1. BANNER DE BOAS-VINDAS COM A MASCOTE CLARICE                   */}
       {/* ───────────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0A0E1A] p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0A0E1A] p-4 sm:p-8 shadow-2xl backdrop-blur-xl">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-full bg-yellow-500/10 blur-3xl"
         />
 
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 justify-between">
-          <div className="flex-1 space-y-3 text-center md:text-left">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#FFE600]/40 bg-[#FFE600]/10 px-3.5 py-1 text-xs font-black uppercase text-[#FFE600]">
-              <Sparkles className="h-3.5 w-3.5" />
+        <div className="relative z-10 flex flex-row items-center gap-3 sm:gap-6 justify-between">
+          <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-3 text-left">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#FFE600]/40 bg-[#FFE600]/10 px-2.5 py-0.5 sm:px-3.5 sm:py-1 text-[10px] sm:text-xs font-black uppercase text-[#FFE600]">
+              <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               <span>Central de Treinamento Oficial</span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white">
+            <h1 className="text-base sm:text-2xl md:text-3xl font-black tracking-tight text-white">
               Aprenda em 1 Minuto com a Clarice 🎓
             </h1>
 
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl hidden sm:block">
               Dominar sua vitrine é muito mais fácil do que parece! Assista ao nosso Guia Rápido em
               vídeo para configurar sua loja, cadastrar produtos com comissões automáticas no Mercado
               Livre e Shopee, e acelerar suas vendas no WhatsApp hoje mesmo.
             </p>
 
             {/* Barra de Progresso do Lojista */}
-            <div className="pt-2 max-w-md">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-1.5">
-                <span>Seu Progresso de Aprendizado:</span>
+            <div className="pt-1 sm:pt-2 max-w-md">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-slate-300 mb-1">
+                <span>Seu Progresso:</span>
                 <span className="text-[#FFE600]">
                   {completedCount} de {totalCount} {totalCount === 1 ? 'aula' : 'aulas'} ({progressPercent}%)
                 </span>
               </div>
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
+              <div className="h-2 sm:h-2.5 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 to-[#FFE600] transition-all duration-500 rounded-full"
                   style={{ width: `${progressPercent}%` }}
@@ -229,7 +229,7 @@ export function LojistaTutorialGuide({
 
           {/* Imagem da Mascote Clarice */}
           <div className="relative shrink-0 flex items-center justify-center">
-            <div className="h-28 w-28 sm:h-36 sm:w-36 rounded-full bg-[#FFE600]/10 border-2 border-[#FFE600]/30 flex items-center justify-center shadow-inner overflow-hidden p-2">
+            <div className="h-14 w-14 sm:h-36 sm:w-36 rounded-full bg-[#FFE600]/10 border-2 border-[#FFE600]/30 flex items-center justify-center shadow-inner overflow-hidden p-1.5 sm:p-2">
               <img
                 src="/brand/clarice-hero.png"
                 alt="Mascote Clarice"
@@ -238,7 +238,7 @@ export function LojistaTutorialGuide({
                   e.currentTarget.style.display = 'none';
                 }}
               />
-              <GraduationCap className="h-16 w-16 text-[#FFE600] opacity-40 absolute" />
+              <GraduationCap className="h-7 w-7 sm:h-16 sm:w-16 text-[#FFE600] opacity-40 absolute" />
             </div>
           </div>
         </div>
@@ -262,45 +262,50 @@ export function LojistaTutorialGuide({
 
         <div
           className={cn(
-            'relative overflow-hidden rounded-3xl border p-6 sm:p-8 shadow-2xl transition-all duration-300',
+            'relative overflow-hidden rounded-3xl border p-4 sm:p-8 shadow-2xl transition-all duration-300',
             isFeaturedCompleted
               ? 'border-emerald-500/40 bg-gradient-to-br from-[#0F172A] via-emerald-950/20 to-[#0F172A]'
               : 'border-[#FFE600]/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B]/70 to-[#0A0E1A]'
           )}
         >
           {/* Header do Card em Destaque */}
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="rounded-lg bg-[#FFE600]/20 border border-[#FFE600]/40 px-3 py-1 font-mono text-xs font-black uppercase text-[#FFE600] flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5" />
-                  Guia Rápido Oficial
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="rounded-lg bg-[#FFE600]/20 border border-[#FFE600]/40 px-3 py-1 font-mono text-xs font-black uppercase text-[#FFE600] flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5" />
+                Guia Rápido Oficial
+              </span>
+              <span className="rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1 text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-[#FFE600]" /> {featuredLesson.duracao || '00:45'}
+              </span>
+              {isFeaturedCompleted && (
+                <span className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5" /> Concluído
                 </span>
-                <span className="rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1 text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-[#FFE600]" /> {featuredLesson.duracao || '00:45'}
-                </span>
-                {isFeaturedCompleted && (
-                  <span className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5" /> Concluído
-                  </span>
-                )}
-              </div>
-
-              <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                {featuredLesson.titulo}
-              </h3>
-
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
-                {featuredLesson.descricao}
-              </p>
+              )}
             </div>
 
-            {/* Botão de Conclusão */}
+            <h3 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+              {featuredLesson.titulo}
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+              {featuredLesson.descricao}
+            </p>
+          </div>
+
+          {/* Player do Vídeo Principal */}
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-[#FFE600]/30 bg-slate-950 shadow-2xl mb-4">
+            {renderVideoPlayer(featuredLesson, true)}
+          </div>
+
+          {/* Botão de Conclusão Posicionado Logo Abaixo do Player */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
             <button
               type="button"
               onClick={() => toggleComplete(featuredLesson.id)}
               className={cn(
-                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shrink-0 self-start',
+                'flex w-full sm:w-auto justify-center min-h-[44px] items-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-black transition shrink-0 active:scale-95',
                 isFeaturedCompleted
                   ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400'
                   : 'bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
@@ -309,11 +314,11 @@ export function LojistaTutorialGuide({
               <CheckCircle2 className="h-4 w-4" />
               <span>{isFeaturedCompleted ? 'Aula Concluída' : 'Marcar Concluída'}</span>
             </button>
-          </div>
-
-          {/* Player do Vídeo Principal */}
-          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-[#FFE600]/30 bg-slate-950 shadow-2xl mb-6">
-            {renderVideoPlayer(featuredLesson, true)}
+            <span className="text-xs text-slate-400 text-center sm:text-right">
+              {isFeaturedCompleted
+                ? 'Aula concluída! Você pode desmarcar a qualquer momento.'
+                : 'Assista ao vídeo e marque para registrar seu progresso.'}
+            </span>
           </div>
 
           {/* Roteiro Prático dos 4 Passos */}

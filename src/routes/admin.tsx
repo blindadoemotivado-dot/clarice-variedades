@@ -1040,33 +1040,34 @@ export function AdminRoutePage() {
   return (
     <div className="min-h-screen bg-[#0B1329] text-slate-100">
       {/* Header do Painel */}
-      <header className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-md sticky top-0 z-30 px-4 py-3.5">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <header className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-md sticky top-0 z-30 px-4 py-3 sm:py-3.5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Linha 1 (Mobile) / Lado Esquerdo (Desktop) */}
+          <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto min-w-0">
             <a
               href={userRole === 'lojista' && loggedStore ? `/?loja=${loggedStore.slug}` : '/'}
               target={userRole === 'lojista' && loggedStore ? '_blank' : undefined}
               rel={userRole === 'lojista' && loggedStore ? 'noreferrer' : undefined}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition"
               title={userRole === 'lojista' ? 'Ver Minha Vitrine (Nova Aba)' : 'Ver vitrine pública'}
             >
               <ArrowLeft className="h-4 w-4" />
             </a>
-            <div>
+            <div className="min-w-0 flex-1 sm:flex-initial">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                <h1 className="text-sm sm:text-lg font-black tracking-tight text-white truncate max-w-[190px] sm:max-w-none">
                   {userRole === 'super_admin'
                     ? 'Painel Super Admin • Clarice SaaS'
                     : `Gestão • ${loggedStore?.nomeLoja || 'Minha Loja'}`}
                 </h1>
                 {userRole === 'super_admin' ? (
-                  <span className="rounded-md bg-[#FFE600]/20 px-2 py-0.5 text-[10px] font-black uppercase text-[#FFE600] flex items-center gap-1">
-                    <Crown className="h-3 w-3" /> Super Admin
+                  <span className="shrink-0 whitespace-nowrap rounded-md bg-[#FFE600]/20 px-2 py-0.5 text-[10px] font-black uppercase text-[#FFE600] flex items-center gap-1">
+                    <Crown className="h-3 w-3" /> SUPER ADMIN
                   </span>
                 ) : (
-                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1">
-                    <Store className="h-3 w-3" /> Lojista ({loggedStore?.slug})
+                  <span className="shrink-0 whitespace-nowrap rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1">
+                    <Store className="h-3 w-3" /> {loggedStore?.plano ? loggedStore.plano.toUpperCase() : 'PRO'}
                   </span>
                 )}
               </div>
@@ -1076,15 +1077,23 @@ export function AdminRoutePage() {
                   : `Gerencie seu catálogo exclusivo, personalize sua vitrine e acompanhe sua assinatura.`}
               </p>
             </div>
+            {/* Botão Sair na Linha 1 no mobile */}
+            <button
+              onClick={handleLogout}
+              className="ml-auto sm:hidden shrink-0 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+            >
+              Sair
+            </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Linha 2 (Mobile) / Lado Direito (Desktop) */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Se estiver no Painel Clarice após alternância rápida ou se logado na clarice */}
             {userRole === 'lojista' && (isSwitchedToClarice || loggedStore?.slug === 'clarice') && (
               <button
                 type="button"
                 onClick={handleReturnToSuperAdmin}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-black shadow-md shadow-purple-600/30 transition active:scale-95"
+                className="inline-flex w-full sm:w-auto justify-center min-h-[40px] items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-black shadow-md shadow-purple-600/30 transition active:scale-95"
                 title="Retornar ao Painel Master Super Admin"
               >
                 <Crown className="h-3.5 w-3.5" />
@@ -1097,7 +1106,7 @@ export function AdminRoutePage() {
               <button
                 type="button"
                 onClick={handleSwitchToClaricePanel}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
+                className="inline-flex w-full sm:w-auto justify-center min-h-[40px] items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
                 title="Acessar o Painel de Controle oficial da Clarice Achadinhos"
               >
                 <Store className="h-3.5 w-3.5" />
@@ -1110,7 +1119,7 @@ export function AdminRoutePage() {
                 href={`/?loja=${loggedStore.slug}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFE600] hover:bg-yellow-400 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
+                className="inline-flex w-full sm:w-auto justify-center min-h-[40px] items-center gap-1.5 rounded-xl bg-[#FFE600] hover:bg-yellow-400 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
                 title="Abrir minha vitrine pública em nova aba"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -1119,7 +1128,7 @@ export function AdminRoutePage() {
             )}
             <button
               onClick={handleLogout}
-              className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              className="hidden sm:inline-flex shrink-0 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
             >
               Sair
             </button>
@@ -1133,40 +1142,40 @@ export function AdminRoutePage() {
           {/* Barra de Abas: Super Admin e Lojista com navegação responsiva */}
           <TabsList
             className={cn(
-              'grid w-full bg-slate-900 border border-slate-800 p-1 rounded-2xl mb-6',
+              'flex w-full overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl mb-5 bg-slate-900 border border-slate-800',
               userRole === 'super_admin'
-                ? 'grid-cols-2 sm:grid-cols-4'
-                : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+                ? 'lg:grid lg:grid-cols-4'
+                : 'lg:grid lg:grid-cols-5'
             )}
           >
             {userRole === 'super_admin' ? (
               <>
                 <TabsTrigger
                   value="produtos"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <ShoppingBag className="h-4 w-4 mr-1.5" />
+                  <ShoppingBag className="h-4 w-4 mr-1.5 shrink-0" />
                   Produtos ({c.products.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="saas"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <Users className="h-4 w-4 mr-1.5" />
+                  <Users className="h-4 w-4 mr-1.5 shrink-0" />
                   Clientes SaaS ({stores.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="radar"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <Zap className="h-4 w-4 mr-1.5" />
+                  <Zap className="h-4 w-4 mr-1.5 shrink-0" />
                   Fila do Radar ({c.pendingProducts.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="config"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <Settings className="h-4 w-4 mr-1.5" />
+                  <Settings className="h-4 w-4 mr-1.5 shrink-0" />
                   Configurações
                 </TabsTrigger>
               </>
@@ -1174,38 +1183,38 @@ export function AdminRoutePage() {
               <>
                 <TabsTrigger
                   value="produtos"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <ShoppingBag className="h-4 w-4 mr-1.5" />
+                  <ShoppingBag className="h-4 w-4 mr-1.5 shrink-0" />
                   Meus Produtos ({filteredProducts.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="disparador-vip"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <MessageCircle className="h-4 w-4 mr-1.5" />
+                  <MessageCircle className="h-4 w-4 mr-1.5 shrink-0" />
                   Disparador VIP
                 </TabsTrigger>
                 <TabsTrigger
                   value="minha-loja"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <Palette className="h-4 w-4 mr-1.5" />
+                  <Palette className="h-4 w-4 mr-1.5 shrink-0" />
                   Minha Loja
                 </TabsTrigger>
                 <TabsTrigger
                   value="minha-assinatura"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <CreditCard className="h-4 w-4 mr-1.5" />
+                  <CreditCard className="h-4 w-4 mr-1.5 shrink-0" />
                   Minha Assinatura
                 </TabsTrigger>
                 <TabsTrigger
                   value="guia-uso"
-                  className="rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold text-xs sm:text-sm py-2"
+                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
                 >
-                  <GraduationCap className="h-4 w-4 mr-1.5" />
-                  Guia de Uso
+                  <GraduationCap className="h-4 w-4 mr-1.5 shrink-0" />
+                  🎓 Guia de Uso
                 </TabsTrigger>
               </>
             )}
@@ -1247,7 +1256,7 @@ export function AdminRoutePage() {
                     )}
                   >
                     <Zap className="h-3.5 w-3.5" />
-                    <span>⚡ Importar em Lote</span>
+                    <span>Importar em Lote</span>
                   </button>
                 </div>
 
@@ -1435,7 +1444,7 @@ export function AdminRoutePage() {
                   </div>
 
                   {/* Categoria & Parcelamento */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Categoria
@@ -1512,14 +1521,14 @@ export function AdminRoutePage() {
                   </div>
 
                   {/* Toggles */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer">
+                  <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-800">
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer p-3 rounded-xl border border-slate-800 bg-slate-950/60 min-h-[46px]">
                       <Switch checked={productFreeShipping} onCheckedChange={setProductFreeShipping} />
-                      Frete Grátis
+                      <span>Frete Grátis</span>
                     </label>
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer p-3 rounded-xl border border-slate-800 bg-slate-950/60 min-h-[46px]">
                       <Switch checked={productFeatured} onCheckedChange={setProductFeatured} />
-                      Destaque Carrossel
+                      <span>Destaque Carrossel</span>
                     </label>
                   </div>
 
@@ -1613,18 +1622,18 @@ export function AdminRoutePage() {
                   </div>
 
                   {/* Filtro de Busca & Marketplace */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
                     <input
                       type="text"
                       value={productSearch}
                       onChange={(e) => setProductSearch(e.target.value)}
                       placeholder="Filtrar por nome ou ID..."
-                      className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-[#FFE600] w-36 sm:w-44"
+                      className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-[#FFE600] w-full sm:w-48"
                     />
                     <select
                       value={marketFilter}
                       onChange={(e) => setMarketFilter(e.target.value as any)}
-                      className="rounded-xl border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-white outline-none"
+                      className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none shrink-0"
                     >
                       <option value="todos">Todos</option>
                       <option value="mercadolivre">ML</option>
