@@ -30,6 +30,7 @@ export interface LojistaBatchImportProps {
   store?: LojaAfiliado | null;
   currentProductCount: number;
   permissions: PlanPermissions;
+  isSuperAdmin?: boolean;
   onImported?: (products: AffiliateProduct[]) => void;
   onUpgrade?: () => void;
   onNavigateTab?: (tab: string) => void;
@@ -41,6 +42,7 @@ export function LojistaBatchImport({
   store,
   currentProductCount,
   permissions,
+  isSuperAdmin = false,
   onImported,
   onUpgrade,
   onNavigateTab,
@@ -53,8 +55,17 @@ export function LojistaBatchImport({
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
 
-  const allowed = permissions.batchImportLimit > 0;
-  const maxPerBatch = permissions.batchImportLimit;
+  // Bypass incondicional para Super Admin, loja matriz Clarice ou planos Pro/Advanced/Enterprise
+  const isSuperAdminOrExempt =
+    Boolean(isSuperAdmin) ||
+    store?.slug === 'clarice' ||
+    lojaSlug === 'clarice' ||
+    store?.plano === 'pro' ||
+    (store?.plano as string) === 'enterprise' ||
+    store?.plano === 'advanced';
+
+  const allowed = isSuperAdminOrExempt || permissions.batchImportLimit > 0;
+  const maxPerBatch = permissions.batchImportLimit > 0 ? permissions.batchImportLimit : 50;
 
   // Processamento do Lote de Links
   const handleProcessBatch = () => {
@@ -172,8 +183,8 @@ export function LojistaBatchImport({
   const handleSaveBatch = async () => {
     if (batchParsedProducts.length === 0) return;
 
-    // Validação estrita do limite total de produtos do plano
-    if (currentProductCount + batchParsedProducts.length > permissions.maxProducts) {
+    // Validação estrita do limite total de produtos do plano (lojistas não-isentos)
+    if (!isSuperAdminOrExempt && currentProductCount + batchParsedProducts.length > permissions.maxProducts) {
       const remaining = Math.max(0, permissions.maxProducts - currentProductCount);
       toast.error(
         `⚠️ Limite de ${permissions.maxProducts} produtos atingido! Você possui ${currentProductCount} produtos ativos. Vagas restantes: ${remaining}. Faça upgrade na aba 'Minha Assinatura' para cadastrar produtos ilimitados!`

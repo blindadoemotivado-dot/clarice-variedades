@@ -1464,7 +1464,12 @@ export function AdminRoutePage() {
                         : 'clarice')
                   ).length
                 }
-                permissions={lojistaPermissions}
+                permissions={
+                  userRole === 'super_admin'
+                    ? getPlanPermissions('advanced')
+                    : lojistaPermissions
+                }
+                isSuperAdmin={userRole === 'super_admin'}
                 onImported={(imported) => {
                   c.add(imported);
                   setProductInputMode('individual');

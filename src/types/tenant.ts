@@ -50,7 +50,7 @@ export const DEFAULT_CLARICE_STORE: LojaAfiliado = {
   heroMascoteUrl: '/brand/clarice-hero.png',
   whatsappVipUrl: 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o',
   instagramUrl: 'https://instagram.com/clariceachadinhos',
-  plano: 'advanced',
+  plano: 'pro',
   statusAssinatura: 'ativo',
   shopeeAppId: '18364201389',
   shopeeAffiliateId: '18364201389',
