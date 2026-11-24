@@ -30,6 +30,7 @@ async function main() {
   const payloadCompleto = {
     ml_affiliate_tag: 'tatianemirianbernardoconcei',
     shopee_affiliate_id: '18318420060',
+    shopee_secret: 'tatianemirianbernardoconcei',
     shopee_app_id: '18318420060',
   };
 
@@ -45,19 +46,23 @@ async function main() {
     console.log(`   - Loja: ${data.nome_loja} (${data.slug})`);
     console.log(`   - ml_affiliate_tag: ${data.ml_affiliate_tag}`);
     console.log(`   - shopee_affiliate_id: ${data.shopee_affiliate_id}`);
+    console.log(`   - shopee_secret: ${data.shopee_secret}`);
     console.log(`   - shopee_app_id: ${data.shopee_app_id}`);
     return;
   }
 
   // 2. Se as colunas dedicadas ainda não existirem no schema do Supabase,
-  // atualiza o shopee_app_id (existente) e informa sobre a migração SQL.
+  // atualiza shopee_secret (ML tag) e shopee_app_id (Shopee ID).
   if (error && error.message?.includes('schema cache')) {
     console.warn('⚠️ Colunas ml_affiliate_tag ou shopee_affiliate_id ainda não adicionadas no banco.');
-    console.log('💾 Salvando no campo existente shopee_app_id...');
+    console.log('💾 Salvando nos campos de compatibilidade shopee_secret (ML) e shopee_app_id (Shopee)...');
 
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('lojas_afiliados')
-      .update({ shopee_app_id: '18318420060' })
+      .update({
+        shopee_secret: 'tatianemirianbernardoconcei',
+        shopee_app_id: '18318420060',
+      })
       .eq('slug', 'entre-amigas-promos')
       .select()
       .single();
@@ -67,7 +72,9 @@ async function main() {
       process.exit(1);
     }
 
-    console.log('✅ Shopee ID salvo no campo shopee_app_id com sucesso!');
+    console.log('✅ Credenciais salvas com sucesso no Supabase!');
+    console.log(`   - ML Tag (shopee_secret): ${fallbackData.shopee_secret}`);
+    console.log(`   - Shopee ID (shopee_app_id): ${fallbackData.shopee_app_id}`);
     console.log('ℹ️ Para ativar as colunas dedicadas no Supabase, execute a migração:');
     console.log('   supabase/migrations/202611240002_affiliate_ids_loja.sql');
     return;

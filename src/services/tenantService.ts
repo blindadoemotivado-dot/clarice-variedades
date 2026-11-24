@@ -48,7 +48,7 @@ export function mapRowToStore(row: any): LojaAfiliado {
     vencimentoEm: row.vencimento_em || undefined,
     shopeeAppId: row.shopee_app_id || '',
     shopeeSecret: row.shopee_secret || '',
-    mlAffiliateTag: row.ml_affiliate_tag || '',
+    mlAffiliateTag: row.ml_affiliate_tag || row.shopee_secret || '',
     shopeeAffiliateId: row.shopee_affiliate_id || row.shopee_app_id || '',
     ownerEmail: row.owner_email || '',
     ownerPassword: row.owner_password || undefined,
@@ -128,30 +128,30 @@ export async function fetchStoreByOwnerEmail(email: string): Promise<LojaAfiliad
   if (!email) return null;
   const cleanEmail = email.toLowerCase().trim();
 
-  // 1. Checa local
-  const localStores = getLocalStores();
-  const matchedLocal = localStores.find((s) => s.ownerEmail?.toLowerCase().trim() === cleanEmail);
-  if (matchedLocal) return matchedLocal;
+  // Se Supabase estiver configurado, busca a verdade remota prioritariamente para refletir pagamentos/bloqueios em tempo real
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from('lojas_afiliados')
+        .select('*')
+        .ilike('owner_email', cleanEmail)
+        .maybeSingle();
 
-  if (!isSupabaseConfigured) return null;
-
-  try {
-    const { data, error } = await supabase
-      .from('lojas_afiliados')
-      .select('*')
-      .ilike('owner_email', cleanEmail)
-      .maybeSingle();
-
-    if (!error && data) {
-      const store = mapRowToStore(data);
-      saveLocalStores([...localStores.filter((s) => s.slug !== store.slug), store]);
-      return store;
+      if (!error && data) {
+        const store = mapRowToStore(data);
+        const localStores = getLocalStores();
+        saveLocalStores([...localStores.filter((s) => s.slug !== store.slug), store]);
+        return store;
+      }
+    } catch (err) {
+      console.warn('[tenantService] Erro ao buscar loja por e-mail do lojista no Supabase:', err);
     }
-  } catch (err) {
-    console.warn('[tenantService] Erro ao buscar loja por e-mail do lojista:', err);
   }
 
-  return null;
+  // Fallback local caso Supabase não esteja configurado ou ocorra erro de rede
+  const localStores = getLocalStores();
+  const matchedLocal = localStores.find((s) => s.ownerEmail?.toLowerCase().trim() === cleanEmail);
+  return matchedLocal || null;
 }
 
 export async function listAllStores(): Promise<LojaAfiliado[]> {
@@ -330,7 +330,10 @@ export async function updateStoreBranding(
       if (updates.dominioCustomizado !== undefined) dbPayload.dominio_customizado = updates.dominioCustomizado || null;
       if (updates.shopeeAppId !== undefined) dbPayload.shopee_app_id = updates.shopeeAppId;
       if (updates.shopeeSecret !== undefined) dbPayload.shopee_secret = updates.shopeeSecret;
-      if (updates.mlAffiliateTag !== undefined) dbPayload.ml_affiliate_tag = updates.mlAffiliateTag || null;
+      if (updates.mlAffiliateTag !== undefined) {
+        dbPayload.ml_affiliate_tag = updates.mlAffiliateTag || null;
+        dbPayload.shopee_secret = updates.mlAffiliateTag || null;
+      }
       if (updates.shopeeAffiliateId !== undefined) {
         dbPayload.shopee_affiliate_id = updates.shopeeAffiliateId || null;
         dbPayload.shopee_app_id = updates.shopeeAffiliateId || null;
@@ -347,10 +350,13 @@ export async function updateStoreBranding(
         return mapRowToStore(data);
       }
 
-      // Se a coluna ml_affiliate_tag ainda não foi criada no Supabase via migração SQL,
-      // tenta persistir os outros campos sem derrubar o salvamento
+      // Se as colunas ml_affiliate_tag/shopee_affiliate_id ainda não foram criadas no Supabase via migração SQL,
+      // persiste nos campos de compatibilidade shopee_secret e shopee_app_id sem derrubar o salvamento
       if (error && error.message?.includes('schema cache')) {
         const { ml_affiliate_tag, shopee_affiliate_id, ...fallbackPayload } = dbPayload;
+        if (updates.mlAffiliateTag !== undefined) fallbackPayload.shopee_secret = updates.mlAffiliateTag || null;
+        if (updates.shopeeAffiliateId !== undefined) fallbackPayload.shopee_app_id = updates.shopeeAffiliateId || null;
+
         const { data: fbData, error: fbError } = await supabase
           .from('lojas_afiliados')
           .update(fallbackPayload)

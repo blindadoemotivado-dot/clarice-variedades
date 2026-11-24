@@ -1,4 +1,4 @@
-import React, { useState, type FormEvent } from 'react';
+import React, { useState, useEffect, type FormEvent } from 'react';
 import {
   Palette,
   Upload,
@@ -41,8 +41,25 @@ export function LojistaStoreSettings({
   const [storeBrandWhatsappVip, setStoreBrandWhatsappVip] = useState(store.whatsappVipUrl || '');
   const [storeBrandInstagram, setStoreBrandInstagram] = useState(store.instagramUrl || '');
   const [storeBrandDomain, setStoreBrandDomain] = useState(store.dominioCustomizado || '');
-  const [storeMlAffiliateTag, setStoreMlAffiliateTag] = useState(store.mlAffiliateTag || '');
+  const [storeMlAffiliateTag, setStoreMlAffiliateTag] = useState(store.mlAffiliateTag || store.shopeeSecret || '');
   const [storeShopeeAffiliateId, setStoreShopeeAffiliateId] = useState(store.shopeeAffiliateId || store.shopeeAppId || '');
+
+  // Sincroniza estado visual quando a loja for carregada ou atualizada
+  useEffect(() => {
+    if (store) {
+      setStoreBrandName(store.nomeLoja || '');
+      setStoreBrandSubtitle(store.subtitulo || '');
+      setStoreBrandPrimaryColor(store.corPrimaria || '#0F172A');
+      setStoreBrandAccentColor(store.corDestaque || '#FFE600');
+      setStoreBrandLogoUrl(store.logoUrl || '');
+      setStoreBrandMascoteUrl(store.heroMascoteUrl || '');
+      setStoreBrandWhatsappVip(store.whatsappVipUrl || '');
+      setStoreBrandInstagram(store.instagramUrl || '');
+      setStoreBrandDomain(store.dominioCustomizado || '');
+      setStoreMlAffiliateTag(store.mlAffiliateTag || store.shopeeSecret || '');
+      setStoreShopeeAffiliateId(store.shopeeAffiliateId || store.shopeeAppId || '');
+    }
+  }, [store]);
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingMascote, setUploadingMascote] = useState(false);

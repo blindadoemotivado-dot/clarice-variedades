@@ -261,7 +261,13 @@ export function AdminRoutePage() {
         if (savedRole) setUserRole(savedRole);
         if (savedRole === 'lojista' && savedStoreSlug) {
           fetchStoreBySlug(savedStoreSlug).then((s) => {
-            if (s) setLoggedStore(s);
+            if (s) {
+              if (s.statusAssinatura === 'pendente' || s.statusAssinatura === 'suspenso') {
+                handleLogout();
+                return;
+              }
+              setLoggedStore(s);
+            }
           }).catch(() => {});
         }
       }
@@ -330,6 +336,16 @@ export function AdminRoutePage() {
       const store = await fetchStoreByOwnerEmail(email);
       if (!store) {
         toast.error('Nenhuma loja encontrada para este e-mail. Fale com o suporte ou crie sua conta.');
+        return;
+      }
+
+      // Validação de status da assinatura para login
+      if (store.statusAssinatura === 'pendente') {
+        toast.error('Acesso bloqueado: Seu cadastro ou pagamento está pendente de confirmação. Efetue o pagamento da sua assinatura para liberar o painel.');
+        return;
+      }
+      if (store.statusAssinatura === 'suspenso') {
+        toast.error('Acesso suspenso: Sua conta está desativada. Fale com a equipe de suporte.');
         return;
       }
 
