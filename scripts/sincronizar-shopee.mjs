@@ -209,7 +209,7 @@ const SHOPEE_CURATED_DEALS = [
 // 4. Motor de Sincronização Shopee
 // --------------------------------------------------------------------------
 export async function sincronizarShopee({
-  appId = process.env.SHOPEE_APP_ID || '',
+  appId = process.env.SHOPEE_APP_ID || process.env.SHOPEE_AFFILIATE_ID || '18364201389',
   secret = process.env.SHOPEE_SECRET || '',
   targetStore = 'clarice',
 } = {}) {
@@ -227,10 +227,10 @@ export async function sincronizarShopee({
           .eq('slug', targetStore)
           .maybeSingle();
 
-        if (storeRow?.shopee_app_id && storeRow?.shopee_secret) {
+        if (storeRow?.shopee_app_id) {
           appId = storeRow.shopee_app_id;
-          secret = storeRow.shopee_secret;
-          console.log(`🔑 Credenciais Shopee carregadas da loja "${targetStore}".`);
+          if (storeRow.shopee_secret) secret = storeRow.shopee_secret;
+          console.log(`🔑 Credenciais Shopee carregadas da loja "${targetStore}" (ID: ${appId}).`);
         }
       } catch (err) {
         console.warn('Aviso ao consultar lojas_afiliados para chaves Shopee:', err.message);

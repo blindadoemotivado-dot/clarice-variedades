@@ -64,6 +64,7 @@ import {
   updateStorePassword,
 } from '@/services/tenantService';
 import {
+  DEFAULT_CLARICE_STORE,
   PLANO_PRICES,
   type LojaAfiliado,
   type SubscriptionPlan,
@@ -1226,7 +1227,7 @@ export function AdminRoutePage() {
                             (s) =>
                               s.slug ===
                               (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter)
-                          );
+                          ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined);
                     const hasMl = Boolean(activeStore?.mlAffiliateTag);
                     const hasShopee = Boolean(
                       activeStore?.shopeeAffiliateId || activeStore?.shopeeAppId
@@ -1450,7 +1451,7 @@ export function AdminRoutePage() {
                         (s) =>
                           s.slug ===
                           (selectedStoreFilter !== 'todos' ? selectedStoreFilter : 'clarice')
-                      )
+                      ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined)
                 }
                 currentProductCount={
                   c.products.filter(

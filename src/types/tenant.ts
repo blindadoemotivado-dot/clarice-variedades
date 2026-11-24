@@ -52,6 +52,9 @@ export const DEFAULT_CLARICE_STORE: LojaAfiliado = {
   instagramUrl: 'https://instagram.com/clariceachadinhos',
   plano: 'advanced',
   statusAssinatura: 'ativo',
+  shopeeAppId: '18364201389',
+  shopeeAffiliateId: '18364201389',
+  mlAffiliateTag: 'clarice-achadinhos',
   ownerEmail: 'admin@clariceachadinhos.com.br',
   whatsappContato: '5511999999999',
 };

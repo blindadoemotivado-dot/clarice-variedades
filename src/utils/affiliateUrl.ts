@@ -6,6 +6,8 @@
 export interface AffiliateStoreTracking {
   mlAffiliateTag?: string;
   shopeeAffiliateId?: string;
+  shopeeAppId?: string;
+  slug?: string;
   [key: string]: any;
 }
 
@@ -43,7 +45,11 @@ export function applyStoreAffiliateTracking(
       return { finalUrl: url, tracked: true, network: 'shopee' };
     }
 
-    const shopeeId = store?.shopeeAffiliateId?.trim();
+    const shopeeId = (
+      store?.shopeeAffiliateId ||
+      store?.shopeeAppId ||
+      (store?.slug === 'clarice' ? '18364201389' : '')
+    )?.trim();
     if (shopeeId) {
       const separator = url.includes('?') ? '&' : '?';
       const trackingParams = `af_siteid=${encodeURIComponent(shopeeId)}&utm_source=an_${encodeURIComponent(shopeeId)}`;
