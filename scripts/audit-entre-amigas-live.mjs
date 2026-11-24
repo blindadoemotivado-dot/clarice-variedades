@@ -65,70 +65,59 @@ async function main() {
       await page.waitForTimeout(1500);
     }
 
-    // Scroll para baixo e para cima para carregar todas as imagens
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(1500);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(1000);
+    // Scroll por todos os artigos para forçar o carregamento de imagens lazy
+    console.log('📜 Rolando a página para carregar todas as imagens do catálogo...');
+    const articleLocators = await page.locator('article[id^="produto-"]').all();
+    console.log(`📦 Encontrados ${articleLocators.length} artigos de produtos no DOM.`);
 
-    // 1. Extração dos cards de produto estritos
-    console.log('2️⃣ Extraindo dados de todos os cards de produto da vitrine...');
+    for (const art of articleLocators) {
+      await art.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(100);
+    }
+    await page.waitForTimeout(2000);
+
+    // Aguarda que todas as 20 imagens estejam completamente carregadas no navegador
+    await page.waitForFunction(() => {
+      const imgs = Array.from(document.querySelectorAll('article[id^="produto-"] img'));
+      return imgs.length === 20 && imgs.every((img) => img.complete && img.naturalWidth > 0);
+    }, { timeout: 20000 });
+
+    // 1. Extração dos 20 cards de produto estritos
+    console.log('\n2️⃣ Extraindo dados dos 20 cards de produto da grade oficial...');
     const cardsData = await page.evaluate(() => {
-      // Filtra estritamente links de produto (/p/MLB, /MLB-, ou Shopee) excluindo links de rodapé/gerais
-      const anchors = Array.from(
-        document.querySelectorAll(
-          'a[href*="/p/MLB"], a[href*="/MLB-"], a[href*="shopee.com.br/produto"], a[href*="s.shopee.com.br"]'
-        )
-      );
+      const articles = Array.from(document.querySelectorAll('article[id^="produto-"]'));
 
-      const seen = new Set();
-      const items = [];
+      return articles.map((art) => {
+        const titleEl = art.querySelector('h3');
+        const imgEl = art.querySelector('img');
+        const buyBtn = art.querySelector('a[href*="/p/MLB"], a[href*="/MLB-"], a[href*="shopee.com"]');
 
-      for (const a of anchors) {
-        const href = a.getAttribute('href') || a.href || '';
-        // Normaliza para deduplicar caso o mesmo produto apareça no carrossel de destaques e no grid
-        const cleanHref = href.split('#')[0];
-        if (seen.has(cleanHref)) continue;
-        seen.add(cleanHref);
-
-        // Encontra o container do produto (article, div pai)
-        const container = a.closest('article, [data-testid="product-card"], .group') || a.parentElement;
-        const titleEl = container?.querySelector('h2, h3, h4, [class*="title"]') || container?.querySelector('p');
-        const imgEl = container?.querySelector('img');
-
-        items.push({
-          title: titleEl?.innerText?.trim() || a.innerText?.trim() || '',
-          href: href,
+        return {
+          id: art.id,
+          title: titleEl?.innerText?.trim() || '',
+          href: buyBtn?.getAttribute('href') || buyBtn?.href || '',
           imageSrc: imgEl?.src || imgEl?.getAttribute('src') || '',
           naturalWidth: imgEl?.naturalWidth || 0,
           naturalHeight: imgEl?.naturalHeight || 0,
           imgComplete: imgEl?.complete || false,
-        });
-      }
-
-      return items;
+        };
+      });
     });
 
-    console.log(`📦 Encontrados ${cardsData.length} cards de produtos na vitrine.`);
+    console.log(`📦 Total de produtos extraídos da grade: ${cardsData.length}`);
 
     if (cardsData.length !== 20) {
-      console.warn(`Aviso: Foram extraídos ${cardsData.length} produtos da vitrine.`);
       cardsData.forEach((c, idx) => console.log(`   [${idx + 1}] ${c.title.slice(0, 40)} -> ${c.href}`));
-      if (cardsData.length < 20) {
-        throw new Error(`Esperado 20 produtos na vitrine, encontrado ${cardsData.length}`);
-      }
+      throw new Error(`Esperado exatamente 20 produtos na grade da vitrine, encontrado ${cardsData.length}`);
     }
 
-    // Limita estritamente aos 20 produtos da cliente se houver extras
-    const productsToAudit = cardsData.slice(0, 20);
-
-    // 2. Validação das Imagens
-    console.log('\n3️⃣ Validando integridade de 100% das imagens (sem Unsplash, naturalWidth >= 150)...');
+    // 2. Validação Estrita das Imagens
+    console.log('\n3️⃣ Validando integridade de 100% das 20 imagens (sem Unsplash, naturalWidth >= 150)...');
     const imageMap = new Set();
     let imgFailures = 0;
 
-    for (let i = 0; i < productsToAudit.length; i++) {
-      const item = productsToAudit[i];
+    for (let i = 0; i < cardsData.length; i++) {
+      const item = cardsData[i];
       const isUnsplash = item.imageSrc.includes('unsplash.com') || item.imageSrc.includes('pexels.com');
       const isOfficialCdn =
         item.imageSrc.includes('mlstatic.com') ||
@@ -152,18 +141,22 @@ async function main() {
         imgFailures++;
       }
       imageMap.add(item.imageSrc);
+
+      console.log(
+        `   🖼️ [${i + 1}/20] OK (${item.naturalWidth}x${item.naturalHeight}px) | CDN: ${new URL(item.imageSrc).hostname} | "${item.title.slice(0, 35)}"`
+      );
     }
 
     if (imgFailures > 0) {
       throw new Error(`Falha na validação de imagens: ${imgFailures} inconformidade(s) encontrada(s).`);
     }
-    console.log(`✅ 100% das 20 imagens são HD (naturalWidth >= 150), CDN oficial (mlstatic.com) e sem duplicatas!`);
+    console.log(`\n✅ 100% das 20 imagens são HD (naturalWidth >= 150), CDN oficial (mlstatic.com) e sem duplicatas!`);
 
     // 3. Teste de Navegação Real nos 20 Links de Destino
     console.log('\n4️⃣ Navegando em CADA UM dos 20 links de compra para validar página ativa, título e tracking...');
 
-    for (let i = 0; i < productsToAudit.length; i++) {
-      const item = productsToAudit[i];
+    for (let i = 0; i < cardsData.length; i++) {
+      const item = cardsData[i];
       console.log(`\n───────────────────────────────────────────────────────────────────`);
       console.log(`🔎 [${i + 1}/20] Testando: "${item.title.slice(0, 45)}"`);
       console.log(`   🔗 URL da Vitrine: ${item.href}`);
@@ -235,7 +228,6 @@ async function main() {
     console.log('🎉 AUDITORIA CONCLUÍDA COM 100% DE SUCESSO! 20/20 PRODUTOS APROVADOS!');
     console.log('═══════════════════════════════════════════════════════════════════════\n');
 
-    // Imprime resumo em tabela JSON para uso no relatório
     console.log('--- AUDIT_JSON_RESULTS_START ---');
     console.log(JSON.stringify(auditResults, null, 2));
     console.log('--- AUDIT_JSON_RESULTS_END ---');
