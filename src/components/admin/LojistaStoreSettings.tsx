@@ -7,6 +7,7 @@ import {
   Sparkles,
   CheckCircle2,
   Lock,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,8 @@ export function LojistaStoreSettings({
   const [storeBrandWhatsappVip, setStoreBrandWhatsappVip] = useState(store.whatsappVipUrl || '');
   const [storeBrandInstagram, setStoreBrandInstagram] = useState(store.instagramUrl || '');
   const [storeBrandDomain, setStoreBrandDomain] = useState(store.dominioCustomizado || '');
+  const [storeMlAffiliateTag, setStoreMlAffiliateTag] = useState(store.mlAffiliateTag || '');
+  const [storeShopeeAffiliateId, setStoreShopeeAffiliateId] = useState(store.shopeeAffiliateId || store.shopeeAppId || '');
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingMascote, setUploadingMascote] = useState(false);
@@ -102,6 +105,9 @@ export function LojistaStoreSettings({
         whatsappVipUrl: storeBrandWhatsappVip.trim(),
         instagramUrl: storeBrandInstagram.trim(),
         dominioCustomizado: permissions.customDomain ? storeBrandDomain.trim() : undefined,
+        mlAffiliateTag: storeMlAffiliateTag.trim(),
+        shopeeAffiliateId: storeShopeeAffiliateId.trim(),
+        shopeeAppId: storeShopeeAffiliateId.trim(),
       };
 
       const ok = await updateStoreBranding(store.slug, updates);
@@ -370,6 +376,59 @@ export function LojistaStoreSettings({
               </p>
             </div>
           </PlanGate>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* CARD DESTACADO: CREDENCIAIS PERMANENTES DE AFILIADO                      */}
+        {/* ========================================================================= */}
+        <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-950/15 p-4 sm:p-5 space-y-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+              <LinkIcon className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-xs sm:text-sm flex items-center gap-2">
+                🔗 Credenciais Permanentes de Afiliado (Comissões Automáticas)
+              </h3>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Configure uma única vez. Seus links de produtos colarão ou injetarão suas tags automaticamente.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Tag Social / ID Mercado Livre
+              </label>
+              <input
+                type="text"
+                value={storeMlAffiliateTag}
+                onChange={(e) => setStoreMlAffiliateTag(e.target.value)}
+                placeholder="Ex: seuusuario ou link social ML"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">
+                Injeta automaticamente <code className="text-[#FFE600]">matt_word</code> nos links longos do Mercado Livre.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                ID de Afiliado Shopee
+              </label>
+              <input
+                type="text"
+                value={storeShopeeAffiliateId}
+                onChange={(e) => setStoreShopeeAffiliateId(e.target.value)}
+                placeholder="Ex: 18318420060"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">
+                Injeta automaticamente <code className="text-[#FFE600]">af_siteid</code> e <code className="text-[#FFE600]">utm_source</code> nos links da Shopee.
+              </p>
+            </div>
+          </div>
         </div>
 
         <button

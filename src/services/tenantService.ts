@@ -48,6 +48,8 @@ export function mapRowToStore(row: any): LojaAfiliado {
     vencimentoEm: row.vencimento_em || undefined,
     shopeeAppId: row.shopee_app_id || '',
     shopeeSecret: row.shopee_secret || '',
+    mlAffiliateTag: row.ml_affiliate_tag || '',
+    shopeeAffiliateId: row.shopee_affiliate_id || row.shopee_app_id || '',
     ownerEmail: row.owner_email || '',
     ownerPassword: row.owner_password || undefined,
     ownerUserId: row.owner_user_id || '',
@@ -191,6 +193,8 @@ export async function createStore(input: {
   statusAssinatura?: SubscriptionStatus;
   shopeeAppId?: string;
   shopeeSecret?: string;
+  mlAffiliateTag?: string;
+  shopeeAffiliateId?: string;
   ownerEmail?: string;
   dominioCustomizado?: string;
   whatsappContato?: string;
@@ -211,6 +215,8 @@ export async function createStore(input: {
     statusAssinatura: input.statusAssinatura || 'ativo',
     shopeeAppId: input.shopeeAppId?.trim() || '',
     shopeeSecret: input.shopeeSecret?.trim() || '',
+    mlAffiliateTag: input.mlAffiliateTag?.trim() || '',
+    shopeeAffiliateId: input.shopeeAffiliateId?.trim() || input.shopeeAppId?.trim() || '',
     ownerEmail: input.ownerEmail?.trim().toLowerCase() || '',
     dominioCustomizado: input.dominioCustomizado?.trim().toLowerCase() || '',
     whatsappContato: input.whatsappContato?.trim() || '',
@@ -324,6 +330,11 @@ export async function updateStoreBranding(
       if (updates.dominioCustomizado !== undefined) dbPayload.dominio_customizado = updates.dominioCustomizado || null;
       if (updates.shopeeAppId !== undefined) dbPayload.shopee_app_id = updates.shopeeAppId;
       if (updates.shopeeSecret !== undefined) dbPayload.shopee_secret = updates.shopeeSecret;
+      if (updates.mlAffiliateTag !== undefined) dbPayload.ml_affiliate_tag = updates.mlAffiliateTag || null;
+      if (updates.shopeeAffiliateId !== undefined) {
+        dbPayload.shopee_affiliate_id = updates.shopeeAffiliateId || null;
+        dbPayload.shopee_app_id = updates.shopeeAffiliateId || null;
+      }
 
       const { data, error } = await supabase
         .from('lojas_afiliados')
@@ -334,6 +345,25 @@ export async function updateStoreBranding(
 
       if (!error && data) {
         return mapRowToStore(data);
+      }
+
+      // Se a coluna ml_affiliate_tag ainda não foi criada no Supabase via migração SQL,
+      // tenta persistir os outros campos sem derrubar o salvamento
+      if (error && error.message?.includes('schema cache')) {
+        const { ml_affiliate_tag, shopee_affiliate_id, ...fallbackPayload } = dbPayload;
+        const { data: fbData, error: fbError } = await supabase
+          .from('lojas_afiliados')
+          .update(fallbackPayload)
+          .eq('slug', slug)
+          .select()
+          .single();
+
+        if (!fbError && fbData) {
+          const store = mapRowToStore(fbData);
+          store.mlAffiliateTag = updates.mlAffiliateTag || local[targetIdx]?.mlAffiliateTag || '';
+          store.shopeeAffiliateId = updates.shopeeAffiliateId || local[targetIdx]?.shopeeAffiliateId || '';
+          return store;
+        }
       }
     } catch (err) {
       console.warn('[tenantService] Falha ao atualizar branding no Supabase:', err);

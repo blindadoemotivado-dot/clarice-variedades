@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useEffect, useTransition, useMemo, type FormEvent } from 'react';
 import {
+  AlertTriangle,
   ArrowLeft,
   BadgeCheck,
   Camera,
@@ -78,6 +79,7 @@ import { LojistaBatchImport } from '@/components/admin/LojistaBatchImport';
 import { LojistaVipDispatcher } from '@/components/admin/LojistaVipDispatcher';
 import { LojistaStoreSettings } from '@/components/admin/LojistaStoreSettings';
 import { LojistaTutorialGuide } from '@/components/admin/LojistaTutorialGuide';
+import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import {
   fetchTutorials,
   updateTutorialVideo,
@@ -441,10 +443,25 @@ export function AdminRoutePage() {
 
   // Função para puxar metadados OpenGraph ou extrair da URL
   const handleFetchOgMetadata = async () => {
-    const url = productAffiliateUrl.trim();
+    let url = productAffiliateUrl.trim();
     if (!url) {
       toast.info('Cole primeiro a URL do produto antes de puxar os metadados.');
       return;
+    }
+
+    const activeStore =
+      userRole === 'lojista' && loggedStore
+        ? loggedStore
+        : stores.find((s) => s.slug === (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter));
+
+    // Injeta automaticamente parâmetros de rastreamento permanente se configurado
+    const tracking = applyStoreAffiliateTracking(url, activeStore);
+    if (tracking.tracked && tracking.finalUrl !== url) {
+      url = tracking.finalUrl;
+      setProductAffiliateUrl(url);
+      toast.success(
+        `Rastreamento permanente aplicado (${tracking.network === 'ml' ? 'Mercado Livre' : 'Shopee'})!`
+      );
     }
 
     setIsFetchingOg(true);
@@ -505,6 +522,15 @@ export function AdminRoutePage() {
         ? loggedStore.slug
         : (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter);
 
+    const activeStore =
+      userRole === 'lojista' && loggedStore
+        ? loggedStore
+        : stores.find((s) => s.slug === assignedLojaSlug);
+
+    // Aplica injeção de rastreamento permanente de afiliado
+    const tracking = applyStoreAffiliateTracking(productAffiliateUrl.trim(), activeStore);
+    const finalAffiliateUrl = tracking.finalUrl || productAffiliateUrl.trim();
+
     // Trava de limite de produtos para plano do lojista
     if (userRole === 'lojista' && !editingProductId) {
       const currentCount = c.products.filter((p) => p.lojaSlug === assignedLojaSlug).length;
@@ -530,7 +556,7 @@ export function AdminRoutePage() {
       discountPercent,
       installmentsText: productInstallments.trim() || 'À vista',
       imageUrl: productImageUrl.trim() || '/icons/icon-192x192.png',
-      affiliateUrl: productAffiliateUrl.trim(),
+      affiliateUrl: finalAffiliateUrl,
       category: productCategory,
       badgeText: discountPercent >= 25 ? 'Oferta Relâmpago' : undefined,
       freeShipping: productFreeShipping,
@@ -1175,6 +1201,52 @@ export function AdminRoutePage() {
                     </div>
                   </div>
 
+                  {/* Selo Permanente de Rastreamento de Afiliado */}
+                  {(() => {
+                    const activeStore =
+                      userRole === 'lojista' && loggedStore
+                        ? loggedStore
+                        : stores.find(
+                            (s) =>
+                              s.slug ===
+                              (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter)
+                          );
+                    const hasMl = Boolean(activeStore?.mlAffiliateTag);
+                    const hasShopee = Boolean(
+                      activeStore?.shopeeAffiliateId || activeStore?.shopeeAppId
+                    );
+                    const isConfigured = hasMl || hasShopee;
+
+                    if (isConfigured) {
+                      return (
+                        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-[11px] font-semibold text-emerald-400">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                          <span>
+                            ✅ Rastreamento Permanente Ativo: ML ({activeStore?.mlAffiliateTag || 'padrão'}) • Shopee ({activeStore?.shopeeAffiliateId || activeStore?.shopeeAppId || 'padrão'})
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
+                        <div className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                          <span>Credenciais de afiliado não configuradas nesta loja.</span>
+                        </div>
+                        {userRole === 'lojista' && (
+                          <button
+                            type="button"
+                            onClick={() => handleTabChange('minha-loja')}
+                            className="underline font-bold text-amber-300 hover:text-white shrink-0 text-[10px]"
+                          >
+                            Configurar em Minha Loja ↗
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* URL de Afiliado com Auto-Detection */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -1355,6 +1427,15 @@ export function AdminRoutePage() {
                     ? selectedStoreFilter
                     : 'clarice'
                 }
+                store={
+                  userRole === 'lojista' && loggedStore
+                    ? loggedStore
+                    : stores.find(
+                        (s) =>
+                          s.slug ===
+                          (selectedStoreFilter !== 'todos' ? selectedStoreFilter : 'clarice')
+                      )
+                }
                 currentProductCount={
                   c.products.filter(
                     (p) =>
@@ -1372,6 +1453,7 @@ export function AdminRoutePage() {
                   setProductInputMode('individual');
                 }}
                 onUpgrade={() => handleTabChange('minha-assinatura')}
+                onNavigateTab={handleTabChange}
               />
             )}
           </div>

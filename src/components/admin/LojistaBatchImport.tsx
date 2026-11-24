@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import { formatBRL, extractMlbId, productFromUrl } from '@/lib/catalog';
 import { CATEGORIES, type AffiliateProduct } from '@/types/product';
 import type { PlanPermissions } from '@/config/planPermissions';
+import type { LojaAfiliado } from '@/types/tenant';
+import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import { PlanGate } from './PlanGate';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -25,19 +27,23 @@ function hash(s: string): number {
 
 export interface LojistaBatchImportProps {
   lojaSlug: string;
+  store?: LojaAfiliado | null;
   currentProductCount: number;
   permissions: PlanPermissions;
   onImported?: (products: AffiliateProduct[]) => void;
   onUpgrade?: () => void;
+  onNavigateTab?: (tab: string) => void;
   className?: string;
 }
 
 export function LojistaBatchImport({
   lojaSlug,
+  store,
   currentProductCount,
   permissions,
   onImported,
   onUpgrade,
+  onNavigateTab,
   className,
 }: LojistaBatchImportProps) {
   const [batchLinksText, setBatchLinksText] = useState('');
@@ -74,7 +80,8 @@ export function LojistaBatchImport({
       const parsed: AffiliateProduct[] = [];
 
       for (let i = 0; i < limitedLines.length; i++) {
-        const url = limitedLines[i];
+        const rawUrl = limitedLines[i];
+        const { finalUrl: url } = applyStoreAffiliateTracking(rawUrl, store);
         const isShopee = url.includes('shopee.com') || url.includes('shp.ee');
 
         if (isShopee) {
@@ -248,6 +255,42 @@ export function LojistaBatchImport({
             <CheckCircle2 className="h-3 w-3" /> Recurso Ativo
           </span>
         </div>
+
+        {/* Selo Permanente de Rastreamento de Afiliado */}
+        {(() => {
+          const hasMl = Boolean(store?.mlAffiliateTag);
+          const hasShopee = Boolean(store?.shopeeAffiliateId || store?.shopeeAppId);
+          const isConfigured = hasMl || hasShopee;
+
+          if (isConfigured) {
+            return (
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-[11px] font-semibold text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                <span>
+                  ✅ Rastreamento Permanente Ativo: ML ({store?.mlAffiliateTag || 'padrão'}) • Shopee ({store?.shopeeAffiliateId || store?.shopeeAppId || 'padrão'})
+                </span>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                <span>Credenciais de afiliado não configuradas nesta loja.</span>
+              </div>
+              {onNavigateTab && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('minha-loja')}
+                  className="underline font-bold text-amber-300 hover:text-white shrink-0 text-[10px]"
+                >
+                  Configurar em Minha Loja ↗
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="space-y-3">
           <div className="grid sm:grid-cols-3 gap-3">

@@ -19,6 +19,8 @@ export interface LojaAfiliado {
   vencimentoEm?: string;
   shopeeAppId?: string;
   shopeeSecret?: string;
+  mlAffiliateTag?: string;
+  shopeeAffiliateId?: string;
   ownerEmail?: string;
   ownerPassword?: string;
   ownerUserId?: string;
