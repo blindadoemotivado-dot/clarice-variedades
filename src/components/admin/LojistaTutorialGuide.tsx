@@ -14,7 +14,7 @@ import {
   Palette,
   MessageCircle,
   CreditCard,
-  Video,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LojaAfiliado } from '@/types/tenant';
@@ -24,6 +24,7 @@ import {
   getYoutubeEmbedUrl,
   getVimeoEmbedUrl,
   isDirectVideoFile,
+  DEFAULT_TUTORIALS,
 } from '@/services/tutorialService';
 
 export interface LojistaTutorialGuideProps {
@@ -97,10 +98,6 @@ export function LojistaTutorialGuide({
     });
   };
 
-  const completedCount = lessons.filter((l) => completedMap[l.id]).length;
-  const totalCount = lessons.length || 5;
-  const progressPercent = Math.round((completedCount / totalCount) * 100);
-
   const handleActionClick = (targetTab: string) => {
     if (targetTab === 'vitrine') {
       const url = store?.slug && store.slug !== 'clarice' ? `/?loja=${store.slug}` : '/';
@@ -110,13 +107,87 @@ export function LojistaTutorialGuide({
     }
   };
 
+  // Aula 1: Destaque Principal (Guia Rápido)
+  const featuredLesson: TutorialLesson = lessons[0] || DEFAULT_TUTORIALS[0];
+
+  // Aulas 2 a 5: Apenas aquelas que possuem vídeo cadastrado
+  const secondaryLessons = lessons
+    .slice(1)
+    .filter((lesson) => Boolean(lesson.videoUrl && lesson.videoUrl.trim() !== ''));
+
+  // Métricas de progresso baseadas nas aulas visíveis
+  const visibleLessons = [featuredLesson, ...secondaryLessons];
+  const completedCount = visibleLessons.filter((l) => completedMap[l.id]).length;
+  const totalCount = visibleLessons.length;
+  const progressPercent = Math.round((completedCount / totalCount) * 100);
+
+  // Helper para renderizar players de vídeo
+  const renderVideoPlayer = (lesson: TutorialLesson, isMain = false) => {
+    const youtubeEmbed = lesson.videoUrl ? getYoutubeEmbedUrl(lesson.videoUrl) : null;
+    const vimeoEmbed = lesson.videoUrl ? getVimeoEmbedUrl(lesson.videoUrl) : null;
+    const isDirectVideo = lesson.videoUrl ? isDirectVideoFile(lesson.videoUrl) : false;
+    const hasVideo = Boolean(youtubeEmbed || vimeoEmbed || isDirectVideo);
+
+    if (hasVideo) {
+      if (youtubeEmbed) {
+        return (
+          <iframe
+            src={youtubeEmbed}
+            title={lesson.titulo}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="h-full w-full border-0 rounded-2xl"
+          />
+        );
+      }
+      if (vimeoEmbed) {
+        return (
+          <iframe
+            src={vimeoEmbed}
+            title={lesson.titulo}
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            className="h-full w-full border-0 rounded-2xl"
+          />
+        );
+      }
+      if (isDirectVideo) {
+        return (
+          <video
+            src={lesson.videoUrl!}
+            controls
+            playsInline
+            className="h-full w-full rounded-2xl object-cover bg-black"
+          />
+        );
+      }
+    }
+
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center p-6 sm:p-10 text-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFE600]/10 border border-[#FFE600]/25 text-[#FFE600] shadow-lg shadow-yellow-500/5">
+          <Film className="h-7 w-7 animate-pulse" />
+        </div>
+        <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-3.5 py-1 text-xs font-black uppercase text-amber-400 mb-2.5">
+          🎬 Vídeo em Produção • Em Breve Disponível
+        </span>
+        <p className="text-xs text-slate-300 max-w-md leading-relaxed">
+          {isMain
+            ? 'O vídeo oficial de 45 segundos da mascote Clarice está sendo sincronizado no painel do Super Admin. Enquanto isso, consulte o roteiro prático e acesse os atalhos abaixo!'
+            : 'A gravação desta aula está sendo finalizada pela equipe da Clarice. Consulte o resumo prático passo a passo abaixo.'}
+        </p>
+      </div>
+    );
+  };
+
+  const isFeaturedCompleted = Boolean(completedMap[featuredLesson.id]);
+
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn('space-y-8', className)}>
       {/* ───────────────────────────────────────────────────────────────── */}
-      {/* BANNER DE BOAS-VINDAS COM A MASCOTE CLARICE                       */}
+      {/* 1. BANNER DE BOAS-VINDAS COM A MASCOTE CLARICE                   */}
       {/* ───────────────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0A0E1A] p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
-        {/* Glow sutil */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-full bg-yellow-500/10 blur-3xl"
@@ -134,9 +205,9 @@ export function LojistaTutorialGuide({
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-              Dominar sua vitrine é muito mais fácil do que parece! Gravamos 5 aulas rápidas e
-              diretas ao ponto de 60 segundos com a mascote Clarice para você configurar sua loja,
-              divulgar no WhatsApp e acelerar suas comissões hoje mesmo.
+              Dominar sua vitrine é muito mais fácil do que parece! Assista ao nosso Guia Rápido em
+              vídeo para configurar sua loja, cadastrar produtos com comissões automáticas no Mercado
+              Livre e Shopee, e acelerar suas vendas no WhatsApp hoje mesmo.
             </p>
 
             {/* Barra de Progresso do Lojista */}
@@ -144,7 +215,7 @@ export function LojistaTutorialGuide({
               <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-1.5">
                 <span>Seu Progresso de Aprendizado:</span>
                 <span className="text-[#FFE600]">
-                  {completedCount} de {totalCount} aulas ({progressPercent}%)
+                  {completedCount} de {totalCount} {totalCount === 1 ? 'aula' : 'aulas'} ({progressPercent}%)
                 </span>
               </div>
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
@@ -164,7 +235,6 @@ export function LojistaTutorialGuide({
                 alt="Mascote Clarice"
                 className="h-full w-full object-contain drop-shadow-md"
                 onError={(e) => {
-                  // Fallback para ícone estilizado se a imagem não carregar
                   e.currentTarget.style.display = 'none';
                 }}
               />
@@ -175,175 +245,264 @@ export function LojistaTutorialGuide({
       </div>
 
       {/* ───────────────────────────────────────────────────────────────── */}
-      {/* GRADE DAS 5 AULAS PRÁTICAS DE 1 MINUTO                            */}
+      {/* 2. DESTAQUE PRINCIPAL: GUIA RÁPIDO (SLOT 1)                      */}
       {/* ───────────────────────────────────────────────────────────────── */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
-            <PlayCircle className="h-5 w-5 text-[#FFE600]" />
+            <Zap className="h-5 w-5 text-[#FFE600]" />
             <h2 className="text-base sm:text-lg font-black text-white">
-              Aulas em Vídeo • Passo a Passo Rápido
+              Vídeo Principal em Destaque • Guia Rápido
             </h2>
           </div>
-          <span className="text-xs text-slate-400 font-semibold hidden sm:inline">
-            ⏱ Média de 60 segundos por vídeo
+          <span className="text-xs text-amber-400 font-bold hidden sm:inline flex items-center gap-1">
+            ⚡ Tour Completo em {featuredLesson.duracao || '00:45'}
           </span>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
-          {lessons.map((lesson) => {
-            const isCompleted = Boolean(completedMap[lesson.id]);
-            const youtubeEmbed = lesson.videoUrl ? getYoutubeEmbedUrl(lesson.videoUrl) : null;
-            const vimeoEmbed = lesson.videoUrl ? getVimeoEmbedUrl(lesson.videoUrl) : null;
-            const isDirectVideo = lesson.videoUrl ? isDirectVideoFile(lesson.videoUrl) : false;
-            const hasVideo = Boolean(youtubeEmbed || vimeoEmbed || isDirectVideo);
-
-            return (
-              <div
-                key={lesson.id}
-                className={cn(
-                  'rounded-3xl border bg-[#0F172A] p-5 sm:p-6 shadow-xl transition-all duration-300 flex flex-col justify-between',
-                  isCompleted
-                    ? 'border-emerald-500/40 bg-emerald-950/10'
-                    : 'border-slate-800 hover:border-slate-700'
-                )}
-              >
-                <div className="space-y-4">
-                  {/* Cabeçalho do Card */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="rounded-lg bg-slate-800 px-2.5 py-0.5 font-mono text-[11px] font-black uppercase text-[#FFE600]">
-                          Aula {lesson.ordem}
-                        </span>
-                        <span className="rounded-lg bg-slate-900 border border-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-400 flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-slate-400" /> {lesson.duracao}
-                        </span>
-                        {isCompleted && (
-                          <span className="rounded-lg bg-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-                            <Check className="h-3 w-3" /> Concluída
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
-                        {lesson.titulo}
-                      </h3>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {lesson.descricao}
-                      </p>
-                    </div>
-
-                    {/* Botão de Checkbox "Aula Concluída" */}
-                    <button
-                      type="button"
-                      onClick={() => toggleComplete(lesson.id)}
-                      className={cn(
-                        'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0',
-                        isCompleted
-                          ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400'
-                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800'
-                      )}
-                      title={isCompleted ? 'Marcar como não concluída' : 'Marcar como concluída'}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">
-                        {isCompleted ? 'Concluída' : 'Marcar Concluída'}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* ───────────────────────────────────────────────────────── */}
-                  {/* PLAYER DE VÍDEO (OU ESTADO EM PRODUÇÃO)                   */}
-                  {/* ───────────────────────────────────────────────────────── */}
-                  <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-inner">
-                    {hasVideo ? (
-                      youtubeEmbed ? (
-                        <iframe
-                          src={youtubeEmbed}
-                          title={lesson.titulo}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                          className="h-full w-full border-0 rounded-2xl"
-                        />
-                      ) : vimeoEmbed ? (
-                        <iframe
-                          src={vimeoEmbed}
-                          title={lesson.titulo}
-                          allow="autoplay; fullscreen; picture-in-picture"
-                          allowFullScreen
-                          className="h-full w-full border-0 rounded-2xl"
-                        />
-                      ) : isDirectVideo ? (
-                        <video
-                          src={lesson.videoUrl!}
-                          controls
-                          className="h-full w-full rounded-2xl object-cover bg-black"
-                        />
-                      ) : null
-                    ) : (
-                      /* Estado Elegante: Vídeo em Produção */
-                      <div className="flex h-full w-full flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-                        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFE600]/10 border border-[#FFE600]/20 text-[#FFE600]">
-                          <Film className="h-6 w-6 animate-pulse" />
-                        </div>
-                        <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-0.5 text-[11px] font-black uppercase text-amber-400 mb-2">
-                          🎬 Vídeo em Produção • Em Breve Disponível
-                        </span>
-                        <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
-                          A gravação oficial de 1 minuto desta aula está sendo finalizada pela equipe
-                          da Clarice. Enquanto isso, consulte o roteiro prático passo a passo abaixo!
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ───────────────────────────────────────────────────────── */}
-                  {/* ROTEIRO PRÁTICO EM 3 PASSOS RÁPIDOS                       */}
-                  {/* ───────────────────────────────────────────────────────── */}
-                  <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 space-y-2">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block">
-                      📌 Resumo Prático Passo a Passo:
-                    </span>
-                    <ol className="space-y-2 text-xs text-slate-300">
-                      {lesson.roteiroPassos.map((passo, idx) => (
-                        <li key={idx} className="flex items-start gap-2.5">
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#FFE600]/20 font-mono text-[10px] font-black text-[#FFE600] border border-[#FFE600]/30 mt-0.5">
-                            {idx + 1}
-                          </span>
-                          <span className="leading-relaxed">{passo}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-
-                {/* ───────────────────────────────────────────────────────── */}
-                {/* BOTÃO DE ATALHO DIRETO PARA A FERRAMENTA                   */}
-                {/* ───────────────────────────────────────────────────────── */}
-                <div className="pt-4 mt-2 border-t border-slate-800/60 flex items-center justify-between gap-3">
-                  <span className="text-[11px] text-slate-400 hidden sm:inline">
-                    Pratique agora mesmo:
+        <div
+          className={cn(
+            'relative overflow-hidden rounded-3xl border p-6 sm:p-8 shadow-2xl transition-all duration-300',
+            isFeaturedCompleted
+              ? 'border-emerald-500/40 bg-gradient-to-br from-[#0F172A] via-emerald-950/20 to-[#0F172A]'
+              : 'border-[#FFE600]/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B]/70 to-[#0A0E1A]'
+          )}
+        >
+          {/* Header do Card em Destaque */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="rounded-lg bg-[#FFE600]/20 border border-[#FFE600]/40 px-3 py-1 font-mono text-xs font-black uppercase text-[#FFE600] flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />
+                  Guia Rápido Oficial
+                </span>
+                <span className="rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1 text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-[#FFE600]" /> {featuredLesson.duracao || '00:45'}
+                </span>
+                {isFeaturedCompleted && (
+                  <span className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5" /> Concluído
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => handleActionClick(lesson.targetTab)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#FFE600] hover:bg-yellow-400 px-4 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-yellow-500/20 transition active:scale-95 ml-auto"
-                  >
-                    {TAB_ICONS[lesson.targetTab]}
-                    <span>{lesson.actionLabel}</span>
-                    {lesson.targetTab === 'vitrine' ? (
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    ) : (
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                </div>
+                )}
               </div>
-            );
-          })}
+
+              <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                {featuredLesson.titulo}
+              </h3>
+
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                {featuredLesson.descricao}
+              </p>
+            </div>
+
+            {/* Botão de Conclusão */}
+            <button
+              type="button"
+              onClick={() => toggleComplete(featuredLesson.id)}
+              className={cn(
+                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shrink-0 self-start',
+                isFeaturedCompleted
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400'
+                  : 'bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
+              )}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{isFeaturedCompleted ? 'Aula Concluída' : 'Marcar Concluída'}</span>
+            </button>
+          </div>
+
+          {/* Player do Vídeo Principal */}
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-[#FFE600]/30 bg-slate-950 shadow-2xl mb-6">
+            {renderVideoPlayer(featuredLesson, true)}
+          </div>
+
+          {/* Roteiro Prático dos 4 Passos */}
+          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-5 space-y-3 mb-6">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-[#FFE600] flex items-center gap-2">
+              <span>📌</span> Roteiro Prático • Sua Loja no Ar em 4 Passos:
+            </span>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {featuredLesson.roteiroPassos.map((passo, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2.5 rounded-xl border border-slate-800/60 bg-slate-900/50 p-3 text-xs text-slate-200"
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#FFE600]/20 font-mono text-[11px] font-black text-[#FFE600] border border-[#FFE600]/40 mt-0.5">
+                    {idx + 1}
+                  </span>
+                  <span className="leading-relaxed">{passo}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Ações Rápidas de Atalho */}
+          <div className="border-t border-slate-800/80 pt-5 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs font-bold text-slate-400">
+              Acesse as ferramentas da loja agora:
+            </span>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleActionClick('minha-loja')}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 text-xs font-bold text-slate-200 transition"
+              >
+                <Palette className="h-3.5 w-3.5 text-[#FFE600]" />
+                <span>1. Minha Loja</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleActionClick('produtos')}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 text-xs font-bold text-slate-200 transition"
+              >
+                <ShoppingBag className="h-3.5 w-3.5 text-cyan-400" />
+                <span>2. Meus Produtos</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleActionClick('disparador-vip')}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 text-xs font-bold text-slate-200 transition"
+              >
+                <MessageCircle className="h-3.5 w-3.5 text-emerald-400" />
+                <span>3. Disparador VIP</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleActionClick('vitrine')}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#FFE600] hover:bg-yellow-400 px-4 py-2 text-xs font-black text-slate-950 shadow-md shadow-yellow-500/20 transition active:scale-95"
+              >
+                <Store className="h-3.5 w-3.5" />
+                <span>4. {featuredLesson.actionLabel || '↗ Abrir Minha Vitrine'}</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* ───────────────────────────────────────────────────────────────── */}
+      {/* 3. AULAS COMPLEMENTARES (2 A 5) — APENAS SE TIVEREM VÍDEO SALVO  */}
+      {/* ───────────────────────────────────────────────────────────────── */}
+      {secondaryLessons.length > 0 && (
+        <div className="space-y-6 pt-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <PlayCircle className="h-5 w-5 text-[#FFE600]" />
+              <h2 className="text-base sm:text-lg font-black text-white">
+                Aulas Complementares • Passo a Passo Detalhado
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400 font-semibold hidden sm:inline">
+              ⏱ Aulas gravadas adicionais
+            </span>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
+            {secondaryLessons.map((lesson) => {
+              const isCompleted = Boolean(completedMap[lesson.id]);
+
+              return (
+                <div
+                  key={lesson.id}
+                  className={cn(
+                    'rounded-3xl border bg-[#0F172A] p-5 sm:p-6 shadow-xl transition-all duration-300 flex flex-col justify-between',
+                    isCompleted
+                      ? 'border-emerald-500/40 bg-emerald-950/10'
+                      : 'border-slate-800 hover:border-slate-700'
+                  )}
+                >
+                  <div className="space-y-4">
+                    {/* Cabeçalho da Aula Complementar */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="rounded-lg bg-slate-800 px-2.5 py-0.5 font-mono text-[11px] font-black uppercase text-[#FFE600]">
+                            Aula {lesson.ordem}
+                          </span>
+                          <span className="rounded-lg bg-slate-900 border border-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-400 flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-slate-400" /> {lesson.duracao}
+                          </span>
+                          {isCompleted && (
+                            <span className="rounded-lg bg-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                              <Check className="h-3 w-3" /> Concluída
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+                          {lesson.titulo}
+                        </h3>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          {lesson.descricao}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleComplete(lesson.id)}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shrink-0',
+                          isCompleted
+                            ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400'
+                            : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800'
+                        )}
+                        title={isCompleted ? 'Marcar como não concluída' : 'Marcar como concluída'}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">
+                          {isCompleted ? 'Concluída' : 'Marcar Concluída'}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Player de Vídeo */}
+                    <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-inner">
+                      {renderVideoPlayer(lesson, false)}
+                    </div>
+
+                    {/* Roteiro */}
+                    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 space-y-2">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                        📌 Resumo Prático Passo a Passo:
+                      </span>
+                      <ol className="space-y-2 text-xs text-slate-300">
+                        {lesson.roteiroPassos.map((passo, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#FFE600]/20 font-mono text-[10px] font-black text-[#FFE600] border border-[#FFE600]/30 mt-0.5">
+                              {idx + 1}
+                            </span>
+                            <span className="leading-relaxed">{passo}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* Ação */}
+                  <div className="pt-4 mt-2 border-t border-slate-800/60 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-slate-400 hidden sm:inline">
+                      Pratique agora mesmo:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleActionClick(lesson.targetTab)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#FFE600] hover:bg-yellow-400 px-4 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-yellow-500/20 transition active:scale-95 ml-auto"
+                    >
+                      {TAB_ICONS[lesson.targetTab]}
+                      <span>{lesson.actionLabel}</span>
+                      {lesson.targetTab === 'vitrine' ? (
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

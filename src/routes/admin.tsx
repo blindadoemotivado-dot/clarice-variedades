@@ -2194,7 +2194,7 @@ export function AdminRoutePage() {
                         Vídeos da Central de Ajuda • Guia de Uso da Clarice
                       </h3>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        Defina as URLs dos vídeos das 5 aulas práticas de 1 minuto para os lojistas parceiros (YouTube, Vimeo ou .mp4).
+                        Defina as URLs dos vídeos tutoriais para os lojistas parceiros (YouTube, Vimeo ou .mp4). O primeiro slot é exibido em destaque principal como Guia Rápido (45s). As aulas 2 a 5 só são exibidas para os lojistas caso possuam um vídeo cadastrado.
                       </p>
                     </div>
                     {loadingAdminTutorials && (
@@ -2203,19 +2203,33 @@ export function AdminRoutePage() {
                   </div>
 
                   <div className="space-y-3">
-                    {adminTutorials.map((lesson) => (
+                    {adminTutorials.map((lesson, idx) => (
                       <div
                         key={lesson.id}
-                        className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5 space-y-2.5"
+                        className={cn(
+                          'rounded-2xl border p-3.5 space-y-2.5 transition',
+                          idx === 0
+                            ? 'border-[#FFE600]/40 bg-gradient-to-r from-amber-500/10 via-slate-950 to-slate-950'
+                            : 'border-slate-800 bg-slate-950'
+                        )}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FFE600] text-slate-950 font-black text-[10px]">
                               {lesson.ordem}
                             </span>
                             <span className="font-bold text-white text-xs sm:text-sm">
                               {lesson.titulo}
                             </span>
+                            {idx === 0 ? (
+                              <span className="rounded-full bg-[#FFE600]/20 border border-[#FFE600]/40 px-2 py-0.5 text-[10px] font-black uppercase text-[#FFE600]">
+                                ⚡ Destaque Principal
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-slate-900 border border-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                {tutorialUrlDrafts[lesson.id] ? '✅ Ativo no Painel' : 'Oculto sem vídeo'}
+                              </span>
+                            )}
                           </div>
                           <span className="text-[10px] font-semibold text-slate-400">
                             {lesson.duracao}
@@ -2235,7 +2249,7 @@ export function AdminRoutePage() {
                                 [lesson.id]: e.target.value,
                               }))
                             }
-                            placeholder="Ex: https://youtu.be/... ou URL direta .mp4"
+                            placeholder={idx === 0 ? "Ex: https://youtu.be/... ou URL direta .mp4 (Guia Rápido)" : "Ex: https://youtu.be/... ou URL direta .mp4"}
                             className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-[#FFE600] focus:outline-none"
                           />
                           <button

@@ -5,17 +5,18 @@ export const DEFAULT_TUTORIALS: TutorialLesson[] = [
   {
     id: 'aula-1',
     ordem: 1,
-    titulo: 'Conhecendo seu Painel e sua Vitrine',
-    duracao: '01:00',
+    titulo: 'Guia Rápido: Sua Loja no Ar em 45 Segundos',
+    duracao: '00:45',
     descricao:
-      'Entenda como sua vitrine exclusiva funciona, como navegar entre as abas do painel e conferir suas vendas.',
+      'Aprenda em 45 segundos como navegar pelo painel, personalizar sua marca, cadastrar produtos com comissões automáticas (Mercado Livre e Shopee) e ativar o Disparador VIP no WhatsApp.',
     videoUrl: null,
     targetTab: 'vitrine',
     actionLabel: '↗ Abrir Minha Vitrine',
     roteiroPassos: [
-      'Acesse sua URL exclusiva no celular ou computador e adicione aos favoritos.',
-      'Conheça as abas principais do painel: Produtos, Disparador, Minha Loja e Assinatura.',
-      'Teste os botões de "Garantir Oferta" para verificar seu redirecionamento seguro de afiliado.',
+      '1. Minha Loja: Escolha suas cores, WhatsApp VIP e credenciais de afiliado (ML e Shopee).',
+      '2. Meus Produtos: Cole links promocionais e clique em Puxar Dados para importar com foto e preço.',
+      '3. Disparador VIP: Gere copies de alta conversão e envie com 1 clique para o seu Grupo VIP.',
+      '4. Vitrine Pública: Compartilhe o link exclusivo da sua loja na Bio do Instagram e redes sociais.',
     ],
   },
   {

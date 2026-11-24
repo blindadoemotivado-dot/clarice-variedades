@@ -152,4 +152,53 @@ describe('LojistaTutorialGuide', () => {
       expect(JSON.parse(stored!)).toEqual({ 'aula-1': true });
     });
   });
+
+  it('hides lessons 2 to 5 that do not have a video registered', async () => {
+    const lessonsWithMissingVideos: TutorialLesson[] = [
+      {
+        id: 'aula-1',
+        ordem: 1,
+        titulo: 'Guia Rápido: Sua Loja no Ar em 45 Segundos',
+        duracao: '00:45',
+        descricao: 'Visão geral rápida.',
+        roteiroPassos: ['Passo 1', 'Passo 2', 'Passo 3'],
+        targetTab: 'vitrine',
+        actionLabel: '↗ Abrir Minha Vitrine',
+        videoUrl: 'https://youtu.be/guia-rapido',
+      },
+      {
+        id: 'aula-2',
+        ordem: 2,
+        titulo: 'Aula 2 Sem Vídeo',
+        duracao: '01:00',
+        descricao: 'Sem vídeo cadastrado.',
+        roteiroPassos: ['Passo 1'],
+        targetTab: 'minha-loja',
+        actionLabel: 'Ir para Minha Loja',
+        videoUrl: null,
+      },
+      {
+        id: 'aula-3',
+        ordem: 3,
+        titulo: 'Aula 3 Com Vídeo',
+        duracao: '01:00',
+        descricao: 'Com vídeo.',
+        roteiroPassos: ['Passo 1'],
+        targetTab: 'produtos',
+        actionLabel: 'Ir para Meus Produtos',
+        videoUrl: 'https://vimeo.com/123456',
+      },
+    ];
+
+    vi.spyOn(tutorialService, 'fetchTutorials').mockResolvedValue(lessonsWithMissingVideos);
+
+    render(<LojistaTutorialGuide store={mockStore} onNavigateTab={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Guia Rápido: Sua Loja no Ar em 45 Segundos')).toBeInTheDocument();
+      expect(screen.getByText('Aula 3 Com Vídeo')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Aula 2 Sem Vídeo')).not.toBeInTheDocument();
+  });
 });
