@@ -3,6 +3,7 @@ import type { AffiliateProduct } from '@/types/product';
 import { MOCK_PRODUCTS } from '@/data/mockProducts';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { RadarSyncResult } from '@/services/radarServerFn';
+import { recordProductAuditServerFn } from '@/services/superAdminServerFn';
 
 const FAV_KEY = 'clarice:favorites:v1';
 const LEGACY_FAV_KEY = 'zizi:favorites:v1';
@@ -322,35 +323,81 @@ export function useCatalog(lojaSlug?: string) {
       },
       [isClarice, activeSlug]
     ),
-    remove: useCallback(async (id: string) => {
-      setProducts((p) => p.filter((x) => x.id !== id));
-      if (isSupabaseConfigured) {
-        try {
-          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-          let query = supabase.from('produtos_clarice').delete();
-          query = isUuid ? query.eq('id', id) : query.eq('mlb_id', id);
-          const { error } = await query;
-          if (error) console.warn('[useCatalog] Erro ao remover do Supabase:', error.message);
-        } catch (err) {
-          console.warn('[useCatalog] Falha ao deletar item do Supabase:', err);
+    remove: useCallback(
+      async (id: string, actorInfo?: { role?: 'super_admin' | 'lojista'; email?: string }) => {
+        const target = products.find((x) => x.id === id || x.mlbId === id);
+        setProducts((p) => p.filter((x) => x.id !== id && x.mlbId !== id));
+
+        if (target) {
+          try {
+            await recordProductAuditServerFn({
+              data: {
+                lojaSlug: target.lojaSlug || activeSlug,
+                actorRole: actorInfo?.role || (isClarice ? 'super_admin' : 'lojista'),
+                actorEmail: actorInfo?.email || undefined,
+                action: 'PRODUTO_EXCLUIDO',
+                entityId: target.id,
+                entityTitle: target.title,
+                payload: { product: target },
+              },
+            }).catch(() => {});
+          } catch {
+            // ignore
+          }
         }
-      }
-    }, []),
-    batchRemove: useCallback(async (ids: string[]) => {
-      const set = new Set(ids);
-      setProducts((p) => p.filter((x) => !set.has(x.id)));
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase
-            .from('produtos_clarice')
-            .delete()
-            .in('id', ids);
-          if (error) console.warn('[useCatalog] Erro ao remover lote do Supabase:', error.message);
-        } catch (err) {
-          console.warn('[useCatalog] Falha de conexão ao remover lote:', err);
+
+        if (isSupabaseConfigured) {
+          try {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            let query = supabase.from('produtos_clarice').delete();
+            query = isUuid ? query.eq('id', id) : query.eq('mlb_id', id);
+            const { error } = await query;
+            if (error) console.warn('[useCatalog] Erro ao remover do Supabase:', error.message);
+          } catch (err) {
+            console.warn('[useCatalog] Falha ao deletar item do Supabase:', err);
+          }
         }
-      }
-    }, []),
+      },
+      [products, isClarice, activeSlug]
+    ),
+    batchRemove: useCallback(
+      async (ids: string[], actorInfo?: { role?: 'super_admin' | 'lojista'; email?: string }) => {
+        const set = new Set(ids);
+        const targets = products.filter((x) => set.has(x.id) || set.has(x.mlbId));
+        setProducts((p) => p.filter((x) => !set.has(x.id) && !set.has(x.mlbId)));
+
+        for (const target of targets) {
+          try {
+            await recordProductAuditServerFn({
+              data: {
+                lojaSlug: target.lojaSlug || activeSlug,
+                actorRole: actorInfo?.role || (isClarice ? 'super_admin' : 'lojista'),
+                actorEmail: actorInfo?.email || undefined,
+                action: 'PRODUTO_EXCLUIDO',
+                entityId: target.id,
+                entityTitle: target.title,
+                payload: { product: target },
+              },
+            }).catch(() => {});
+          } catch {
+            // ignore
+          }
+        }
+
+        if (isSupabaseConfigured) {
+          try {
+            const { error } = await supabase
+              .from('produtos_clarice')
+              .delete()
+              .in('id', ids);
+            if (error) console.warn('[useCatalog] Erro ao remover lote do Supabase:', error.message);
+          } catch (err) {
+            console.warn('[useCatalog] Falha de conexão ao remover lote:', err);
+          }
+        }
+      },
+      [products, isClarice, activeSlug]
+    ),
     emptyCatalog: useCallback(async () => {
       setProducts([]);
       if (isSupabaseConfigured) {

@@ -22,6 +22,7 @@ import {
   Layers,
   Loader2,
   Lock,
+  LogIn,
   Mail,
   MessageCircle,
   Palette,
@@ -80,6 +81,8 @@ import { LojistaBatchImport } from '@/components/admin/LojistaBatchImport';
 import { LojistaVipDispatcher } from '@/components/admin/LojistaVipDispatcher';
 import { LojistaStoreSettings } from '@/components/admin/LojistaStoreSettings';
 import { LojistaTutorialGuide } from '@/components/admin/LojistaTutorialGuide';
+import { SuperAdminTenantDrawer } from '@/components/admin/SuperAdminTenantDrawer';
+import { recordProductAuditServerFn } from '@/services/superAdminServerFn';
 import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import { cloneStarterCatalogToStore } from '@/services/starterCatalogService';
 import { resolveMlAffiliateLinkServerFn } from '@/services/mlAffiliateServerFn';
@@ -213,6 +216,9 @@ export function AdminRoutePage() {
 
   // Alternância rápida entre Painel Super Admin e Painel Clarice
   const [isSwitchedToClarice, setIsSwitchedToClarice] = useState(false);
+  const [impersonatedStore, setImpersonatedStore] = useState<LojaAfiliado | null>(null);
+  const [drawerStore, setDrawerStore] = useState<LojaAfiliado | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Catálogo (se for lojista, isola estritamente na loja dele com fallback para sessão)
   const catalogLojaSlug = useMemo(() => {
@@ -595,7 +601,26 @@ export function AdminRoutePage() {
     setUserRole('super_admin');
     setLoggedStore(null);
     setIsSwitchedToClarice(false);
+    setImpersonatedStore(null);
     setActiveTab('produtos');
+    toast.success('Retornado ao Painel Super Admin!');
+  };
+
+  const handleEnterSupportMode = (targetStore: LojaAfiliado) => {
+    setLoggedStore(targetStore);
+    setUserRole('lojista');
+    setImpersonatedStore(targetStore);
+    setIsSwitchedToClarice(false);
+    setActiveTab('produtos');
+    toast.success(`Modo Suporte ativado para "${targetStore.nomeLoja}"!`);
+  };
+
+  const handleExitSupportMode = () => {
+    setUserRole('super_admin');
+    setLoggedStore(null);
+    setImpersonatedStore(null);
+    setIsSwitchedToClarice(false);
+    setActiveTab('saas-clientes');
     toast.success('Retornado ao Painel Super Admin!');
   };
 
@@ -818,6 +843,18 @@ export function AdminRoutePage() {
           if (updErr) {
             console.warn('[Admin] Erro ao atualizar no Supabase:', updErr.message);
             toast.error(`Erro ao salvar no banco: ${updErr.message}`);
+          } else {
+            await recordProductAuditServerFn({
+              data: {
+                lojaSlug: newProduct.lojaSlug,
+                actorRole: userRole,
+                actorEmail: userRole === 'super_admin' ? 'super_admin@clarice.com' : (loggedStore?.ownerEmail || undefined),
+                action: 'PRODUTO_EDITADO',
+                entityId: editingProductId,
+                entityTitle: newProduct.title,
+                payload: { product: newProduct },
+              },
+            }).catch(() => {});
           }
         } else {
           const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newProduct.id);
@@ -829,6 +866,18 @@ export function AdminRoutePage() {
           if (insErr) {
             console.warn('[Admin] Aviso ao inserir no Supabase:', insErr.message);
             toast.error(`Aviso banco: ${insErr.message}`);
+          } else {
+            await recordProductAuditServerFn({
+              data: {
+                lojaSlug: newProduct.lojaSlug,
+                actorRole: userRole,
+                actorEmail: userRole === 'super_admin' ? 'super_admin@clarice.com' : (loggedStore?.ownerEmail || undefined),
+                action: 'PRODUTO_CRIADO',
+                entityId: inserted?.id || newProduct.id,
+                entityTitle: newProduct.title,
+                payload: { product: newProduct },
+              },
+            }).catch(() => {});
           }
         }
       } catch (err) {
@@ -1169,6 +1218,26 @@ export function AdminRoutePage() {
   // =========================================================================
   return (
     <div className="min-h-screen bg-[#0B1329] text-slate-100">
+      {/* Banner Fixo: Modo Suporte Super Admin */}
+      {impersonatedStore && (
+        <div className="sticky top-0 z-40 flex items-center justify-between bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 px-4 py-2 text-xs font-black text-slate-950 shadow-md">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex h-2.5 w-2.5 rounded-full bg-slate-950 animate-ping shrink-0" />
+            <span className="truncate">
+              🛡️ Modo Suporte Super Admin • Gerenciando: <strong>{impersonatedStore.nomeLoja}</strong> (/{impersonatedStore.slug})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleExitSupportMode}
+            className="ml-3 shrink-0 rounded-xl bg-slate-950 text-white px-3 py-1.5 text-xs font-black shadow hover:bg-slate-900 transition flex items-center gap-1.5 active:scale-95"
+          >
+            <Crown className="h-3.5 w-3.5 text-[#FFE600]" />
+            <span>Voltar ao Super Admin</span>
+          </button>
+        </div>
+      )}
+
       {/* Header do Painel */}
       <header className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-md sticky top-0 z-30 px-4 py-3 sm:py-3.5">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1218,11 +1287,11 @@ export function AdminRoutePage() {
 
           {/* Linha 2 (Mobile) / Lado Direito (Desktop) */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {/* Se estiver no Painel Clarice após alternância rápida ou se logado na clarice */}
-            {userRole === 'lojista' && (isSwitchedToClarice || loggedStore?.slug === 'clarice') && (
+            {/* Se estiver no Painel Clarice após alternância rápida, Modo Suporte ou se logado na clarice */}
+            {userRole === 'lojista' && (isSwitchedToClarice || impersonatedStore || loggedStore?.slug === 'clarice') && (
               <button
                 type="button"
-                onClick={handleReturnToSuperAdmin}
+                onClick={impersonatedStore ? handleExitSupportMode : handleReturnToSuperAdmin}
                 className="inline-flex w-full sm:w-auto justify-center min-h-[40px] items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-black shadow-md shadow-purple-600/30 transition active:scale-95"
                 title="Retornar ao Painel Master Super Admin"
               >
@@ -1883,7 +1952,10 @@ export function AdminRoutePage() {
                           <button
                             type="button"
                             onClick={async () => {
-                              await c.remove(p.id);
+                              await c.remove(p.id, {
+                                role: userRole,
+                                email: userRole === 'super_admin' ? 'super_admin@clarice.com' : (loggedStore?.ownerEmail || undefined),
+                              });
                               toast.success('Produto removido com sucesso!');
                             }}
                             className="rounded-lg bg-red-500/10 p-2 text-red-400 hover:bg-red-500/20 transition min-h-[40px] min-w-[40px] flex items-center justify-center"
@@ -2314,44 +2386,71 @@ export function AdminRoutePage() {
                               )}
                             </td>
                             <td className="py-3 pr-2 text-right">
-                              {s.slug !== 'clarice' && (
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {s.statusAssinatura === 'pendente' ? (
-                                    <>
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                {/* Botão Gerenciar (Abre Drawer de Governança do Super Admin) */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDrawerStore(s);
+                                    setDrawerOpen(true);
+                                  }}
+                                  className="rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 px-2.5 py-1 text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                                  title="Abrir painel de governança, dados e senha"
+                                >
+                                  <Settings className="h-3 w-3" />
+                                  <span>Gerenciar</span>
+                                </button>
+
+                                {/* Botão Entrar no Painel (Modo Suporte) */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleEnterSupportMode(s)}
+                                  className="rounded-lg bg-gradient-to-r from-amber-400 to-[#FFE600] px-2.5 py-1 text-[11px] font-black text-slate-950 shadow-xs hover:bg-yellow-400 transition flex items-center gap-1 active:scale-95"
+                                  title="Acessar o painel desta loja em Modo Suporte"
+                                >
+                                  <LogIn className="h-3 w-3" />
+                                  <span>Entrar no Painel</span>
+                                </button>
+
+                                {s.slug !== 'clarice' && (
+                                  <>
+                                    {s.statusAssinatura === 'pendente' ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          disabled={isPending}
+                                          onClick={() => handleApproveStore(s.id)}
+                                          className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition disabled:opacity-50"
+                                        >
+                                          Aprovar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={isPending}
+                                          onClick={() => handleRejectStore(s.id)}
+                                          className="rounded-lg bg-red-500/20 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
+                                        >
+                                          Recusar
+                                        </button>
+                                      </>
+                                    ) : (
                                       <button
                                         type="button"
                                         disabled={isPending}
-                                        onClick={() => handleApproveStore(s.id)}
-                                        className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition disabled:opacity-50"
+                                        onClick={() => handleToggleStoreStatus(s.id, s.statusAssinatura)}
+                                        className={cn(
+                                          'rounded-lg px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-50',
+                                          s.statusAssinatura === 'ativo'
+                                            ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                                            : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                                        )}
                                       >
-                                        Aprovar
+                                        {s.statusAssinatura === 'ativo' ? 'Bloquear' : 'Desbloquear'}
                                       </button>
-                                      <button
-                                        type="button"
-                                        disabled={isPending}
-                                        onClick={() => handleRejectStore(s.id)}
-                                        className="rounded-lg bg-red-500/20 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
-                                      >
-                                        Recusar
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      disabled={isPending}
-                                      onClick={() => handleToggleStoreStatus(s.id, s.statusAssinatura)}
-                                      className={cn(
-                                        'rounded-lg px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-50',
-                                        s.statusAssinatura === 'ativo'
-                                          ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
-                                          : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
-                                      )}
-                                    >
-                                      {s.statusAssinatura === 'ativo' ? 'Bloquear' : 'Desbloquear'}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
+                                    )}
+                                  </>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -2686,6 +2785,34 @@ export function AdminRoutePage() {
           </div>
         </div>
       )}
+
+      {/* Drawer de Governança e Controle Total do Super Admin */}
+      <SuperAdminTenantDrawer
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false);
+          setDrawerStore(null);
+        }}
+        store={drawerStore}
+        superAdminEmail="super_admin@clarice.com"
+        onStoreUpdated={(updatedStore) => {
+          setStores((prev) =>
+            prev.map((s) => (s.id === updatedStore.id || s.slug === updatedStore.slug ? updatedStore : s))
+          );
+          if (loggedStore?.slug === updatedStore.slug) {
+            setLoggedStore(updatedStore);
+          }
+        }}
+        onStoreDeleted={(deletedSlug) => {
+          setStores((prev) => prev.filter((s) => s.slug !== deletedSlug));
+          if (loggedStore?.slug === deletedSlug) {
+            handleExitSupportMode();
+          }
+        }}
+        onEnterSupportMode={(targetStore) => {
+          handleEnterSupportMode(targetStore);
+        }}
+      />
 
       <Toaster position="bottom-center" richColors />
     </div>
