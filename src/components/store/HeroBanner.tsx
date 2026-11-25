@@ -69,33 +69,20 @@ export function HeroBanner({
             }}
           >
             <Sparkles className="h-3.5 w-3.5" />
-            <span>Curadoria Oficial • Mercado Livre & Shopee</span>
+            <span>Curadoria de Achadinhos</span>
           </div>
 
           <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl max-w-2xl break-words min-w-0">
             {isClarice
-              ? `Achadinhos reais com desconto escolhidos todo dia pela ${storeName}`
-              : `Achadinhos selecionados e ofertas imperdíveis por ${storeName}`}
+              ? 'Achadinhos reais com desconto escolhidos todo dia'
+              : `Achadinhos com desconto por ${storeName}`}
           </h1>
 
           <p className="mt-2.5 max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm break-words min-w-0">
-            {subtitle || 'Garimpamos descontos de até 70% OFF com preços verificados, frete grátis e compra 100% garantida nos apps oficiais do Mercado Livre e Shopee.'}
+            {subtitle || 'Garimpamos as melhores ofertas com desconto real e compra 100% segura nos apps oficiais do Mercado Livre e Shopee.'}
           </p>
 
-          {/* Selos de Confiança */}
-          <ul className="mt-4 flex flex-wrap justify-center gap-1.5 text-[11px] font-semibold text-slate-200 md:justify-start sm:gap-2">
-            <li className="flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 backdrop-blur-xs">
-              <span>⭐</span> Descontos Reais
-            </li>
-            <li className="flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 backdrop-blur-xs">
-              <span>⚡</span> Envio Rápido FULL
-            </li>
-            <li className="flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 backdrop-blur-xs">
-              <span>🔒</span> Compra 100% Segura
-            </li>
-          </ul>
-
-          {/* Ações Rápidas */}
+          {/* Ações Rápidas Enxutas */}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 md:justify-start">
             <button
               type="button"

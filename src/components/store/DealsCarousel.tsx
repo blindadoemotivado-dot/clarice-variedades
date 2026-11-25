@@ -161,11 +161,13 @@ export function DealsCarousel({
               {/* Detalhes do Produto */}
               <div className="flex flex-1 flex-col justify-between p-3">
                 <div>
-                  <div className="flex items-center gap-1 text-[10px] text-amber-500 font-semibold mb-1">
-                    <Star className="h-3 w-3 fill-current" />
-                    <span>{p.rating.toLocaleString('pt-BR')}</span>
-                    <span className="text-muted-foreground font-normal">({p.reviewsCount})</span>
-                  </div>
+                  {p.rating > 0 && p.reviewsCount > 0 && (
+                    <div className="flex items-center gap-1 text-[10px] text-amber-500 font-semibold mb-1">
+                      <Star className="h-3 w-3 fill-current" />
+                      <span>{p.rating.toLocaleString('pt-BR')}</span>
+                      <span className="text-muted-foreground font-normal">({p.reviewsCount})</span>
+                    </div>
+                  )}
 
                   <h3 className="line-clamp-2 min-h-[32px] text-xs font-semibold leading-snug text-foreground/90">
                     {p.title}
@@ -192,14 +194,9 @@ export function DealsCarousel({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleLinkClick(isShopee)}
-                  className={cn(
-                    "mt-2.5 flex w-full items-center justify-center gap-1 rounded-xl px-2.5 py-2 text-xs font-bold shadow-xs active:scale-95 transition",
-                    isShopee
-                      ? "bg-[#EE4D2D] text-white hover:bg-[#d83f21] shadow-[#EE4D2D]/20"
-                      : "bg-ml text-on-brand hover:bg-ml-hover"
-                  )}
+                  className="mt-2.5 flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 px-2.5 py-2 text-xs font-extrabold shadow-sm active:scale-95 transition"
                 >
-                  <span>{isShopee ? 'Garantir na Shopee' : 'Garantir Oferta'}</span>
+                  <span>Ver oferta</span>
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               </div>

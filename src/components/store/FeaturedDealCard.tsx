@@ -137,10 +137,12 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
                 <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                   {p.category}
                 </span>
-                <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
-                  <Star className="h-3.5 w-3.5 fill-current" />
-                  {p.rating.toLocaleString('pt-BR')} ({p.reviewsCount.toLocaleString('pt-BR')} avaliações)
-                </span>
+                {p.rating > 0 && p.reviewsCount > 0 && (
+                  <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    {p.rating.toLocaleString('pt-BR')} ({p.reviewsCount.toLocaleString('pt-BR')} avaliações)
+                  </span>
+                )}
                 <span
                   className={cn(
                     "rounded-md px-2 py-0.5 text-[11px] font-extrabold uppercase",
@@ -187,32 +189,21 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleLinkClick}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 rounded-2xl font-black text-sm px-5 py-3.5 shadow-lg transition transform active:scale-[0.98]",
-                  isShopee
-                    ? "bg-[#EE4D2D] hover:bg-[#d83f21] active:bg-[#c2361a] text-white shadow-[#EE4D2D]/20"
-                    : "bg-[#FFE600] hover:bg-yellow-400 active:bg-yellow-500 text-slate-950 shadow-yellow-500/20"
-                )}
+                className="flex-1 flex min-h-[44px] h-11 items-center justify-center gap-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-slate-950 font-extrabold text-sm shadow-md transition transform active:scale-[0.98]"
               >
-                <span>{isShopee ? 'Garantir Oferta na Shopee' : 'Garantir Oferta no Mercado Livre'}</span>
+                <span>Ver oferta</span>
                 <ExternalLink className="h-4 w-4 shrink-0" />
               </a>
 
               <button
                 type="button"
                 onClick={() => copyText(buildWhatsAppCopy(p), 'Texto copiado para envio no WhatsApp!')}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card hover:bg-muted text-foreground font-bold text-xs sm:text-sm px-4 py-3 transition"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-bold text-xs sm:text-sm px-4 py-2.5 transition"
               >
-                <MessageCircle className="h-4 w-4 text-emerald-600" />
+                <MessageCircle className="h-4 w-4 text-emerald-500" />
                 <span>Copiar p/ WhatsApp</span>
               </button>
             </div>
-
-            <p className="mt-2 text-center text-[11px] text-muted-foreground/80 md:text-left">
-              {isShopee
-                ? '🔒 Redirecionado com segurança para o ambiente oficial da Shopee'
-                : '🔒 Redirecionado com segurança para o ambiente oficial do Mercado Livre'}
-            </p>
           </div>
         </div>
       </div>

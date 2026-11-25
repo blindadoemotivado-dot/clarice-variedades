@@ -519,9 +519,11 @@ function Storefront() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 overflow-x-hidden">
       {/* Header Sticky com Safe Area para Notch do iPhone */}
-      <header className="sticky top-0 z-40 bg-promo pt-[env(safe-area-inset-top,0px)]">
-        <div className="flex items-center justify-center gap-1.5 bg-promo px-3 py-1.5 text-center text-[11px] font-semibold text-promo-foreground sm:text-xs">
-          ⚡ {store.nomeLoja} • {store.subtitulo || 'Ofertas selecionadas no Mercado Livre e Shopee com redirecionamento 100% seguro'}
+      <header className="sticky top-0 z-40 bg-card pt-[env(safe-area-inset-top,0px)]">
+        {/* Aviso Único no Topo: Faixa fina e discreta */}
+        <div className="flex items-center justify-center gap-1.5 border-b border-border/50 bg-background/90 px-3 py-1.5 text-center text-[11px] font-medium text-muted-foreground sm:text-xs">
+          <span>🔒</span>
+          <span>Você será levada ao ambiente oficial do Mercado Livre ou Shopee para comprar com segurança.</span>
         </div>
         <div className="border-b border-border bg-card px-4 py-2.5 shadow-2xs">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-2.5 md:flex-nowrap">
@@ -597,7 +599,7 @@ function Storefront() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Buscar produto ou código MLB..."
+                placeholder="Buscar achadinhos..."
                 aria-label="Buscar produtos"
                 className="h-10 w-full rounded-full border border-border bg-muted pl-9 pr-28 text-sm outline-none focus:bg-card focus:ring-2 focus:ring-ml"
               />
@@ -631,7 +633,7 @@ function Storefront() {
               id="mobile-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar produto ou código MLB..."
+              placeholder="Buscar achadinhos..."
               aria-label="Buscar produtos"
               className="h-11 w-full rounded-full border border-border bg-muted pl-9 pr-10 text-sm outline-none focus:ring-2 focus:ring-ml"
             />
@@ -836,24 +838,32 @@ function Storefront() {
             </div>
           )}
 
-          {/* Filtros em Pílulas */}
-          <div className="no-scrollbar mb-5 flex items-center gap-2 overflow-x-auto pb-1">
-            {FILTERS.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                onClick={() => setCategory(filter.value)}
-                aria-pressed={category === filter.value}
-                className={cn(
-                  'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors',
-                  category === filter.value
-                    ? 'border-ml bg-ml text-on-brand shadow-xs'
-                    : 'border-border bg-card text-muted-foreground hover:border-ml/50 hover:text-foreground'
-                )}
-              >
-                {filter.label}
-              </button>
-            ))}
+          {/* Filtros em Pílulas com Fixação Sticky e Indicador Visual de Deslize */}
+          <div className="sticky top-[108px] z-30 -mx-3 mb-5 px-3 py-2 bg-background/95 backdrop-blur-md border-b border-border/40 sm:static sm:border-none sm:bg-transparent sm:p-0">
+            <div className="relative">
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 pr-6">
+                {FILTERS.map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => setCategory(filter.value)}
+                    aria-pressed={category === filter.value}
+                    className={cn(
+                      'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors',
+                      category === filter.value
+                        ? 'border-yellow-400 bg-yellow-400 text-slate-950 font-bold shadow-xs'
+                        : 'border-border bg-card text-muted-foreground hover:border-yellow-400/50 hover:text-foreground'
+                    )}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent"
+              />
+            </div>
           </div>
 
           {loading ? (
@@ -984,8 +994,8 @@ function Storefront() {
               </div>
             )}
             <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="inline-flex items-center gap-1 rounded-full bg-ml/10 px-2 py-0.5 text-[10px] font-bold text-ml">
-                <BadgeCheck className="h-3 w-3 text-ml" />
+              <div className="inline-flex items-center gap-1 rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
+                <BadgeCheck className="h-3 w-3 text-yellow-400" />
                 <span>Curadoria Oficial</span>
               </div>
               <h3 className="text-sm font-bold text-foreground truncate">{store.nomeLoja}</h3>
@@ -996,57 +1006,47 @@ function Storefront() {
           </div>
         </div>
 
-        {/* Grade de Botões Diretos Lado a Lado */}
-        <div className="mx-auto mb-5 max-w-md grid grid-cols-1 sm:grid-cols-2 gap-2.5 px-2">
+        {/* Botão do Grupo VIP WhatsApp */}
+        <div className="mx-auto mb-5 max-w-xs">
           <button
             type="button"
             onClick={() => (store.whatsappVipUrl ? window.open(store.whatsappVipUrl, '_blank') : openVipGroup())}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-bold text-xs py-2.5 px-3 shadow-sm transition active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-black text-xs sm:text-sm py-3 px-4 shadow-md transition active:scale-[0.98]"
           >
-            <MessageCircle className="h-4 w-4 text-slate-950 shrink-0" />
-            <span>Grupo VIP WhatsApp</span>
+            <MessageCircle className="h-4 w-4 text-slate-950 shrink-0 fill-current" />
+            <span>Entrar no Grupo VIP WhatsApp</span>
           </button>
-          <a
-            href={
-              store.mlAffiliateTag
-                ? `https://www.mercadolivre.com.br/ofertas?matt_word=${encodeURIComponent(store.mlAffiliateTag)}`
-                : settings.generalAffiliateUrl ||
-                  `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-bold text-xs py-2.5 px-3 shadow-sm transition active:scale-[0.98]"
-          >
-            <span>Abrir Mercado Livre</span>
-            <ExternalLink className="h-3.5 w-3.5 text-slate-950 shrink-0" />
-          </a>
         </div>
 
-        {/* Aviso Legal Enxuto */}
-        <p className="mx-auto max-w-lg text-[11px] leading-relaxed text-muted-foreground/80">
-          Curadoria afiliada oficial. Compras, pagamentos e entregas ocorrem diretamente no Mercado Livre ou Shopee.
-        </p>
-
-        {/* Assinatura Institucional FCIA */}
-        <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/80">
-          <span>Tecnologia <strong className="font-bold text-foreground">FCIA</strong></span>
-          <span>•</span>
+        {/* CTA Claro para Criar Loja */}
+        <div className="mx-auto mb-5 max-w-xs rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-4 text-center">
+          <h4 className="text-xs sm:text-sm font-black text-foreground">Quer faturar com sua própria vitrine?</h4>
+          <p className="mt-1 text-[11px] text-muted-foreground">Divulgue produtos do ML e Shopee com sua marca.</p>
           <a
             href="/criar-loja"
-            className="font-semibold text-ml hover:underline inline-flex items-center gap-1 transition"
+            className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black text-xs py-2 px-3 shadow-sm transition active:scale-[0.98]"
           >
-            <span>Crie sua vitrine</span>
-            <ExternalLink className="h-3 w-3" />
+            <span>Crie sua vitrine de achadinhos</span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
           </a>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenAdmin}
-          className="mt-3 inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground"
-        >
-          <Lock className="h-3 w-3" /> Painel da Loja (Admin)
-        </button>
+        {/* Link Discreto para Painel da Loja */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleOpenAdmin}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-foreground transition underline"
+          >
+            <Lock className="h-3 w-3" />
+            <span>Painel da Loja</span>
+          </button>
+        </div>
+
+        {/* Assinatura Oficial FCIA */}
+        <div className="mt-4 pt-3 border-t border-border/40 text-[11px] text-muted-foreground/80">
+          <p>© 2026 Clarice Achadinhos · Tecnologia FCIA — Profº Fernando Cabral</p>
+        </div>
       </footer>
 
       {/* Navegação Inferior Mobile */}
