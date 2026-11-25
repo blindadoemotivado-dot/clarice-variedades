@@ -357,7 +357,13 @@ export function LojistaVipDispatcher({
 
           {/* Lista com Scroll (Mobile-First: 240px no mobile, 580px no desktop) */}
           <div className="space-y-2 max-h-[240px] lg:max-h-[580px] overflow-y-auto pr-1">
-            {displayedProducts.length === 0 ? (
+            {products.length === 0 ? (
+              <div className="py-12 px-4 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 text-xs text-slate-400">
+                <MessageCircle className="mx-auto h-8 w-8 mb-2 text-[#FFE600] opacity-40" />
+                <p className="font-bold text-white mb-1">Nenhum produto cadastrado</p>
+                <p className="text-[11px] text-slate-400">Cadastre suas primeiras ofertas na aba <strong>"Meus Produtos"</strong> para gerar mensagens prontas para WhatsApp.</p>
+              </div>
+            ) : displayedProducts.length === 0 ? (
               <div className="py-12 text-center text-slate-500 text-xs">
                 Nenhum produto encontrado com este filtro.
               </div>

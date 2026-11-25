@@ -1186,7 +1186,7 @@ export function AdminRoutePage() {
             <div className="min-w-0 flex-1 sm:flex-initial">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
-                <h1 className="text-sm sm:text-lg font-black tracking-tight text-white truncate max-w-[190px] sm:max-w-none">
+                <h1 className="text-sm sm:text-lg font-black tracking-tight text-white truncate min-w-0 max-w-[160px] xs:max-w-[200px] sm:max-w-none">
                   {userRole === 'super_admin'
                     ? 'Painel Super Admin • Clarice SaaS'
                     : `Gestão • ${loggedStore?.nomeLoja || 'Minha Loja'}`}
@@ -1792,7 +1792,30 @@ export function AdminRoutePage() {
                   </div>
                 </div>
 
-                {filteredProducts.length === 0 ? (
+                {c.products.filter((p) => p.lojaSlug === (loggedStore?.slug || 'clarice')).length === 0 ? (
+                  <div className="py-12 px-4 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/40">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFE600]/10 text-[#FFE600] border border-yellow-500/20">
+                      <Sparkles className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white mb-1">
+                      Sua loja ainda não tem produtos cadastrados
+                    </h3>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto mb-4 leading-relaxed">
+                      Cole um link do Mercado Livre ou Shopee no formulário ao lado e clique em <strong>"⚡ Puxar Dados do Link Automaticamente"</strong> para publicar sua 1ª oferta em segundos!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const inputEl = document.querySelector('input[placeholder*="meli.la"], input[placeholder*="shopee.com"]') as HTMLInputElement;
+                        inputEl?.focus();
+                        inputEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-[#FFE600] px-4 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-yellow-500/20 cursor-pointer active:scale-95 transition"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Cadastrar 1ª Oferta Agora
+                    </button>
+                  </div>
+                ) : filteredProducts.length === 0 ? (
                   <div className="py-12 text-center text-slate-500">
                     <ShoppingBag className="mx-auto h-8 w-8 mb-2 opacity-40" />
                     <p className="text-xs font-semibold">Nenhum produto cadastrado para esta visualização.</p>

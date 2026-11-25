@@ -200,6 +200,7 @@ export async function createStore(input: {
   corDestaque?: string;
   logoUrl?: string;
   heroMascoteUrl?: string;
+  bannerUrl?: string;
   whatsappVipUrl?: string;
   instagramUrl?: string;
   plano: SubscriptionPlan;
@@ -210,19 +211,31 @@ export async function createStore(input: {
   mlMattTool?: string;
   shopeeAffiliateId?: string;
   ownerEmail?: string;
+  ownerPassword?: string;
   dominioCustomizado?: string;
   whatsappContato?: string;
   cpfCnpj?: string;
 }): Promise<LojaAfiliado> {
+  const cleanSlug =
+    input.slug
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9_-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || `loja-${Date.now()}`;
+
   const newStore: LojaAfiliado = {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `store-${Date.now()}`,
-    slug: input.slug.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-'),
+    slug: cleanSlug,
     nomeLoja: input.nomeLoja.trim(),
-    subtitulo: input.subtitulo?.trim() || '',
+    subtitulo: input.subtitulo?.trim() || `Achadinhos selecionados e ofertas imperdíveis por ${input.nomeLoja.trim()}`,
     corPrimaria: input.corPrimaria || '#0F172A',
     corDestaque: input.corDestaque || '#FFE600',
-    logoUrl: input.logoUrl?.trim() || (input.slug.trim().toLowerCase() === 'clarice' ? '/icons/icon-192x192.png' : undefined),
-    heroMascoteUrl: input.heroMascoteUrl?.trim() || (input.slug.trim().toLowerCase() === 'clarice' ? '/brand/clarice-hero.png' : undefined),
+    logoUrl: input.logoUrl?.trim() || (cleanSlug === 'clarice' ? '/icons/icon-192x192.png' : undefined),
+    heroMascoteUrl: input.heroMascoteUrl?.trim() || (cleanSlug === 'clarice' ? '/brand/clarice-hero.png' : undefined),
+    bannerUrl: input.heroMascoteUrl?.trim() || (cleanSlug === 'clarice' ? '/brand/clarice-hero.png' : undefined),
     whatsappVipUrl: input.whatsappVipUrl?.trim() || '',
     instagramUrl: input.instagramUrl?.trim() || '',
     plano: input.plano,
@@ -233,6 +246,7 @@ export async function createStore(input: {
     mlMattTool: input.mlMattTool?.trim() || '',
     shopeeAffiliateId: input.shopeeAffiliateId?.trim() || input.shopeeAppId?.trim() || '',
     ownerEmail: input.ownerEmail?.trim().toLowerCase() || '',
+    ownerPassword: input.ownerPassword?.trim() || '',
     dominioCustomizado: input.dominioCustomizado?.trim().toLowerCase() || '',
     whatsappContato: input.whatsappContato?.trim() || '',
     cpfCnpj: input.cpfCnpj?.trim() || '',
@@ -252,29 +266,37 @@ export async function createStore(input: {
   // Tenta persistir no Supabase se configurado
   if (isSupabaseConfigured) {
     try {
+      const insertPayload: any = {
+        id: newStore.id,
+        slug: newStore.slug,
+        nome_loja: newStore.nomeLoja,
+        subtitulo: newStore.subtitulo,
+        cor_primaria: newStore.corPrimaria,
+        cor_destaque: newStore.corDestaque,
+        logo_url: newStore.logoUrl || null,
+        hero_mascote_url: newStore.heroMascoteUrl || null,
+        banner_url: newStore.heroMascoteUrl || null,
+        whatsapp_vip_url: newStore.whatsappVipUrl,
+        instagram_url: newStore.instagramUrl,
+        plano: newStore.plano,
+        status_assinatura: newStore.statusAssinatura,
+        shopee_app_id: newStore.shopeeAppId,
+        shopee_secret: newStore.mlMattTool
+          ? `${newStore.mlAffiliateTag}|${newStore.mlMattTool}`
+          : newStore.shopeeSecret || newStore.mlAffiliateTag || null,
+        ml_affiliate_tag: newStore.mlAffiliateTag || null,
+        ml_matt_tool: newStore.mlMattTool || null,
+        shopee_affiliate_id: newStore.shopeeAffiliateId || null,
+        owner_email: newStore.ownerEmail,
+        owner_password: newStore.ownerPassword || null,
+        dominio_customizado: newStore.dominioCustomizado || null,
+        whatsapp_contato: newStore.whatsappContato || null,
+        cpf_cnpj: newStore.cpfCnpj || null,
+      };
+
       const { data, error } = await supabase
         .from('lojas_afiliados')
-        .insert({
-          id: newStore.id,
-          slug: newStore.slug,
-          nome_loja: newStore.nomeLoja,
-          subtitulo: newStore.subtitulo,
-          cor_primaria: newStore.corPrimaria,
-          cor_destaque: newStore.corDestaque,
-          logo_url: newStore.logoUrl || null,
-          hero_mascote_url: newStore.heroMascoteUrl || null,
-          whatsapp_vip_url: newStore.whatsappVipUrl,
-          instagram_url: newStore.instagramUrl,
-          plano: newStore.plano,
-          status_assinatura: newStore.statusAssinatura,
-          shopee_app_id: newStore.shopeeAppId,
-          shopee_secret: newStore.shopeeSecret,
-          owner_email: newStore.ownerEmail,
-          owner_password: newStore.ownerPassword || null,
-          dominio_customizado: newStore.dominioCustomizado || null,
-          whatsapp_contato: newStore.whatsappContato || null,
-          cpf_cnpj: newStore.cpfCnpj || null,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 

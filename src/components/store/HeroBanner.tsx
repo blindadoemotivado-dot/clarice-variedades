@@ -72,13 +72,13 @@ export function HeroBanner({
             <span>Curadoria Oficial • Mercado Livre & Shopee</span>
           </div>
 
-          <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl max-w-2xl">
+          <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl max-w-2xl break-words min-w-0">
             {isClarice
               ? `Achadinhos reais com desconto escolhidos todo dia pela ${storeName}`
               : `Achadinhos selecionados e ofertas imperdíveis por ${storeName}`}
           </h1>
 
-          <p className="mt-2.5 max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm">
+          <p className="mt-2.5 max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm break-words min-w-0">
             {subtitle || 'Garimpamos descontos de até 70% OFF com preços verificados, frete grátis e compra 100% garantida nos apps oficiais do Mercado Livre e Shopee.'}
           </p>
 

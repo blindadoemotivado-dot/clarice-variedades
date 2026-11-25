@@ -314,14 +314,25 @@ function Storefront() {
     }
   }, [c.products]);
 
-  const hasBothMarketplaces = useMemo(() => {
-    if (!c.products || c.products.length === 0) return false;
-    const hasML = c.products.some((p) => !p.marketplace || p.marketplace === 'mercadolivre');
-    const hasShopee = c.products.some((p) => p.marketplace === 'shopee');
-    return hasML && hasShopee;
-  }, [c.products]);
+  // Garante isolamento estrito de tags de afiliado em tempo de execução para a vitrine ativa
+  const trackedProducts = useMemo(() => {
+    if (!c.products || c.products.length === 0) return [];
+    return c.products.map((p) => {
+      const tracking = applyStoreAffiliateTracking(p.affiliateUrl, store);
+      return tracking.tracked && tracking.finalUrl !== p.affiliateUrl
+        ? { ...p, affiliateUrl: tracking.finalUrl }
+        : p;
+    });
+  }, [c.products, store]);
 
-  const visible = filterProducts(c.products, {
+  const hasBothMarketplaces = useMemo(() => {
+    if (!trackedProducts || trackedProducts.length === 0) return false;
+    const hasML = trackedProducts.some((p) => !p.marketplace || p.marketplace === 'mercadolivre');
+    const hasShopee = trackedProducts.some((p) => p.marketplace === 'shopee');
+    return hasML && hasShopee;
+  }, [trackedProducts]);
+
+  const visible = filterProducts(trackedProducts, {
     query,
     category,
     sort,
@@ -335,37 +346,37 @@ function Storefront() {
 
   // 1) Achadinho do Dia: Melhor pontuação (Desconto + Avaliação + Frete Grátis)
   const achadinhoDoDia = useMemo(() => {
-    if (!c.products || c.products.length === 0) return null;
-    return [...c.products].sort((a, b) => {
+    if (!trackedProducts || trackedProducts.length === 0) return null;
+    return [...trackedProducts].sort((a, b) => {
       const scoreA = (a.discountPercent || 0) * 2 + (a.rating || 4.5) * 10 + (a.freeShipping ? 10 : 0);
       const scoreB = (b.discountPercent || 0) * 2 + (b.rating || 4.5) * 10 + (b.freeShipping ? 10 : 0);
       return scoreB - scoreA;
     })[0];
-  }, [c.products]);
+  }, [trackedProducts]);
 
   // 2) Ofertas Relâmpago: Top 10 com maior % OFF (excluindo o Achadinho do Dia)
   const ofertasRelampago = useMemo(() => {
-    if (!c.products) return [];
-    return [...c.products]
+    if (!trackedProducts) return [];
+    return [...trackedProducts]
       .filter((p) => !achadinhoDoDia || p.id !== achadinhoDoDia.id)
       .sort((a, b) => b.discountPercent - a.discountPercent)
       .slice(0, 10);
-  }, [c.products, achadinhoDoDia]);
+  }, [trackedProducts, achadinhoDoDia]);
 
   // 3) Achadinhos Até R$ 99: Foco em compras por impulso (excluindo Achadinho do Dia E itens de Ofertas Relâmpago)
   const achadinhosAte99 = useMemo(() => {
-    if (!c.products) return [];
+    if (!trackedProducts) return [];
     const usedIds = new Set<string>();
     if (achadinhoDoDia) usedIds.add(achadinhoDoDia.id);
     for (const rel of ofertasRelampago) {
       usedIds.add(rel.id);
     }
 
-    return [...c.products]
+    return [...trackedProducts]
       .filter((p) => p.currentPrice <= 99 && !usedIds.has(p.id))
       .sort((a, b) => b.discountPercent - a.discountPercent)
       .slice(0, 12);
-  }, [c.products, achadinhoDoDia, ofertasRelampago]);
+  }, [trackedProducts, achadinhoDoDia, ofertasRelampago]);
 
   const progressPercent =
     visible.length > 0
@@ -686,13 +697,16 @@ function Storefront() {
               </div>
             )}
 
-            <div className="mt-10 pt-6 border-t border-border/60">
+            <div className="mt-10 pt-6 border-t border-border/60 flex flex-col items-center gap-3">
               <a
                 href="/admin"
-                className="text-xs font-semibold text-muted-foreground hover:text-foreground transition underline underline-offset-4"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#FFE600] px-5 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-yellow-500/20 hover:bg-yellow-400 transition active:scale-95"
               >
-                É o dono desta loja? Cadastre seu primeiro produto no Painel
+                <span>Cadastrar a 1ª Oferta no Painel ↗</span>
               </a>
+              <p className="text-[11px] text-muted-foreground">
+                É o dono desta loja? Acesse o painel para adicionar ofertas do Mercado Livre e Shopee.
+              </p>
             </div>
           </section>
         ) : (
@@ -846,6 +860,24 @@ function Storefront() {
               {Array.from({ length: 8 }).map((_, index) => (
                 <ProductSkeleton key={index} />
               ))}
+            </div>
+          ) : c.products.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3.5 rounded-3xl border border-dashed border-border bg-card/60 p-8 sm:p-14 text-center max-w-lg mx-auto my-6 shadow-sm">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/10 text-[#FFE600] border border-amber-400/20">
+                <Sparkles className="h-8 w-8" />
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-foreground">
+                Vitrine em Preparação!
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Esta vitrine exclusiva ainda não possui ofertas ativas. Em instantes novas promoções com curadoria do Mercado Livre e Shopee estarão no ar!
+              </p>
+              <a
+                href="/admin"
+                className="mt-2 inline-flex items-center gap-2 rounded-xl bg-[#FFE600] px-4 py-2.5 text-xs font-black text-slate-950 shadow-md shadow-yellow-500/20 hover:bg-yellow-400 transition active:scale-95"
+              >
+                <span>Cadastrar a 1ª Oferta no Painel ↗</span>
+              </a>
             </div>
           ) : visible.length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card py-16 text-center text-muted-foreground">

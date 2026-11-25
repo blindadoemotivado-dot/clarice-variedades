@@ -268,7 +268,7 @@ function CriarLojaPage() {
   // FORMULÁRIO DE AUTO-CADASTRO
   // =========================================================================
   return (
-    <div className="min-h-screen bg-[#05070B] text-slate-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-[#05070B] text-slate-100 flex flex-col justify-between w-full max-w-[100vw] overflow-x-hidden">
       {/* Header Superior */}
       <header className="border-b border-slate-900 bg-[#0A0E17]/80 backdrop-blur-md sticky top-0 z-30 px-4 py-3.5">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
