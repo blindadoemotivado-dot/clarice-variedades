@@ -175,7 +175,7 @@ export function LojistaStoreSettings({
   };
 
   return (
-    <div className={cn('rounded-3xl border border-slate-800 bg-[#0F172A] p-6 shadow-xl max-w-3xl space-y-6', className)}>
+    <div className={cn('rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-6 shadow-xl max-w-3xl space-y-6 overflow-x-hidden w-full max-w-full', className)}>
       <div className="border-b border-slate-800 pb-4">
         <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
           <Palette className="h-5 w-5 text-[#FFE600]" />
@@ -526,7 +526,7 @@ export function LojistaStoreSettings({
             <p className="text-[11px] text-slate-300">
               Cole qualquer link gerado pela opção &quot;Compartilhar e Ganhar&quot; do app do Mercado Livre. O sistema extrai sua Tag e Tool instantaneamente.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="url"
                 value={extractUrlInput}
@@ -538,13 +538,13 @@ export function LojistaStoreSettings({
                   }
                 }}
                 placeholder="Ex: https://mercadolivre.com/sec/... ou meli.la/..."
-                className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
+                className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 min-h-[40px] text-xs text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
               />
               <button
                 type="button"
                 onClick={() => handleExtractMlCode()}
                 disabled={isExtractingMl || !extractUrlInput.trim()}
-                className="rounded-xl bg-[#FFE600] px-4 py-2 text-xs font-black text-slate-950 hover:bg-yellow-400 disabled:opacity-50 shrink-0 transition active:scale-95 flex items-center gap-1.5"
+                className="rounded-xl bg-[#FFE600] px-4 py-2.5 min-h-[40px] text-xs font-black text-slate-950 hover:bg-yellow-400 disabled:opacity-50 shrink-0 transition active:scale-95 flex items-center justify-center gap-1.5"
               >
                 {isExtractingMl ? (
                   <>

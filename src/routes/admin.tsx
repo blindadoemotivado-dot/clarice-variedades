@@ -117,10 +117,73 @@ const DEFAULT_PIN = (import.meta.env.VITE_ADMIN_PIN as string | undefined)?.trim
 
 type UserRole = 'super_admin' | 'lojista';
 
+function getInitialAdminAuthState(): {
+  isAuthenticated: boolean;
+  userRole: UserRole;
+  loggedStore: LojaAfiliado | null;
+} {
+  if (typeof window === 'undefined') {
+    return { isAuthenticated: false, userRole: 'super_admin', loggedStore: null };
+  }
+  try {
+    const authSession = sessionStorage.getItem('clarice_admin_authenticated');
+    const roleSession = sessionStorage.getItem('clarice_admin_role') as UserRole | null;
+    const slugSession = sessionStorage.getItem('clarice_admin_store_slug');
+
+    const lojistaRaw = localStorage.getItem('clarice_lojista_session');
+    let lojistaStore: LojaAfiliado | null = null;
+    let lojistaSlug: string | null = null;
+    if (lojistaRaw) {
+      try {
+        const parsed = JSON.parse(lojistaRaw);
+        if (parsed?.store) lojistaStore = parsed.store;
+        if (parsed?.slug) lojistaSlug = parsed.slug;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (authSession === 'true') {
+      return {
+        isAuthenticated: true,
+        userRole: roleSession || (slugSession || lojistaSlug ? 'lojista' : 'super_admin'),
+        loggedStore: lojistaStore,
+      };
+    }
+
+    if (lojistaStore || lojistaSlug) {
+      return {
+        isAuthenticated: true,
+        userRole: 'lojista',
+        loggedStore: lojistaStore,
+      };
+    }
+
+    const adminSessionRaw = localStorage.getItem('clarice_admin_session');
+    if (adminSessionRaw) {
+      try {
+        const parsed = JSON.parse(adminSessionRaw);
+        if (parsed?.authenticated || parsed === true) {
+          return { isAuthenticated: true, userRole: 'super_admin', loggedStore: null };
+        }
+      } catch {
+        if (adminSessionRaw === 'true') {
+          return { isAuthenticated: true, userRole: 'super_admin', loggedStore: null };
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return { isAuthenticated: false, userRole: 'super_admin', loggedStore: null };
+}
+
 export function AdminRoutePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<UserRole>('super_admin');
-  const [loggedStore, setLoggedStore] = useState<LojaAfiliado | null>(null);
+  const [initialAuth] = useState(getInitialAdminAuthState);
+  const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
+  const [userRole, setUserRole] = useState<UserRole>(initialAuth.userRole);
+  const [loggedStore, setLoggedStore] = useState<LojaAfiliado | null>(initialAuth.loggedStore);
 
   // Modo de Login (Super Admin PIN vs. Lojista E-mail)
   const [loginMode, setLoginMode] = useState<'pin' | 'email'>('pin');
@@ -150,8 +213,18 @@ export function AdminRoutePage() {
   // Alternância rápida entre Painel Super Admin e Painel Clarice
   const [isSwitchedToClarice, setIsSwitchedToClarice] = useState(false);
 
-  // Catálogo (se for lojista, isola estritamente na loja dele)
-  const catalogLojaSlug = userRole === 'lojista' && loggedStore ? loggedStore.slug : (selectedStoreFilter === 'todos' ? undefined : selectedStoreFilter);
+  // Catálogo (se for lojista, isola estritamente na loja dele com fallback para sessão)
+  const catalogLojaSlug = useMemo(() => {
+    if (userRole === 'lojista') {
+      const slug =
+        loggedStore?.slug ||
+        (typeof window !== 'undefined'
+          ? sessionStorage.getItem('clarice_admin_store_slug')
+          : null);
+      return (slug || '').toLowerCase().trim() || undefined;
+    }
+    return selectedStoreFilter === 'todos' ? undefined : selectedStoreFilter;
+  }, [userRole, loggedStore?.slug, selectedStoreFilter]);
   const c = useCatalog(catalogLojaSlug);
 
   // Modal de Criação de Loja (Super Admin)
@@ -867,8 +940,10 @@ export function AdminRoutePage() {
   const filteredProducts = useMemo(() => {
     return c.products.filter((p) => {
       // Se for lojista, isolamento rigoroso por slug
-      if (userRole === 'lojista' && loggedStore) {
-        if (p.lojaSlug !== loggedStore.slug) return false;
+      if (userRole === 'lojista') {
+        const targetSlug = (loggedStore?.slug || catalogLojaSlug || '').toLowerCase().trim();
+        const prodSlug = (p.lojaSlug || '').toLowerCase().trim();
+        if (targetSlug && prodSlug !== targetSlug) return false;
       }
 
       const matchesSearch =
@@ -879,7 +954,7 @@ export function AdminRoutePage() {
         marketFilter === 'todos' || (p.marketplace || 'mercadolivre') === marketFilter;
       return matchesSearch && matchesMarket;
     });
-  }, [c.products, productSearch, marketFilter, userRole, loggedStore]);
+  }, [c.products, productSearch, marketFilter, userRole, loggedStore?.slug, catalogLojaSlug]);
 
   // =========================================================================
   // TELA DE LOGIN (DUAL: SUPER ADMIN PIN OU LOJISTA E-MAIL)
@@ -1144,12 +1219,12 @@ export function AdminRoutePage() {
       </header>
 
       {/* Conteúdo Principal com Abas */}
-      <main className="mx-auto max-w-7xl px-3 sm:px-4 py-3 sm:py-6">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+      <main className="mx-auto max-w-7xl px-3 sm:px-4 py-3 sm:py-6 overflow-x-hidden w-full max-w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full overflow-x-hidden">
           {/* Barra de Abas: Super Admin e Lojista com navegação responsiva */}
           <TabsList
             className={cn(
-              'flex w-full overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl mb-3 sm:mb-5 bg-slate-900 border border-slate-800',
+              'flex w-full overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl mb-3 sm:mb-5 bg-slate-900 border border-slate-800 touch-pan-x',
               userRole === 'super_admin'
                 ? 'lg:grid lg:grid-cols-4'
                 : 'lg:grid lg:grid-cols-5'
@@ -1230,7 +1305,7 @@ export function AdminRoutePage() {
           {/* ========================================================================= */}
           {/* ABA 1: PRODUTOS (MEUS PRODUTOS OU GERAL) */}
           {/* ========================================================================= */}
-          <TabsContent value="produtos" className="space-y-6">
+          <TabsContent value="produtos" className="space-y-6 overflow-x-hidden w-full max-w-full">
             <div className="grid gap-6 lg:grid-cols-12">
               {/* Formulário de Cadastro / Edição */}
               <div className="lg:col-span-5 rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
@@ -1735,7 +1810,7 @@ export function AdminRoutePage() {
           {/* ABA 2 (LOJISTA): DISPARADOR VIP PARA WHATSAPP */}
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
-            <TabsContent value="disparador-vip" className="space-y-6">
+            <TabsContent value="disparador-vip" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <LojistaVipDispatcher
                 store={loggedStore}
                 products={c.products}
@@ -1749,7 +1824,7 @@ export function AdminRoutePage() {
           {/* ABA 3 (LOJISTA): MINHA LOJA (CUSTOMIZAÇÃO DE BRANDING) */}
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
-            <TabsContent value="minha-loja" className="space-y-6">
+            <TabsContent value="minha-loja" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <LojistaStoreSettings
                 store={loggedStore}
                 permissions={lojistaPermissions}
@@ -1765,9 +1840,9 @@ export function AdminRoutePage() {
           {/* ABA 3 (LOJISTA): MINHA ASSINATURA ASAAS */}
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
-            <TabsContent value="minha-assinatura" className="space-y-6">
-              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-6 shadow-xl max-w-2xl">
-                <div className="border-b border-slate-800 pb-4 mb-5 flex items-center justify-between">
+            <TabsContent value="minha-assinatura" className="space-y-6 overflow-x-hidden w-full max-w-full">
+              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-6 shadow-xl max-w-2xl overflow-x-hidden w-full">
+                <div className="border-b border-slate-800 pb-4 mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
                       <CreditCard className="h-5 w-5 text-emerald-400" />
@@ -1779,7 +1854,7 @@ export function AdminRoutePage() {
                   </div>
                   <span
                     className={cn(
-                      'px-2.5 py-1 rounded-full text-xs font-black uppercase',
+                      'px-2.5 py-1 rounded-full text-xs font-black uppercase shrink-0',
                       loggedStore.statusAssinatura === 'ativo'
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         : 'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -1790,7 +1865,7 @@ export function AdminRoutePage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
                       <span className="text-[11px] font-bold text-slate-400">Plano Atual</span>
                       <p className="mt-1 text-lg font-black text-white capitalize">
@@ -1917,7 +1992,7 @@ export function AdminRoutePage() {
           {/* ABA 5 (LOJISTA): GUIA DE USO COM VÍDEOS TUTORIAIS DA CLARICE */}
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
-            <TabsContent value="guia-uso" className="space-y-6">
+            <TabsContent value="guia-uso" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <LojistaTutorialGuide
                 store={loggedStore}
                 onNavigateTab={handleTabChange}
@@ -1929,7 +2004,7 @@ export function AdminRoutePage() {
           {/* ABA 2 (SUPER ADMIN): CLIENTES SAAS & GESTÃO MULTI-TENANT */}
           {/* ========================================================================= */}
           {userRole === 'super_admin' && (
-            <TabsContent value="saas" className="space-y-6">
+            <TabsContent value="saas" className="space-y-6 overflow-x-hidden w-full max-w-full">
               {/* Cards de Métricas SaaS */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                 <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-4">
@@ -2198,7 +2273,7 @@ export function AdminRoutePage() {
           {/* ABA 3 (SUPER ADMIN): FILA DO RADAR */}
           {/* ========================================================================= */}
           {userRole === 'super_admin' && (
-            <TabsContent value="radar" className="space-y-6">
+            <TabsContent value="radar" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
                   <div>
@@ -2279,7 +2354,7 @@ export function AdminRoutePage() {
           {/* ABA 4 (SUPER ADMIN): CONFIGURAÇÕES GERAIS */}
           {/* ========================================================================= */}
           {userRole === 'super_admin' && (
-            <TabsContent value="config" className="space-y-6">
+            <TabsContent value="config" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-6 shadow-xl max-w-2xl">
                 <h2 className="font-black text-white text-base sm:text-lg mb-1">
                   Credenciais Globais & Integrações Asaas

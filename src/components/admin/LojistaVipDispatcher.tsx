@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   MessageCircle,
   Copy,
@@ -34,6 +34,7 @@ export function LojistaVipDispatcher({
   onUpgrade,
   className,
 }: LojistaVipDispatcherProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
   const [vipSearch, setVipSearch] = useState('');
   const [vipFilter, setVipFilter] = useState<'todos' | 'nao_disparados' | 'disparados'>('todos');
   const [selectedProduct, setSelectedProduct] = useState<AffiliateProduct | null>(null);
@@ -77,13 +78,14 @@ export function LojistaVipDispatcher({
 
   // Filtra produtos da loja com isolamento estrito
   const storeProducts = useMemo(() => {
+    const targetSlug = (store?.slug || '').toLowerCase().trim();
     return products.filter((p) => {
-      if (store.slug === 'clarice') {
-        return !p.lojaSlug || p.lojaSlug === 'clarice';
+      if (targetSlug === 'clarice') {
+        return !p.lojaSlug || (p.lojaSlug || '').toLowerCase().trim() === 'clarice';
       }
-      return p.lojaSlug === store.slug;
+      return (p.lojaSlug || '').toLowerCase().trim() === targetSlug;
     });
-  }, [products, store.slug]);
+  }, [products, store?.slug]);
 
   const searchedProducts = useMemo(() => {
     if (!vipSearch.trim()) return storeProducts;
@@ -275,7 +277,7 @@ export function LojistaVipDispatcher({
   const canUseCustomSignature = permissions.vipDispatcherMode === 'advanced';
 
   return (
-    <div className={cn('rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl space-y-5', className)}>
+    <div className={cn('rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-5 shadow-xl space-y-5 overflow-x-hidden w-full max-w-full', className)}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div>
           <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
@@ -353,8 +355,8 @@ export function LojistaVipDispatcher({
             </button>
           </div>
 
-          {/* Lista com Scroll */}
-          <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
+          {/* Lista com Scroll (Mobile-First: 240px no mobile, 580px no desktop) */}
+          <div className="space-y-2 max-h-[240px] lg:max-h-[580px] overflow-y-auto pr-1">
             {displayedProducts.length === 0 ? (
               <div className="py-12 text-center text-slate-500 text-xs">
                 Nenhum produto encontrado com este filtro.
@@ -366,7 +368,14 @@ export function LojistaVipDispatcher({
                 return (
                   <div
                     key={p.id}
-                    onClick={() => setSelectedProduct(p)}
+                    onClick={() => {
+                      setSelectedProduct(p);
+                      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                        setTimeout(() => {
+                          editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 80);
+                      }
+                    }}
                     className={cn(
                       'flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition select-none',
                       isSelected
@@ -401,7 +410,7 @@ export function LojistaVipDispatcher({
                           </span>
                         )}
                       </div>
-                      <p className="text-xs font-bold text-white truncate">{p.title}</p>
+                      <p className="text-xs font-bold text-white line-clamp-2 break-words leading-tight">{p.title}</p>
                       <p className="text-xs font-black text-emerald-400 mt-0.5">
                         {formatBRL(p.currentPrice)}{' '}
                         <span className="text-[10px] text-slate-400 font-normal">
@@ -417,7 +426,7 @@ export function LojistaVipDispatcher({
         </div>
 
         {/* Coluna Direita: Editor de Copy & Disparo */}
-        <div className="lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 flex flex-col justify-between">
+        <div ref={editorRef} className="lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 flex flex-col justify-between">
           {!selectedProduct ? (
             <div className="py-24 text-center text-slate-500">
               <MessageCircle className="mx-auto h-12 w-12 mb-3 opacity-30 text-emerald-400" />
@@ -601,23 +610,23 @@ export function LojistaVipDispatcher({
                 />
               </div>
 
-              {/* Botões de Ação */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              {/* Botões de Ação (Mobile-First: coluna única no celular para clique fácil) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleCopyVip}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 hover:bg-slate-700 py-3.5 text-xs sm:text-sm font-bold text-white transition active:scale-95 shadow-md"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 hover:bg-slate-700 py-3.5 px-4 min-h-[48px] w-full text-xs sm:text-sm font-bold text-white transition active:scale-95 shadow-md"
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-4 w-4 shrink-0" />
                   <span>Copiar Copy</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleFireWhatsApp}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] py-3.5 text-xs sm:text-sm font-black text-slate-950 transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] py-3.5 px-4 min-h-[48px] w-full text-xs sm:text-sm font-black text-slate-950 transition active:scale-95 shadow-lg shadow-emerald-500/20"
                 >
-                  <MessageCircle className="h-4 w-4 fill-current" />
+                  <MessageCircle className="h-4 w-4 fill-current shrink-0" />
                   <span>Abrir WhatsApp & Disparar</span>
                 </button>
               </div>

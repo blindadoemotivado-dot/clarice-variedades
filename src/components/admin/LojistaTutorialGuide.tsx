@@ -183,7 +183,7 @@ export function LojistaTutorialGuide({
   const isFeaturedCompleted = Boolean(completedMap[featuredLesson.id]);
 
   return (
-    <div className={cn('space-y-4 sm:space-y-8', className)}>
+    <div className={cn('space-y-4 sm:space-y-8 overflow-x-hidden w-full max-w-full', className)}>
       {/* ───────────────────────────────────────────────────────────────── */}
       {/* 1. BANNER DE BOAS-VINDAS COM A MASCOTE CLARICE                   */}
       {/* ───────────────────────────────────────────────────────────────── */}
