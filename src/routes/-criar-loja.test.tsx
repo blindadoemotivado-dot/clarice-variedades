@@ -203,7 +203,7 @@ describe('CriarLojaPage (/criar-loja)', () => {
 
     // Check FCIA copyright
     expect(
-      screen.getByText(/Tecnologia FCIA — Fernando Cabral Inteligência Artificial/i)
+      screen.getByText(/Tecnologia FCIA — Profº Fernando Cabral/i)
     ).toBeInTheDocument();
   });
 });

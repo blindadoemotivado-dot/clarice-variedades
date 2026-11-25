@@ -330,7 +330,7 @@ export function CriarLojaPage() {
           </div>
 
           <footer className="mt-8 text-center text-[11px] text-zinc-600">
-            © 2026 Clarice Achadinhos · Tecnologia FCIA — Fernando Cabral Inteligência Artificial
+            © 2026 Clarice Achadinhos · Tecnologia FCIA — Profº Fernando Cabral
           </footer>
         </div>
       </div>
@@ -700,7 +700,7 @@ export function CriarLojaPage() {
 
           {/* Rodapé e Autoria FCIA */}
           <footer className="text-center text-xs text-zinc-500 pt-6 pb-2">
-            <p>© 2026 Clarice Achadinhos · Tecnologia FCIA — Fernando Cabral Inteligência Artificial</p>
+            <p>© 2026 Clarice Achadinhos · Tecnologia FCIA — Profº Fernando Cabral</p>
           </footer>
         </form>
       </main>
