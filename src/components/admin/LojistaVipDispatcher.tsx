@@ -304,9 +304,9 @@ export function LojistaVipDispatcher({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 w-full max-w-full min-w-0">
         {/* Coluna Esquerda: Lista de Produtos */}
-        <div className="lg:col-span-5 space-y-3">
+        <div className="w-full max-w-full min-w-0 lg:col-span-5 space-y-3">
           <input
             type="text"
             value={vipSearch}
@@ -426,7 +426,7 @@ export function LojistaVipDispatcher({
         </div>
 
         {/* Coluna Direita: Editor de Copy & Disparo */}
-        <div ref={editorRef} className="lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 flex flex-col justify-between">
+        <div ref={editorRef} className="w-full max-w-full min-w-0 lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5 flex flex-col justify-between">
           {!selectedProduct ? (
             <div className="py-24 text-center text-slate-500">
               <MessageCircle className="mx-auto h-12 w-12 mb-3 opacity-30 text-emerald-400" />

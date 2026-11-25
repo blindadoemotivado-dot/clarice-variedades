@@ -779,7 +779,7 @@ export function AdminRoutePage() {
 
     // Atualiza estado local
     if (editingProductId) {
-      c.add(c.products.map((p) => (p.id === editingProductId ? newProduct : p)));
+      c.update(newProduct);
       toast.success('Produto atualizado com sucesso!');
     } else {
       c.add([newProduct]);
@@ -814,15 +814,22 @@ export function AdminRoutePage() {
           const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editingProductId);
           let updateQuery = supabase.from('produtos_clarice').update(payload);
           updateQuery = isUuid ? updateQuery.eq('id', editingProductId) : updateQuery.eq('mlb_id', editingProductId);
-          await updateQuery;
+          const { error: updErr } = await updateQuery;
+          if (updErr) {
+            console.warn('[Admin] Erro ao atualizar no Supabase:', updErr.message);
+            toast.error(`Erro ao salvar no banco: ${updErr.message}`);
+          }
         } else {
           const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newProduct.id);
           const insertPayload = isUuid ? { id: newProduct.id, ...payload } : payload;
           const { data: inserted, error: insErr } = await supabase.from('produtos_clarice').insert(insertPayload).select('id').single();
-          if (inserted?.id) {
-            newProduct.id = inserted.id;
+          if (inserted?.id && inserted.id !== newProduct.id) {
+            c.update({ ...newProduct, id: inserted.id });
           }
-          if (insErr) console.warn('[Admin] Aviso ao inserir no Supabase:', insErr.message);
+          if (insErr) {
+            console.warn('[Admin] Aviso ao inserir no Supabase:', insErr.message);
+            toast.error(`Aviso banco: ${insErr.message}`);
+          }
         }
       } catch (err) {
         console.warn('Aviso ao sincronizar produto no Supabase:', err);
@@ -1347,9 +1354,9 @@ export function AdminRoutePage() {
           {/* ABA 1: PRODUTOS (MEUS PRODUTOS OU GERAL) */}
           {/* ========================================================================= */}
           <TabsContent value="produtos" className="space-y-6 overflow-x-hidden w-full max-w-full">
-            <div className="grid gap-6 lg:grid-cols-12">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 w-full max-w-full min-w-0">
               {/* Formulário de Cadastro / Edição */}
-              <div className="lg:col-span-5 rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
+              <div className="w-full max-w-full min-w-0 lg:col-span-5 rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-5 shadow-xl">
                 {/* Seletor de Modo: Cadastro Individual vs. Importação em Lote */}
                 <div className="grid grid-cols-2 gap-2 w-full rounded-2xl bg-slate-950 p-1 border border-slate-800 mb-4">
                   <button
@@ -1729,7 +1736,7 @@ export function AdminRoutePage() {
           </div>
 
           {/* Listagem de Produtos */}
-          <div className="lg:col-span-7 rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
+          <div className="w-full max-w-full min-w-0 lg:col-span-7 rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-5 shadow-xl">
             {/* Indicador de Limite do Plano para Lojista */}
             {userRole === 'lojista' && loggedStore && (
               <div className="mb-4 px-3.5 py-2.5 rounded-2xl border border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs">
@@ -1830,7 +1837,7 @@ export function AdminRoutePage() {
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
                             onClick={() => {
@@ -1845,18 +1852,21 @@ export function AdminRoutePage() {
                               setProductFeatured(Boolean(p.featured));
                               setProductMarketplace(p.marketplace || 'mercadolivre');
                             }}
-                            className="rounded-lg bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 hover:text-white transition"
+                            className="rounded-lg bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 hover:text-white transition min-h-[40px] min-w-[40px] flex items-center justify-center"
                             title="Editar oferta"
                           >
-                            <Settings className="h-3.5 w-3.5" />
+                            <Settings className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => c.remove(p.id)}
-                            className="rounded-lg bg-red-500/10 p-2 text-red-400 hover:bg-red-500/20 transition"
+                            onClick={async () => {
+                              await c.remove(p.id);
+                              toast.success('Produto removido com sucesso!');
+                            }}
+                            className="rounded-lg bg-red-500/10 p-2 text-red-400 hover:bg-red-500/20 transition min-h-[40px] min-w-[40px] flex items-center justify-center"
                             title="Remover produto"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </div>

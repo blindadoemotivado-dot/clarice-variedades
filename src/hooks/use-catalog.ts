@@ -310,6 +310,9 @@ export function useCatalog(lojaSlug?: string) {
     clearDemoProducts,
     approveProduct,
     rejectPending,
+    update: useCallback((item: AffiliateProduct) => {
+      setProducts((p) => p.map((x) => (x.id === item.id || (x.mlbId && x.mlbId === item.mlbId) ? item : x)));
+    }, []),
     add: useCallback(
       (items: AffiliateProduct[]) => {
         const tagged = isClarice

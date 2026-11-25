@@ -110,7 +110,7 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
             rel="noopener noreferrer"
             onClick={handleLinkClick}
             className={cn(
-              "flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold shadow-xs transition-all active:scale-[0.98] sm:py-2.5 sm:text-sm",
+              "flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold shadow-xs transition-all active:scale-[0.98] sm:py-2.5 sm:text-sm min-h-[44px]",
               isShopee
                 ? "bg-[#EE4D2D] text-white hover:bg-[#d83f21] shadow-md shadow-[#EE4D2D]/20"
                 : "bg-ml text-on-brand hover:bg-ml-hover"
