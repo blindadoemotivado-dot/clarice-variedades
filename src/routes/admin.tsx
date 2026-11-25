@@ -93,7 +93,7 @@ import {
   uploadTutorialVideo,
   type TutorialLesson,
 } from '@/services/tutorialService';
-import { formatBRL, isValidShopeeUrl, extractMlbId, productFromUrl } from '@/lib/catalog';
+import { formatBRL, isValidShopeeUrl, extractMlbId } from '@/lib/catalog';
 import { isValidMercadoLivreUrl } from '@/components/store/AdminSheet';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -269,6 +269,7 @@ export function AdminRoutePage() {
   const [productIsActive, setProductIsActive] = useState(true);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [isFetchingOg, setIsFetchingOg] = useState(false);
+  const [extractionWarning, setExtractionWarning] = useState<string | null>(null);
 
   // Filtros na lista de produtos
   const [productSearch, setProductSearch] = useState('');
@@ -642,6 +643,8 @@ export function AdminRoutePage() {
       return;
     }
 
+    setExtractionWarning(null);
+
     const activeStore =
       userRole === 'lojista' && loggedStore
         ? loggedStore
@@ -672,56 +675,65 @@ export function AdminRoutePage() {
           );
           if (matchedCategory) setProductCategory(matchedCategory);
         }
-        toast.success('⚡ Dados do produto puxados com sucesso!');
+
+        if (res.partial) {
+          const warnMsg =
+            res.warning ||
+            (res.marketplace === 'shopee'
+              ? '⚠️ A Shopee bloqueou a leitura automática de preço e foto deste link. Confira o título extraído e preencha o preço e a imagem manualmente (ou use o botão Enviar Foto).'
+              : '⚠️ O Mercado Livre bloqueou a leitura automática de preço e foto deste link. Confira os dados e preencha manualmente.');
+          setExtractionWarning(warnMsg);
+          if (res.imageUrl && !res.currentPrice) {
+            toast.warning('Título e foto extraídos! Preencha o preço manualmente.');
+          } else if (!res.imageUrl && !res.currentPrice) {
+            toast.warning('Título extraído! Preencha o preço e envie uma foto.');
+          } else {
+            toast.warning('Dados parciais extraídos! Confira os campos abaixo.');
+          }
+        } else {
+          setExtractionWarning(null);
+          toast.success('⚡ Dados do produto puxados com sucesso!');
+        }
         return;
       }
 
-      // Fallback local caso a Server Function não consiga extrair
-      if (url.includes('shopee.com') || url.includes('shp.ee')) {
-        setProductMarketplace('shopee');
+      // Fallback local se a Server Function não conseguiu extrair dados
+      const isShopee = url.includes('shopee.com') || url.includes('shp.ee');
+      const isML = url.includes('mercadolivre.com') || url.includes('meli.la');
+      setProductMarketplace(isShopee ? 'shopee' : 'mercadolivre');
+
+      if (isShopee) {
         const slugMatch = url.match(/shopee\.com\.br\/([^?]+)-i\./i);
         if (slugMatch && !productTitle) {
-          const autoTitle = decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ');
-          setProductTitle(autoTitle.charAt(0).toUpperCase() + autoTitle.slice(1));
+          const autoTitle = decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim();
+          if (autoTitle) {
+            setProductTitle(autoTitle.charAt(0).toUpperCase() + autoTitle.slice(1));
+          }
         }
-        if (!productImageUrl) {
-          setProductImageUrl('https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80');
-        }
-        if (!productCurrentPrice) setProductCurrentPrice('79,90');
-        if (!productOriginalPrice) setProductOriginalPrice('129,90');
-        toast.success('Metadados da Shopee detectados!');
-      } else if (url.includes('mercadolivre.com') || url.includes('meli.la')) {
-        setProductMarketplace('mercadolivre');
+        const warnMsg =
+          '⚠️ A Shopee bloqueou a leitura automática de preço e foto deste link. Confira o título extraído e preencha o preço e a imagem manualmente (ou use o botão Enviar Foto).';
+        setExtractionWarning(warnMsg);
+        toast.warning('Título identificado pelo link. Preencha o preço e imagem manualmente.');
+      } else if (isML) {
         const mlb = extractMlbId(url);
-        const p = productFromUrl(url, productCategory, url, true);
-        if (p) {
-          if (!productTitle || productTitle.startsWith('Produto Mercado Livre')) {
-            setProductTitle(p.title);
-          }
-          if (!productCurrentPrice) {
-            setProductCurrentPrice(p.currentPrice.toFixed(2).replace('.', ','));
-          }
-          if (!productOriginalPrice) {
-            setProductOriginalPrice(p.originalPrice.toFixed(2).replace('.', ','));
-          }
-          if (!productImageUrl) {
-            setProductImageUrl(p.imageUrl);
-          }
-        } else {
-          if (mlb && !productTitle) {
-            setProductTitle(`Produto Mercado Livre ${mlb}`);
-          }
-          if (!productCurrentPrice) setProductCurrentPrice('149,90');
-          if (!productOriginalPrice) setProductOriginalPrice('199,90');
-          if (!productImageUrl) {
-            setProductImageUrl('https://images.unsplash.com/photo-1585386959984-a4155224a1ad?auto=format&fit=crop&w=600&q=80');
-          }
+        const slugMatch = url.match(/MLB-?\d+-([a-zA-Z0-9_-]+)/i);
+        if (slugMatch?.[1] && !productTitle) {
+          const autoTitle = decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim();
+          setProductTitle(autoTitle.replace(/\b\w/g, (c) => c.toUpperCase()));
+        } else if (mlb && !productTitle) {
+          setProductTitle(`Produto Mercado Livre ${mlb}`);
         }
-        toast.success('Metadados do Mercado Livre detectados!');
+        const warnMsg =
+          '⚠️ O Mercado Livre bloqueou a leitura automática de preço e foto deste link. Preencha os dados manualmente.';
+        setExtractionWarning(warnMsg);
+        toast.warning('Link detectado. Preencha o preço e a imagem manualmente.');
       } else {
         toast.info('URL detectada. Preencha os campos abaixo.');
       }
     } catch {
+      setExtractionWarning(
+        '⚠️ Não foi possível extrair dados automaticamente. Preencha os campos manualmente ou use o botão Enviar Foto.'
+      );
       toast.error('Não foi possível extrair dados automaticamente. Preencha os campos abaixo.');
     } finally {
       setIsFetchingOg(false);
@@ -892,6 +904,7 @@ export function AdminRoutePage() {
     setProductCurrentPrice('');
     setProductOriginalPrice('');
     setProductImageUrl('');
+    setExtractionWarning(null);
   };
 
   // Gerar Checkout / Cobrança Asaas (Lojista)
@@ -1597,6 +1610,21 @@ export function AdminRoutePage() {
                       className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
                     />
 
+                    {/* Botão/Link Discreto: Abrir link para conferir produto real */}
+                    {productAffiliateUrl.trim().startsWith('http') && (
+                      <div className="mt-1.5 flex items-center justify-end">
+                        <a
+                          href={productAffiliateUrl.trim()}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-[#FFE600] transition"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>🔗 Abrir link para conferir produto real</span>
+                        </a>
+                      </div>
+                    )}
+
                     {/* Botão Destaque: Puxar Dados do Link Automaticamente */}
                     <button
                       type="button"
@@ -1617,6 +1645,16 @@ export function AdminRoutePage() {
                       )}
                     </button>
                   </div>
+
+                  {/* Alerta Poka-Yoke de Extração Parcial ou Bloqueio */}
+                  {extractionWarning && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-start gap-2.5">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                      <div className="leading-relaxed">
+                        <p className="font-semibold">{extractionWarning}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Título do Produto */}
                   <div>

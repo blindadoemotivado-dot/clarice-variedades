@@ -56,6 +56,20 @@ describe('applyStoreAffiliateTracking', () => {
       expect(result.tracked).toBe(false);
       expect(result.finalUrl).toBe(raw);
     });
+
+    it('preserves s.shopee.com.br and shp.ee short links intact with tracked: true', () => {
+      const rawShopee = 'https://s.shopee.com.br/40iNZkIFU7';
+      const result = applyStoreAffiliateTracking(rawShopee, mockStore);
+      expect(result.tracked).toBe(true);
+      expect(result.network).toBe('shopee');
+      expect(result.finalUrl).toBe('https://s.shopee.com.br/40iNZkIFU7');
+
+      const rawShp = 'https://shp.ee/abcdefg';
+      const resultShp = applyStoreAffiliateTracking(rawShp, mockStore);
+      expect(resultShp.tracked).toBe(true);
+      expect(resultShp.network).toBe('shopee');
+      expect(resultShp.finalUrl).toBe('https://shp.ee/abcdefg');
+    });
   });
 
   describe('Mercado Livre', () => {

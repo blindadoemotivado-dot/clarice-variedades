@@ -39,6 +39,12 @@ export function applyStoreAffiliateTracking(
 
   // 1. SHOPEE (shopee.com.br / s.shopee.com.br / shp.ee)
   if (lowerUrl.includes('shopee.com') || lowerUrl.includes('shp.ee')) {
+    // Links encurtados da Shopee (s.shopee.com.br ou shp.ee) já encapsulam as credenciais oficiais
+    const isShopeeShort = lowerUrl.includes('s.shopee.com.br/') || lowerUrl.includes('shp.ee/');
+    if (isShopeeShort) {
+      return { finalUrl: url, tracked: true, network: 'shopee' };
+    }
+
     const shopeeId = (
       store?.shopeeAffiliateId ||
       store?.shopeeAppId ||

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatBRL, extractMlbId, productFromUrl } from '@/lib/catalog';
+import { formatBRL, extractMlbId } from '@/lib/catalog';
 import { CATEGORIES, type AffiliateProduct } from '@/types/product';
 import type { PlanPermissions } from '@/config/planPermissions';
 import type { LojaAfiliado } from '@/types/tenant';
@@ -102,23 +102,19 @@ export function LojistaBatchImport({
             : '';
           const title = slug
             ? slug.charAt(0).toUpperCase() + slug.slice(1)
-            : `Oferta Shopee #${i + 1}`;
+            : `Produto Shopee #${i + 1}`;
           const hashVal = Math.abs(hash(url) || Date.now() + i);
           const mlbId = `SHP-${String(hashVal).slice(0, 8)}`;
-          const origPrice = 79.9 + (hashVal % 180) + 0.9;
-          const disc = 20 + (hashVal % 35);
-          const curPrice = Math.round(origPrice * (100 - disc)) / 100;
 
           parsed.push({
             id: `${mlbId}-${Date.now()}-${i}`,
             mlbId,
             title,
-            originalPrice: origPrice,
-            currentPrice: curPrice,
-            discountPercent: disc,
-            installmentsText: 'em até 6x sem juros',
-            imageUrl:
-              'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+            originalPrice: 0,
+            currentPrice: 0,
+            discountPercent: 0,
+            installmentsText: '',
+            imageUrl: '',
             affiliateUrl: url,
             category: batchDefaultCategory,
             freeShipping: true,
@@ -132,41 +128,29 @@ export function LojistaBatchImport({
           });
         } else {
           // Mercado Livre
-          const p = productFromUrl(url, batchDefaultCategory, url, true);
-          if (p) {
-            parsed.push({
-              ...p,
-              marketplace: 'mercadolivre',
-              lojaSlug,
-              status: 'ativo',
-            });
-          } else {
-            const mlb = extractMlbId(url) || `MLB-${Date.now().toString().slice(-8)}`;
-            const origPrice = 129.9;
-            const disc = 25;
-            const curPrice = Math.round(origPrice * (100 - disc)) / 100;
-            parsed.push({
-              id: `${mlb}-${Date.now()}-${i}`,
-              mlbId: mlb,
-              title: `Produto Mercado Livre ${mlb}`,
-              originalPrice: origPrice,
-              currentPrice: curPrice,
-              discountPercent: disc,
-              installmentsText: 'em até 6x sem juros',
-              imageUrl:
-                'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?auto=format&fit=crop&w=600&q=80',
-              affiliateUrl: url,
-              category: batchDefaultCategory,
-              freeShipping: true,
-              isFull: true,
-              rating: 4.9,
-              reviewsCount: 320,
-              featured: false,
-              status: 'ativo',
-              marketplace: 'mercadolivre',
-              lojaSlug,
-            });
-          }
+          const mlb = extractMlbId(url) || `MLB-${Date.now().toString().slice(-8)}`;
+          const slug = url.split('/').find((s) => /[a-z]-[a-z]/i.test(s) && !/MLB/i.test(s));
+          const title = slug ? slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : `Produto Mercado Livre ${mlb}`;
+          parsed.push({
+            id: `${mlb}-${Date.now()}-${i}`,
+            mlbId: mlb,
+            title,
+            originalPrice: 0,
+            currentPrice: 0,
+            discountPercent: 0,
+            installmentsText: '',
+            imageUrl: '',
+            affiliateUrl: url,
+            category: batchDefaultCategory,
+            freeShipping: true,
+            isFull: true,
+            rating: 4.9,
+            reviewsCount: 320,
+            featured: false,
+            status: 'ativo',
+            marketplace: 'mercadolivre',
+            lojaSlug,
+          });
         }
       }
 
