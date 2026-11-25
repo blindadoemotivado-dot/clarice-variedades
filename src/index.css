@@ -1,0 +1,11 @@
+/*
+ * Entrada CSS auxiliar para compatibilidade com especificações do projeto
+ */
+@import "./styles.css";
+
+html, body {
+  background-color: #060913;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}

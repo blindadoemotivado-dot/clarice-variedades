@@ -186,9 +186,12 @@
     border-color: var(--color-border);
   }
 
-  body {
-    background-color: var(--color-background);
+  html, body {
+    background-color: #060913;
     color: var(--color-foreground);
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 }
 

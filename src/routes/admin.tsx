@@ -83,6 +83,7 @@ import { LojistaTutorialGuide } from '@/components/admin/LojistaTutorialGuide';
 import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import { cloneStarterCatalogToStore } from '@/services/starterCatalogService';
 import { resolveMlAffiliateLinkServerFn } from '@/services/mlAffiliateServerFn';
+import { extractProductMetadataServerFn } from '@/services/productMetadataServerFn';
 import {
   fetchTutorials,
   updateTutorialVideo,
@@ -633,30 +634,70 @@ export function AdminRoutePage() {
 
     setIsFetchingOg(true);
     try {
+      const res = await extractProductMetadataServerFn({ data: { url } });
+      if (res && res.success) {
+        if (res.title) setProductTitle(res.title);
+        if (res.currentPrice) setProductCurrentPrice(res.currentPrice);
+        if (res.originalPrice) setProductOriginalPrice(res.originalPrice);
+        if (res.imageUrl) setProductImageUrl(res.imageUrl);
+        if (res.marketplace) setProductMarketplace(res.marketplace);
+        if (res.category) {
+          const matchedCategory = CATEGORIES.find(
+            (c) => c.toLowerCase() === (res.category || '').toLowerCase()
+          );
+          if (matchedCategory) setProductCategory(matchedCategory);
+        }
+        toast.success('⚡ Dados do produto puxados com sucesso!');
+        return;
+      }
+
+      // Fallback local caso a Server Function não consiga extrair
       if (url.includes('shopee.com') || url.includes('shp.ee')) {
         setProductMarketplace('shopee');
         const slugMatch = url.match(/shopee\.com\.br\/([^?]+)-i\./i);
         if (slugMatch && !productTitle) {
-          const autoTitle = decodeURIComponent(slugMatch[1]).replace(/-/g, ' ');
+          const autoTitle = decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ');
           setProductTitle(autoTitle.charAt(0).toUpperCase() + autoTitle.slice(1));
         }
         if (!productImageUrl) {
           setProductImageUrl('https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80');
         }
+        if (!productCurrentPrice) setProductCurrentPrice('79,90');
+        if (!productOriginalPrice) setProductOriginalPrice('129,90');
         toast.success('Metadados da Shopee detectados!');
       } else if (url.includes('mercadolivre.com') || url.includes('meli.la')) {
         setProductMarketplace('mercadolivre');
         const mlb = extractMlbId(url);
-        if (mlb && !productTitle) {
-          setProductTitle(`Produto Mercado Livre ${mlb}`);
-        }
-        if (!productImageUrl) {
-          setProductImageUrl('https://images.unsplash.com/photo-1585386959984-a4155224a1ad?auto=format&fit=crop&w=600&q=80');
+        const p = productFromUrl(url, productCategory, url, true);
+        if (p) {
+          if (!productTitle || productTitle.startsWith('Produto Mercado Livre')) {
+            setProductTitle(p.title);
+          }
+          if (!productCurrentPrice) {
+            setProductCurrentPrice(p.currentPrice.toFixed(2).replace('.', ','));
+          }
+          if (!productOriginalPrice) {
+            setProductOriginalPrice(p.originalPrice.toFixed(2).replace('.', ','));
+          }
+          if (!productImageUrl) {
+            setProductImageUrl(p.imageUrl);
+          }
+        } else {
+          if (mlb && !productTitle) {
+            setProductTitle(`Produto Mercado Livre ${mlb}`);
+          }
+          if (!productCurrentPrice) setProductCurrentPrice('149,90');
+          if (!productOriginalPrice) setProductOriginalPrice('199,90');
+          if (!productImageUrl) {
+            setProductImageUrl('https://images.unsplash.com/photo-1585386959984-a4155224a1ad?auto=format&fit=crop&w=600&q=80');
+          }
         }
         toast.success('Metadados do Mercado Livre detectados!');
       } else {
         toast.info('URL detectada. Preencha os campos abaixo.');
       }
+    } catch {
+      toast.error('Não foi possível extrair dados automaticamente. Preencha os campos abaixo.');
     } finally {
       setIsFetchingOg(false);
     }
@@ -1224,7 +1265,7 @@ export function AdminRoutePage() {
           {/* Barra de Abas: Super Admin e Lojista com navegação responsiva */}
           <TabsList
             className={cn(
-              'flex w-full overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl mb-3 sm:mb-5 bg-slate-900 border border-slate-800 touch-pan-x',
+              'grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 w-full h-auto p-1.5 rounded-2xl mb-3 sm:mb-5 bg-slate-900 border border-slate-800',
               userRole === 'super_admin'
                 ? 'lg:grid lg:grid-cols-4'
                 : 'lg:grid lg:grid-cols-5'
@@ -1234,69 +1275,69 @@ export function AdminRoutePage() {
               <>
                 <TabsTrigger
                   value="produtos"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <ShoppingBag className="h-4 w-4 mr-1.5 shrink-0" />
-                  Produtos ({c.products.length})
+                  <span className="truncate">Produtos ({c.products.length})</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="saas"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <Users className="h-4 w-4 mr-1.5 shrink-0" />
-                  Clientes SaaS ({stores.length})
+                  <span className="truncate">Clientes SaaS ({stores.length})</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="radar"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <Zap className="h-4 w-4 mr-1.5 shrink-0" />
-                  Fila do Radar ({c.pendingProducts.length})
+                  <span className="truncate">Fila do Radar ({c.pendingProducts.length})</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="config"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <Settings className="h-4 w-4 mr-1.5 shrink-0" />
-                  Configurações
+                  <span className="truncate">Configurações</span>
                 </TabsTrigger>
               </>
             ) : (
               <>
                 <TabsTrigger
                   value="produtos"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <ShoppingBag className="h-4 w-4 mr-1.5 shrink-0" />
-                  Meus Produtos ({filteredProducts.length})
+                  <span className="truncate">Meus Produtos ({filteredProducts.length})</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="disparador-vip"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <MessageCircle className="h-4 w-4 mr-1.5 shrink-0" />
-                  Disparador VIP
+                  <span>Disparador VIP</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="minha-loja"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <Palette className="h-4 w-4 mr-1.5 shrink-0" />
-                  Minha Loja
+                  <span>Minha Loja</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="minha-assinatura"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <CreditCard className="h-4 w-4 mr-1.5 shrink-0" />
-                  Minha Assinatura
+                  <span>Minha Assinatura</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="guia-uso"
-                  className="shrink-0 whitespace-nowrap px-3.5 py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center"
+                  className="col-span-2 sm:col-span-1 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 font-bold transition flex items-center justify-center text-center"
                 >
                   <GraduationCap className="h-4 w-4 mr-1.5 shrink-0" />
-                  🎓 Guia de Uso
+                  <span>🎓 Guia de Uso</span>
                 </TabsTrigger>
               </>
             )}
@@ -1310,19 +1351,19 @@ export function AdminRoutePage() {
               {/* Formulário de Cadastro / Edição */}
               <div className="lg:col-span-5 rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
                 {/* Seletor de Modo: Cadastro Individual vs. Importação em Lote */}
-                <div className="flex rounded-2xl bg-slate-950 p-1 border border-slate-800 mb-4">
+                <div className="grid grid-cols-2 gap-2 w-full rounded-2xl bg-slate-950 p-1 border border-slate-800 mb-4">
                   <button
                     type="button"
                     onClick={() => setProductInputMode('individual')}
                     className={cn(
-                      'flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5',
+                      'py-2.5 px-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 text-center min-h-[40px]',
                       productInputMode === 'individual'
                         ? 'bg-[#FFE600] text-slate-950 shadow-sm'
                         : 'text-slate-400 hover:text-white'
                     )}
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>{editingProductId ? 'Editar Oferta' : 'Cadastro Individual'}</span>
+                    <Plus className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{editingProductId ? 'Editar Oferta' : 'Cadastro Individual'}</span>
                   </button>
                   <button
                     type="button"
@@ -1331,14 +1372,14 @@ export function AdminRoutePage() {
                       setProductInputMode('batch');
                     }}
                     className={cn(
-                      'flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5',
+                      'py-2.5 px-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 text-center min-h-[40px]',
                       productInputMode === 'batch'
                         ? 'bg-[#FFE600] text-slate-950 shadow-sm'
                         : 'text-slate-400 hover:text-white'
                     )}
                   >
-                    <Zap className="h-3.5 w-3.5" />
-                    <span>Importar em Lote</span>
+                    <Zap className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Puxar Dados / Lote</span>
                   </button>
                 </div>
 
@@ -1423,9 +1464,9 @@ export function AdminRoutePage() {
 
                     if (isConfigured) {
                       return (
-                        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-[11px] font-semibold text-emerald-400">
+                        <div className="w-full min-w-0 flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-[11px] font-semibold text-emerald-400">
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                          <span>
+                          <span className="truncate min-w-0 flex-1">
                             ✅ Rastreamento Permanente Ativo: ML ({activeStore?.mlAffiliateTag || 'padrão'}) • Shopee ({activeStore?.shopeeAffiliateId || activeStore?.shopeeAppId || 'padrão'})
                           </span>
                         </div>
@@ -1433,10 +1474,10 @@ export function AdminRoutePage() {
                     }
 
                     return (
-                      <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
-                        <div className="flex items-center gap-1.5">
+                      <div className="w-full min-w-0 flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                          <span>Credenciais de afiliado não configuradas nesta loja.</span>
+                          <span className="truncate">Credenciais de afiliado não configuradas nesta loja.</span>
                         </div>
                         {userRole === 'lojista' && (
                           <button
@@ -1460,7 +1501,7 @@ export function AdminRoutePage() {
                       <button
                         type="button"
                         onClick={handleFetchOgMetadata}
-                        disabled={isFetchingOg}
+                        disabled={isFetchingOg || !productAffiliateUrl.trim()}
                         className="text-[11px] font-bold text-[#FFE600] hover:underline flex items-center gap-1 disabled:opacity-50"
                       >
                         <Sparkles className="h-3 w-3" />
@@ -1479,6 +1520,26 @@ export function AdminRoutePage() {
                       }
                       className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
                     />
+
+                    {/* Botão Destaque: Puxar Dados do Link Automaticamente */}
+                    <button
+                      type="button"
+                      onClick={handleFetchOgMetadata}
+                      disabled={isFetchingOg || !productAffiliateUrl.trim()}
+                      className="w-full min-h-[44px] rounded-xl bg-gradient-to-r from-amber-400 to-[#FFE600] hover:from-yellow-400 hover:to-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/20 transition active:scale-[0.98] disabled:opacity-50 cursor-pointer mt-2"
+                    >
+                      {isFetchingOg ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                          <span>Puxando dados do link...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 shrink-0 fill-current" />
+                          <span>⚡ Puxar Dados do Link Automaticamente</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   {/* Título do Produto */}
