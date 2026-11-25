@@ -30,6 +30,7 @@ import { AdminSheet } from '@/components/store/AdminSheet';
 import { AdminPinDialog } from '@/components/store/AdminPinDialog';
 import { askClariceAi } from '@/services/clariceAiService';
 import { useCatalog } from '@/hooks/use-catalog';
+import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import { useTenant } from '@/hooks/use-tenant';
 import { fetchStoreBySlug } from '@/services/tenantService';
 import { filterProducts, type CategoryFilter, type SortKey, type MarketplaceFilter } from '@/lib/catalog';

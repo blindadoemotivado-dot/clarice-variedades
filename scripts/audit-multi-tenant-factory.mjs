@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'node:crypto';
 
 const BASE_URL = process.env.BASE_URL || 'https://clariceachadinhos.vercel.app';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tuxvpzeciwxgxhmcrprt.supabase.co';
@@ -219,7 +220,7 @@ async function main() {
     console.log(`📦 CADASTRANDO 1º PRODUTO PARA ${testSlug}...`);
     console.log(`============================================================`);
 
-    const testProductId = `prod-factory-${timestamp}`;
+    const testProductId = crypto.randomUUID();
     const rawMlUrl =
       'https://www.mercadolivre.com.br/garrafa-termica-em-inox-com-termometro-digital-500ml/p/MLB28509893';
     const testProductRecord = {
@@ -269,7 +270,10 @@ async function main() {
       waitUntil: 'networkidle',
       timeout: 30000,
     });
-    await auditPage.waitForTimeout(1500);
+    
+    // Aguarda o card do produto ser renderizado após retorno do Supabase (seja no Achadinho do Dia ou na Grade)
+    await auditPage.waitForSelector('a[href*="mercadolivre.com"], #achadinho-do-dia', { timeout: 20000 });
+    await auditPage.waitForTimeout(1000);
 
     // Valida sem overflow com produto na tela
     await checkNoHorizontalOverflow(auditPage, 'Vitrine com Produto Ativo');
