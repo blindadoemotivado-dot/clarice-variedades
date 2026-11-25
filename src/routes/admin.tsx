@@ -835,6 +835,10 @@ export function AdminRoutePage() {
     }
 
     const curPrice = parseFloat(productCurrentPrice.replace(',', '.')) || 0;
+    if (curPrice <= 0) {
+      toast.error('Informe o preço atual do produto antes de publicar');
+      return;
+    }
     const origPrice = parseFloat(productOriginalPrice.replace(',', '.')) || curPrice;
 
     const mlbId =
