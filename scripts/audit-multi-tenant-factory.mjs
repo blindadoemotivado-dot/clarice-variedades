@@ -69,7 +69,6 @@ async function main() {
   const testShopeeId = '18999888777';
 
   const testStoreRecord = {
-    id: `store-stress-${timestamp}`,
     slug: testSlug,
     nome_loja: testStoreName,
     subtitulo: 'Curadoria de ofertas com dados extremos e nomes longos para estresse de layout',
@@ -77,16 +76,12 @@ async function main() {
     cor_destaque: '#FFE600',
     logo_url: null,
     hero_mascote_url: null,
-    banner_url: null,
     whatsapp_vip_url: 'https://chat.whatsapp.com/stress-test-vip',
     instagram_url: 'https://instagram.com/stress.test.loja',
     plano: 'pro',
     status_assinatura: 'ativo',
     shopee_app_id: testShopeeId,
     shopee_secret: `${testMlTag}|${testMlTool}`,
-    ml_affiliate_tag: testMlTag,
-    ml_matt_tool: testMlTool,
-    shopee_affiliate_id: testShopeeId,
     owner_email: testEmail,
     owner_password: testPassword,
     dominio_customizado: null,
@@ -229,19 +224,21 @@ async function main() {
       'https://www.mercadolivre.com.br/garrafa-termica-em-inox-com-termometro-digital-500ml/p/MLB28509893';
     const testProductRecord = {
       id: testProductId,
-      titulo: 'Garrafa Térmica Em Inox Com Termômetro Digital 500ml',
-      descricao: 'Garrafa térmica com display digital de LED e vedação anti-vazamento.',
-      preco_atual: 49.9,
-      preco_original: 89.9,
-      desconto_percentual: 44,
-      link_afiliado: rawMlUrl,
-      imagem_url:
+      mlb_id: `MLB28509893-${testSlug}`,
+      title: 'Garrafa Térmica Em Inox Com Termômetro Digital 500ml',
+      current_price: 49.9,
+      original_price: 89.9,
+      discount_percent: 44,
+      installments_text: '3x de R$ 16,63 sem juros',
+      affiliate_url: rawMlUrl,
+      image_url:
         'https://http2.mlstatic.com/D_NQ_NP_2X_792015-MLA100412384724_122025-F.webp',
-      categoria: 'Casa',
+      category: 'Casa',
       marketplace: 'mercadolivre',
-      em_destaque: true,
+      featured: true,
+      active: true,
+      status: 'ativo',
       loja_slug: testSlug,
-      criado_em: new Date().toISOString(),
     };
 
     const { error: prodInsertError } = await supabaseAdmin

@@ -275,18 +275,14 @@ export async function createStore(input: {
         cor_destaque: newStore.corDestaque,
         logo_url: newStore.logoUrl || null,
         hero_mascote_url: newStore.heroMascoteUrl || null,
-        banner_url: newStore.heroMascoteUrl || null,
         whatsapp_vip_url: newStore.whatsappVipUrl,
         instagram_url: newStore.instagramUrl,
         plano: newStore.plano,
         status_assinatura: newStore.statusAssinatura,
-        shopee_app_id: newStore.shopeeAppId,
+        shopee_app_id: newStore.shopeeAffiliateId || newStore.shopeeAppId || null,
         shopee_secret: newStore.mlMattTool
           ? `${newStore.mlAffiliateTag}|${newStore.mlMattTool}`
           : newStore.shopeeSecret || newStore.mlAffiliateTag || null,
-        ml_affiliate_tag: newStore.mlAffiliateTag || null,
-        ml_matt_tool: newStore.mlMattTool || null,
-        shopee_affiliate_id: newStore.shopeeAffiliateId || null,
         owner_email: newStore.ownerEmail,
         owner_password: newStore.ownerPassword || null,
         dominio_customizado: newStore.dominioCustomizado || null,
@@ -305,8 +301,12 @@ export async function createStore(input: {
       }
 
       // Fallback seguro se as colunas da migration 0003 ainda não tiverem sido aplicadas
-      if (error && (error.message.includes('column') || error.message.includes('status_assinatura'))) {
+      if (error && (error.message.includes('column') || error.message.includes('status_assinatura') || error.message.includes('schema cache'))) {
         const fallbackStatus = newStore.statusAssinatura === 'pendente' ? 'trial' : newStore.statusAssinatura;
+        const effectiveSecret = newStore.mlMattTool
+          ? `${newStore.mlAffiliateTag}|${newStore.mlMattTool}`
+          : newStore.shopeeSecret || newStore.mlAffiliateTag || null;
+
         const { data: fbData, error: fbError } = await supabase
           .from('lojas_afiliados')
           .insert({
@@ -322,10 +322,13 @@ export async function createStore(input: {
             instagram_url: newStore.instagramUrl,
             plano: newStore.plano,
             status_assinatura: fallbackStatus,
-            shopee_app_id: newStore.shopeeAppId,
-            shopee_secret: newStore.shopeeSecret,
+            shopee_app_id: newStore.shopeeAffiliateId || newStore.shopeeAppId || '',
+            shopee_secret: effectiveSecret,
             owner_email: newStore.ownerEmail,
+            owner_password: newStore.ownerPassword || null,
             dominio_customizado: newStore.dominioCustomizado || null,
+            whatsapp_contato: newStore.whatsappContato || null,
+            cpf_cnpj: newStore.cpfCnpj || null,
           })
           .select()
           .single();
@@ -376,19 +379,12 @@ export async function updateStoreBranding(
           ? updates.mlMattTool
           : local[targetIdx]?.mlMattTool || '';
 
-      if (updates.mlAffiliateTag !== undefined) {
-        dbPayload.ml_affiliate_tag = updates.mlAffiliateTag || null;
-      }
-      if (updates.mlMattTool !== undefined) {
-        dbPayload.ml_matt_tool = updates.mlMattTool || null;
-      }
       if (effectiveTool) {
         dbPayload.shopee_secret = `${effectiveTag}|${effectiveTool}`;
       } else if (updates.mlAffiliateTag !== undefined) {
         dbPayload.shopee_secret = updates.mlAffiliateTag || null;
       }
       if (updates.shopeeAffiliateId !== undefined) {
-        dbPayload.shopee_affiliate_id = updates.shopeeAffiliateId || null;
         dbPayload.shopee_app_id = updates.shopeeAffiliateId || null;
       }
 
