@@ -7,6 +7,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ClipboardPaste,
   Clock,
   Copy,
   CreditCard,
@@ -87,6 +88,7 @@ import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import { cloneStarterCatalogToStore } from '@/services/starterCatalogService';
 import { resolveMlAffiliateLinkServerFn } from '@/services/mlAffiliateServerFn';
 import { extractProductMetadataServerFn } from '@/services/productMetadataServerFn';
+import { parseShopeeSharedText } from '@/utils/shopeeSharedText';
 import {
   fetchTutorials,
   updateTutorialVideo,
@@ -635,9 +637,73 @@ export function AdminRoutePage() {
     return 0;
   }, [productCurrentPrice, productOriginalPrice]);
 
+  // Processar texto compartilhado do App da Shopee ou URLs coladas
+  const handleProcessPastedText = async (rawText: string): Promise<boolean> => {
+    const parsed = parseShopeeSharedText(rawText);
+    if (parsed.isSharedText && parsed.url) {
+      setProductAffiliateUrl(parsed.url);
+      setProductMarketplace('shopee');
+      if (parsed.title) {
+        setProductTitle(parsed.title);
+      }
+      if (parsed.currentPrice) {
+        setProductCurrentPrice(parsed.currentPrice);
+      }
+      if (parsed.originalPrice) {
+        setProductOriginalPrice(parsed.originalPrice);
+      }
+      toast.success(
+        parsed.currentPrice
+          ? `⚡ Dados extraídos do app Shopee! Preço: R$ ${parsed.currentPrice}`
+          : '⚡ Link da Shopee extraído do texto compartilhado!'
+      );
+      await handleFetchOgMetadata(parsed.url, {
+        preservedCurrentPrice: parsed.currentPrice,
+        preservedOriginalPrice: parsed.originalPrice,
+      });
+      return true;
+    } else if (parsed.url && parsed.url !== rawText.trim()) {
+      setProductAffiliateUrl(parsed.url);
+      if (parsed.marketplace === 'shopee') setProductMarketplace('shopee');
+      await handleFetchOgMetadata(parsed.url);
+      return true;
+    }
+    return false;
+  };
+
+  // Botão Colar do App Shopee (lê navigator.clipboard)
+  const handlePasteFromShopeeApp = async () => {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        toast.info('Seu navegador não suporta leitura direta da área de transferência. Cole o texto diretamente no campo.');
+        return;
+      }
+      const text = await navigator.clipboard.readText();
+      if (!text || !text.trim()) {
+        toast.info('Área de transferência vazia. Copie o link no App da Shopee antes de clicar.');
+        return;
+      }
+      const processed = await handleProcessPastedText(text);
+      if (!processed) {
+        const trimmed = text.trim();
+        setProductAffiliateUrl(trimmed);
+        await handleFetchOgMetadata(trimmed);
+      }
+    } catch (err) {
+      console.error('Falha ao ler área de transferência:', err);
+      toast.info('Permissão da área de transferência negada. Cole o link diretamente no campo.');
+    }
+  };
+
   // Função para puxar metadados OpenGraph ou extrair da URL
-  const handleFetchOgMetadata = async () => {
-    let url = productAffiliateUrl.trim();
+  const handleFetchOgMetadata = async (
+    customUrl?: string,
+    options?: {
+      preservedCurrentPrice?: string;
+      preservedOriginalPrice?: string;
+    }
+  ) => {
+    let url = (customUrl ?? productAffiliateUrl).trim();
     if (!url) {
       toast.info('Cole primeiro a URL do produto antes de puxar os metadados.');
       return;
@@ -662,7 +728,16 @@ export function AdminRoutePage() {
 
     setIsFetchingOg(true);
     try {
-      const res = await extractProductMetadataServerFn({ data: { url } });
+      const res = await extractProductMetadataServerFn({
+        data: {
+          url,
+          lojaSlug: activeStore?.slug,
+          shopeeAppId: activeStore?.shopeeAppId || (activeStore as any)?.shopee_app_id,
+          shopeeSecret: activeStore?.shopeeSecret || (activeStore as any)?.shopee_secret,
+          preservedCurrentPrice: options?.preservedCurrentPrice || (productCurrentPrice.trim() ? productCurrentPrice.trim() : undefined),
+          preservedOriginalPrice: options?.preservedOriginalPrice || (productOriginalPrice.trim() ? productOriginalPrice.trim() : undefined),
+        },
+      });
       if (res && res.success) {
         if (res.title) setProductTitle(res.title);
         if (res.currentPrice) setProductCurrentPrice(res.currentPrice);
@@ -703,6 +778,12 @@ export function AdminRoutePage() {
       setProductMarketplace(isShopee ? 'shopee' : 'mercadolivre');
 
       if (isShopee) {
+        if (options?.preservedCurrentPrice) {
+          setProductCurrentPrice(options.preservedCurrentPrice);
+        }
+        if (options?.preservedOriginalPrice) {
+          setProductOriginalPrice(options.preservedOriginalPrice);
+        }
         const slugMatch = url.match(/shopee\.com\.br\/([^?]+)-i\./i);
         if (slugMatch && !productTitle) {
           const autoTitle = decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim();
@@ -1583,25 +1664,53 @@ export function AdminRoutePage() {
 
                   {/* URL de Afiliado com Auto-Detection */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
                       <label className="text-xs font-semibold text-slate-300">
                         Link de Afiliado Oficial
                       </label>
-                      <button
-                        type="button"
-                        onClick={handleFetchOgMetadata}
-                        disabled={isFetchingOg || !productAffiliateUrl.trim()}
-                        className="text-[11px] font-bold text-[#FFE600] hover:underline flex items-center gap-1 disabled:opacity-50"
-                      >
-                        <Sparkles className="h-3 w-3" />
-                        {isFetchingOg ? 'Detectando...' : 'Puxar Dados'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handlePasteFromShopeeApp}
+                          disabled={isFetchingOg}
+                          className="text-[11px] font-bold text-amber-300 hover:text-white flex items-center gap-1 transition px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer disabled:opacity-50"
+                          title="Cola o texto copiado pelo botão 'Compartilhar' no app da Shopee e preenche preço e título automaticamente"
+                        >
+                          <ClipboardPaste className="h-3 w-3" />
+                          <span>📋 Colar do App Shopee</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFetchOgMetadata()}
+                          disabled={isFetchingOg || !productAffiliateUrl.trim()}
+                          className="text-[11px] font-bold text-[#FFE600] hover:underline flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          {isFetchingOg ? 'Detectando...' : 'Puxar Dados'}
+                        </button>
+                      </div>
                     </div>
                     <input
                       type="url"
                       required
                       value={productAffiliateUrl}
-                      onChange={(e) => setProductAffiliateUrl(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setProductAffiliateUrl(val);
+                        if (val.includes('shopee.com') && (val.includes('Confira') || val.includes('R$') || val.includes('\n'))) {
+                          handleProcessPastedText(val);
+                        }
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData('text');
+                        if (pasted) {
+                          const parsed = parseShopeeSharedText(pasted);
+                          if (parsed.isSharedText && parsed.url) {
+                            e.preventDefault();
+                            handleProcessPastedText(pasted);
+                          }
+                        }
+                      }}
                       placeholder={
                         productMarketplace === 'mercadolivre'
                           ? 'https://meli.la/... ou https://mercadolivre.com/sec/...'
@@ -1628,7 +1737,7 @@ export function AdminRoutePage() {
                     {/* Botão Destaque: Puxar Dados do Link Automaticamente */}
                     <button
                       type="button"
-                      onClick={handleFetchOgMetadata}
+                      onClick={() => handleFetchOgMetadata()}
                       disabled={isFetchingOg || !productAffiliateUrl.trim()}
                       className="w-full min-h-[44px] rounded-xl bg-gradient-to-r from-amber-400 to-[#FFE600] hover:from-yellow-400 hover:to-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/20 transition active:scale-[0.98] disabled:opacity-50 cursor-pointer mt-2"
                     >

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { extractProductMetadata } from './productMetadataServerFn';
+import * as shopeeOpenApi from './shopeeOpenApi';
 
 describe('extractProductMetadata', () => {
   it('extracts real title and image from Shopee short link without fake fallbacks', async () => {
@@ -24,6 +25,48 @@ describe('extractProductMetadata', () => {
     expect(res.partial).toBe(true);
     expect(res.marketplace).toBe('shopee');
   }, 15000);
+
+  it('preserves currentPrice and originalPrice when passed from clipboard shared text', async () => {
+    const res = await extractProductMetadata('https://s.shopee.com.br/40iNZkIFU7', {
+      preservedCurrentPrice: '2.707,69',
+      preservedOriginalPrice: '3.500,00',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.currentPrice).toBe('2.707,69');
+    expect(res.originalPrice).toBe('3.500,00');
+    // If image was also fetched, partial should be false
+    if (res.imageUrl) {
+      expect(res.partial).toBe(false);
+    }
+  }, 15000);
+
+  it('uses Shopee Open API when credentials are provided', async () => {
+    const mockOffer: shopeeOpenApi.ShopeeProductOffer = {
+      itemId: '22894416890',
+      title: 'Beliche Casinha Oficial Shopee API',
+      imageUrl: 'https://down-br.img.susercontent.com/file/sg-fake-image',
+      currentPrice: '2707,69',
+      originalPrice: '3500,00',
+    };
+
+    const spy = vi
+      .spyOn(shopeeOpenApi, 'fetchShopeeProductOffer')
+      .mockResolvedValueOnce(mockOffer);
+
+    const res = await extractProductMetadata('https://s.shopee.com.br/40iNZkIFU7', {
+      shopeeAppId: '18364201389',
+      shopeeSecret: 'my_secret_key',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.title).toBe('Beliche Casinha Oficial Shopee API');
+    expect(res.currentPrice).toBe('2707,69');
+    expect(res.originalPrice).toBe('3500,00');
+    expect(res.partial).toBe(false);
+
+    spy.mockRestore();
+  });
 
   it('handles invalid or empty URLs safely without throwing', async () => {
     const res = await extractProductMetadata('');

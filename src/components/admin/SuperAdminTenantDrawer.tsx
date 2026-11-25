@@ -76,6 +76,9 @@ export function SuperAdminTenantDrawer({
   const [mlAffiliateTag, setMlAffiliateTag] = useState('');
   const [mlMattTool, setMlMattTool] = useState('');
   const [shopeeAffiliateId, setShopeeAffiliateId] = useState('');
+  const [shopeeAppId, setShopeeAppId] = useState('');
+  const [shopeeSecret, setShopeeSecret] = useState('');
+  const [showShopeeSecret, setShowShopeeSecret] = useState(false);
   const [dominioCustomizado, setDominioCustomizado] = useState('');
   const [savingDados, setSavingDados] = useState(false);
 
@@ -111,6 +114,10 @@ export function SuperAdminTenantDrawer({
     setMlAffiliateTag(store.mlAffiliateTag || '');
     setMlMattTool(store.mlMattTool || '');
     setShopeeAffiliateId(store.shopeeAffiliateId || '');
+    setShopeeAppId(store.shopeeAppId || '');
+    setShopeeSecret(
+      store.shopeeSecret && !store.shopeeSecret.includes('|') ? store.shopeeSecret : ''
+    );
     setDominioCustomizado(store.dominioCustomizado || '');
     setNewPassword('');
     setProductSearch('');
@@ -166,6 +173,8 @@ export function SuperAdminTenantDrawer({
             ml_affiliate_tag: mlAffiliateTag,
             ml_matt_tool: mlMattTool,
             shopee_affiliate_id: shopeeAffiliateId,
+            shopee_app_id: shopeeAppId,
+            shopee_secret: shopeeSecret,
             dominio_customizado: dominioCustomizado,
           },
         },
@@ -187,6 +196,8 @@ export function SuperAdminTenantDrawer({
           mlAffiliateTag,
           mlMattTool,
           shopeeAffiliateId,
+          shopeeAppId,
+          shopeeSecret,
           dominioCustomizado,
         });
         loadOverview(store.slug);
@@ -663,6 +674,53 @@ export function SuperAdminTenantDrawer({
                       placeholder="Ex: 18318420060"
                       className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-white font-mono text-[11px]"
                     />
+                  </div>
+
+                  {/* Shopee Open API Opcional */}
+                  <div className="sm:col-span-2 rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-2 mt-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                      <Sparkles className="h-3.5 w-3.5 text-[#FFE600]" />
+                      <span>Shopee Affiliate Open API (GraphQL)</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Opcional: preencha para puxar preços da Shopee 100% no automático apenas com o link.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-400 mb-1">
+                          App ID Shopee Open API
+                        </label>
+                        <input
+                          type="text"
+                          value={shopeeAppId}
+                          onChange={(e) => setShopeeAppId(e.target.value)}
+                          placeholder="Ex: 18364201389"
+                          className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-white font-mono text-[11px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-400 mb-1">
+                          Secret Shopee Open API
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showShopeeSecret ? 'text' : 'password'}
+                            value={shopeeSecret}
+                            onChange={(e) => setShopeeSecret(e.target.value)}
+                            placeholder="••••••••••••••••"
+                            className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-3 pr-8 py-2 text-white font-mono text-[11px]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowShopeeSecret(!showShopeeSecret)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                            title={showShopeeSecret ? 'Ocultar secret' : 'Ver secret'}
+                          >
+                            {showShopeeSecret ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatBRL, extractMlbId } from '@/lib/catalog';
+import { parseShopeeSharedText } from '@/utils/shopeeSharedText';
 import { CATEGORIES, type AffiliateProduct } from '@/types/product';
 import type { PlanPermissions } from '@/config/planPermissions';
 import type { LojaAfiliado } from '@/types/tenant';
@@ -91,7 +92,9 @@ export function LojistaBatchImport({
       const parsed: AffiliateProduct[] = [];
 
       for (let i = 0; i < limitedLines.length; i++) {
-        const rawUrl = limitedLines[i];
+        const rawLine = limitedLines[i];
+        const shared = parseShopeeSharedText(rawLine);
+        const rawUrl = shared?.url || rawLine;
         const { finalUrl: url } = applyStoreAffiliateTracking(rawUrl, store);
         const isShopee = url.includes('shopee.com') || url.includes('shp.ee');
 
@@ -100,20 +103,33 @@ export function LojistaBatchImport({
           const slug = slugMatch
             ? decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim()
             : '';
-          const title = slug
-            ? slug.charAt(0).toUpperCase() + slug.slice(1)
-            : `Produto Shopee #${i + 1}`;
+          const title =
+            shared?.title ||
+            (slug
+              ? slug.charAt(0).toUpperCase() + slug.slice(1)
+              : `Produto Shopee #${i + 1}`);
           const hashVal = Math.abs(hash(url) || Date.now() + i);
           const mlbId = `SHP-${String(hashVal).slice(0, 8)}`;
+
+          const curPrice = shared?.currentPrice
+            ? parseFloat(shared.currentPrice.replace(/\./g, '').replace(',', '.')) || 0
+            : 0;
+          const origPrice = shared?.originalPrice
+            ? parseFloat(shared.originalPrice.replace(/\./g, '').replace(',', '.')) || 0
+            : 0;
+          const disc =
+            origPrice > curPrice && curPrice > 0
+              ? Math.round(((origPrice - curPrice) / origPrice) * 100)
+              : 0;
 
           parsed.push({
             id: `${mlbId}-${Date.now()}-${i}`,
             mlbId,
             title,
-            originalPrice: 0,
-            currentPrice: 0,
-            discountPercent: 0,
-            installmentsText: '',
+            originalPrice: origPrice,
+            currentPrice: curPrice,
+            discountPercent: disc,
+            installmentsText: curPrice > 0 ? 'em até 6x sem juros' : '',
             imageUrl: '',
             affiliateUrl: url,
             category: batchDefaultCategory,

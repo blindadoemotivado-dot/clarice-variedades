@@ -45,6 +45,8 @@ export interface AdminUpdateTenantDataInput {
     ml_affiliate_tag?: string;
     ml_matt_tool?: string;
     shopee_affiliate_id?: string;
+    shopee_app_id?: string;
+    shopee_secret?: string;
     whatsapp_vip_url?: string;
     instagram_url?: string;
     subtitulo?: string;
@@ -110,6 +112,14 @@ export const adminUpdateTenantDataServerFn = createServerFn({ method: 'POST' })
         ? `${effectiveMlTag}|${effectiveMlTool}`
         : effectiveMlTag || null;
       dbPayload.shopee_app_id = effectiveShopeeId || null;
+
+      // Credenciais Shopee Open API (se fornecidas explicitamente)
+      if (updates.shopee_app_id !== undefined) {
+        dbPayload.shopee_app_id = updates.shopee_app_id.trim() || effectiveShopeeId || null;
+      }
+      if (updates.shopee_secret !== undefined && !updates.shopee_secret.includes('|')) {
+        dbPayload.shopee_secret = updates.shopee_secret.trim() || null;
+      }
 
       // Tenta atualizar colunas diretas caso existam na tabela
       if (updates.ml_affiliate_tag !== undefined) dbPayload.ml_affiliate_tag = effectiveMlTag || null;

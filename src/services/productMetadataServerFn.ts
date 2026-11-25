@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createClient } from '@supabase/supabase-js';
+import * as shopeeOpenApi from './shopeeOpenApi';
 
 export interface ExtractProductMetadataResult {
   success: boolean;
@@ -15,6 +16,14 @@ export interface ExtractProductMetadataResult {
   error?: string | undefined;
 }
 
+export interface ExtractProductMetadataOptions {
+  lojaSlug?: string | undefined;
+  shopeeAppId?: string | undefined;
+  shopeeSecret?: string | undefined;
+  preservedCurrentPrice?: string | undefined;
+  preservedOriginalPrice?: string | undefined;
+}
+
 function cleanTitle(raw: string): string {
   return raw
     .replace(/\s*\|\s*(Mercado\s*Livre|Shopee|Frete\s*Gr[áa]tis).*$/i, '')
@@ -27,7 +36,10 @@ function cleanTitle(raw: string): string {
  * Função de extração pura para obter metadados reais (título, preço e foto).
  * Poka-Yoke: NUNCA preenche preços ou fotos com dados falsos/mockados (zero Unsplash / zero 79.90).
  */
-export async function extractProductMetadata(rawUrl: string): Promise<ExtractProductMetadataResult> {
+export async function extractProductMetadata(
+  rawUrl: string,
+  options?: ExtractProductMetadataOptions
+): Promise<ExtractProductMetadataResult> {
   const currentUrl = rawUrl?.trim();
   if (!currentUrl) {
     return { success: false, error: 'URL inválida.' };
@@ -83,7 +95,25 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
       }
     }
 
-    // 2. Fetch com bot User-Agent (WhatsApp) para seguir redirects e contornar anti-scraping
+    // 2. Para links encurtados da Shopee ou ML, resolve o primeiro salto para obter o destino canônico
+    if (
+      currentUrl.includes('s.shopee.com.br') ||
+      currentUrl.includes('shp.ee') ||
+      currentUrl.includes('meli.la') ||
+      currentUrl.includes('/sec/')
+    ) {
+      try {
+        const manualRes = await fetch(currentUrl, { redirect: 'manual' });
+        const loc = manualRes.headers.get('location');
+        if (loc) {
+          resolvedUrl = loc.startsWith('http') ? loc : new URL(loc, currentUrl).toString();
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // 3. Fetch com bot User-Agent (WhatsApp) para obter meta tags ricas e fotos sem bloqueio
     try {
       const botRes = await fetch(currentUrl, {
         method: 'GET',
@@ -94,7 +124,9 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
           'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8',
         },
       });
-      resolvedUrl = botRes.url || currentUrl;
+      if (botRes.url && resolvedUrl === currentUrl) {
+        resolvedUrl = botRes.url;
+      }
       if (botRes.ok) {
         html = await botRes.text();
       }
@@ -124,7 +156,76 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
       }
     }
 
-    // 4. Extração de Título Real
+    // 4. Se for Shopee, tenta consultar a Shopee Affiliate Open API (GraphQL) oficial
+    if (isShopee) {
+      const itemId =
+        shopeeOpenApi.extractShopeeItemId(resolvedUrl) ||
+        shopeeOpenApi.extractShopeeItemId(currentUrl);
+      if (itemId) {
+        let shopeeAppId = options?.shopeeAppId?.trim();
+        let shopeeSecret = options?.shopeeSecret?.trim();
+
+        // Se a loja não passou ou passou secret legado com "|", tenta buscar credenciais da loja ou variáveis globais
+        if ((!shopeeAppId || !shopeeSecret || shopeeSecret.includes('|')) && options?.lojaSlug && supabaseKey) {
+          try {
+            const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+            const { data: storeData } = await supabase
+              .from('lojas_afiliados')
+              .select('shopee_app_id, shopee_secret')
+              .eq('slug', options.lojaSlug)
+              .maybeSingle();
+
+            if (storeData) {
+              if (storeData.shopee_app_id) shopeeAppId = storeData.shopee_app_id;
+              if (storeData.shopee_secret && !storeData.shopee_secret.includes('|')) {
+                shopeeSecret = storeData.shopee_secret;
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        // Fallback para variáveis de ambiente globais da aplicação
+        if (!shopeeAppId) {
+          shopeeAppId = env['SHOPEE_AFFILIATE_APP_ID'] || env['VITE_SHOPEE_AFFILIATE_APP_ID'] || '';
+        }
+        if (!shopeeSecret || shopeeSecret.includes('|')) {
+          shopeeSecret = env['SHOPEE_AFFILIATE_SECRET'] || env['VITE_SHOPEE_AFFILIATE_SECRET'] || '';
+        }
+
+        if (shopeeAppId && shopeeSecret && !shopeeSecret.includes('|')) {
+          try {
+            const openApiOffer = await shopeeOpenApi.fetchShopeeProductOffer(itemId, {
+              appId: shopeeAppId,
+              secret: shopeeSecret,
+            });
+
+            if (openApiOffer && openApiOffer.title) {
+              const curPrice =
+                openApiOffer.currentPrice || options?.preservedCurrentPrice || undefined;
+              const origPrice =
+                openApiOffer.originalPrice || options?.preservedOriginalPrice || undefined;
+
+              return {
+                success: true,
+                title: cleanTitle(openApiOffer.title),
+                currentPrice: curPrice,
+                originalPrice: origPrice,
+                imageUrl: openApiOffer.imageUrl || undefined,
+                marketplace: 'shopee',
+                resolvedUrl,
+                partial: !curPrice || !openApiOffer.imageUrl,
+              };
+            }
+          } catch (apiErr) {
+            console.warn('[productMetadataServerFn] Erro Shopee Open API:', apiErr);
+          }
+        }
+      }
+    }
+
+    // 5. Extração de Título Real via HTML
     let extractedTitle = '';
 
     // Para Shopee: a meta description contém o título completo sem truncar com '...'
@@ -184,7 +285,7 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
       }
     }
 
-    // 5. Extração de Imagem Real (ZERO UNSPLASH - se não achar, fica undefined)
+    // 6. Extração de Imagem Real (ZERO UNSPLASH - se não achar, fica undefined)
     let extractedImage: string | undefined = undefined;
     if (html) {
       const ogImgMatch =
@@ -201,9 +302,11 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
       }
     }
 
-    // 6. Extração de Preço Real (ZERO PREÇO INVENTADO - se não achar, fica undefined)
-    let extractedPrice: string | undefined = undefined;
-    if (html) {
+    // 7. Extração de Preço Real (ZERO PREÇO INVENTADO - se não achar, verifica se veio preservado do texto colado)
+    let extractedPrice: string | undefined = options?.preservedCurrentPrice || undefined;
+    let originalPrice: string | undefined = options?.preservedOriginalPrice || undefined;
+
+    if (!extractedPrice && html) {
       const priceMatch =
         html.match(/<meta[^>]*property=["'](?:product:price:amount|og:price:amount)["'][^>]*content=["']([\d.,]+)["']/i) ||
         html.match(/<meta[^>]*content=["']([\d.,]+)["'][^>]*property=["'](?:product:price:amount|og:price:amount)["']/i);
@@ -213,7 +316,7 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
       }
     }
 
-    // 7. Extração via JSON-LD estruturado se disponível
+    // 8. Extração via JSON-LD estruturado se disponível
     if (html && (!extractedImage || !extractedPrice || !extractedTitle)) {
       const ldMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
       for (const m of ldMatches) {
@@ -227,7 +330,7 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
             if (!extractedImage && item.image) {
               const img = Array.isArray(item.image) ? item.image[0] : item.image;
               if (typeof img === 'string' && img.startsWith('http')) extractedImage = img;
-              else if (img?.url && typeof img.url === 'string') imageUrl = img.url;
+              else if (img?.url && typeof img.url === 'string') extractedImage = img.url;
             }
             if (!extractedPrice && item.offers) {
               const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
@@ -263,7 +366,7 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
       success: true,
       title: extractedTitle || undefined,
       currentPrice: extractedPrice,
-      originalPrice: undefined,
+      originalPrice,
       imageUrl: extractedImage,
       marketplace,
       resolvedUrl,
@@ -283,7 +386,20 @@ export async function extractProductMetadata(rawUrl: string): Promise<ExtractPro
  * a partir de qualquer link de produto do Mercado Livre ou Shopee.
  */
 export const extractProductMetadataServerFn = createServerFn({ method: 'POST' })
-  .validator((d: { url: string }) => d)
+  .validator((d: {
+    url: string;
+    lojaSlug?: string;
+    shopeeAppId?: string;
+    shopeeSecret?: string;
+    preservedCurrentPrice?: string;
+    preservedOriginalPrice?: string;
+  }) => d)
   .handler(async (ctx): Promise<ExtractProductMetadataResult> => {
-    return extractProductMetadata(ctx.data?.url || '');
+    return extractProductMetadata(ctx.data?.url || '', {
+      lojaSlug: ctx.data?.lojaSlug,
+      shopeeAppId: ctx.data?.shopeeAppId,
+      shopeeSecret: ctx.data?.shopeeSecret,
+      preservedCurrentPrice: ctx.data?.preservedCurrentPrice,
+      preservedOriginalPrice: ctx.data?.preservedOriginalPrice,
+    });
   });

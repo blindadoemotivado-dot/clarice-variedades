@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   Lock,
   Link as LinkIcon,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -45,6 +47,11 @@ export function LojistaStoreSettings({
   const [storeMlAffiliateTag, setStoreMlAffiliateTag] = useState(store.mlAffiliateTag || store.shopeeSecret || '');
   const [storeMlMattTool, setStoreMlMattTool] = useState(store.mlMattTool || '');
   const [storeShopeeAffiliateId, setStoreShopeeAffiliateId] = useState(store.shopeeAffiliateId || store.shopeeAppId || '');
+  const [storeShopeeAppId, setStoreShopeeAppId] = useState(store.shopeeAppId || '');
+  const [storeShopeeSecret, setStoreShopeeSecret] = useState(
+    store.shopeeSecret && !store.shopeeSecret.includes('|') ? store.shopeeSecret : ''
+  );
+  const [showShopeeSecret, setShowShopeeSecret] = useState(false);
   const [extractUrlInput, setExtractUrlInput] = useState('');
   const [isExtractingMl, setIsExtractingMl] = useState(false);
 
@@ -63,6 +70,10 @@ export function LojistaStoreSettings({
       setStoreMlAffiliateTag(store.mlAffiliateTag || store.shopeeSecret || '');
       setStoreMlMattTool(store.mlMattTool || '');
       setStoreShopeeAffiliateId(store.shopeeAffiliateId || store.shopeeAppId || '');
+      setStoreShopeeAppId(store.shopeeAppId || '');
+      setStoreShopeeSecret(
+        store.shopeeSecret && !store.shopeeSecret.includes('|') ? store.shopeeSecret : ''
+      );
     }
   }, [store]);
 
@@ -132,7 +143,8 @@ export function LojistaStoreSettings({
         mlAffiliateTag: storeMlAffiliateTag.trim(),
         mlMattTool: storeMlMattTool.trim(),
         shopeeAffiliateId: storeShopeeAffiliateId.trim(),
-        shopeeAppId: storeShopeeAffiliateId.trim(),
+        shopeeAppId: storeShopeeAppId.trim() || storeShopeeAffiliateId.trim(),
+        shopeeSecret: storeShopeeSecret.trim() || undefined,
       };
 
       const ok = await updateStoreBranding(store.slug, updates);
@@ -605,6 +617,55 @@ export function LojistaStoreSettings({
               <p className="mt-1 text-[10px] text-slate-400">
                 Injeta <code className="text-[#FFE600]">af_siteid</code>
               </p>
+            </div>
+          </div>
+
+          {/* Shopee Open API Opcional */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#FFE600]" />
+              <h4 className="text-xs font-bold text-white">
+                Shopee Affiliate Open API (GraphQL)
+              </h4>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Opcional: preencha para puxar preços da Shopee 100% no automático apenas com o link.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                  App ID Shopee Open API
+                </label>
+                <input
+                  type="text"
+                  value={storeShopeeAppId}
+                  onChange={(e) => setStoreShopeeAppId(e.target.value)}
+                  placeholder="Ex: 18364201389"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                  Secret Shopee Open API
+                </label>
+                <div className="relative">
+                  <input
+                    type={showShopeeSecret ? 'text' : 'password'}
+                    value={storeShopeeSecret}
+                    onChange={(e) => setStoreShopeeSecret(e.target.value)}
+                    placeholder="••••••••••••••••••••••••••••••••"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-3 pr-9 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowShopeeSecret(!showShopeeSecret)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    title={showShopeeSecret ? 'Ocultar secret' : 'Ver secret'}
+                  >
+                    {showShopeeSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

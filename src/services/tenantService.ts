@@ -379,12 +379,17 @@ export async function updateStoreBranding(
           ? updates.mlMattTool
           : local[targetIdx]?.mlMattTool || '';
 
-      if (effectiveTool) {
+      if (updates.shopeeSecret !== undefined && !updates.shopeeSecret.includes('|')) {
+        dbPayload.shopee_secret = updates.shopeeSecret || null;
+      } else if (effectiveTool) {
         dbPayload.shopee_secret = `${effectiveTag}|${effectiveTool}`;
       } else if (updates.mlAffiliateTag !== undefined) {
         dbPayload.shopee_secret = updates.mlAffiliateTag || null;
       }
-      if (updates.shopeeAffiliateId !== undefined) {
+
+      if (updates.shopeeAppId !== undefined && updates.shopeeAppId.trim()) {
+        dbPayload.shopee_app_id = updates.shopeeAppId.trim();
+      } else if (updates.shopeeAffiliateId !== undefined) {
         dbPayload.shopee_app_id = updates.shopeeAffiliateId || null;
       }
 
