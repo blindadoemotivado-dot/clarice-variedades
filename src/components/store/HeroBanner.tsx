@@ -60,36 +60,24 @@ export function HeroBanner({
       <div className={`relative flex flex-col-reverse items-center justify-between gap-5 ${showMascot ? 'md:flex-row md:items-end' : 'md:flex-row md:items-center'} w-full`}>
         {/* Texto & Chamadas para Ação */}
         <div className={`flex-1 text-center md:text-left py-2 ${showMascot ? 'pb-6 md:pb-8' : 'pb-2'} ${!showMascot ? 'max-w-3xl' : ''}`}>
-          <div
-            className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold backdrop-blur-md"
-            style={{
-              borderColor: `${effectiveAccent}4D`,
-              backgroundColor: `${effectiveAccent}1A`,
-              color: effectiveAccent,
-            }}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Curadoria de Achadinhos</span>
-          </div>
-
           <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl max-w-2xl break-words min-w-0">
             {isClarice
-              ? 'Achadinhos reais com desconto escolhidos todo dia'
+              ? 'Achadinhos reais com desconto todo dia'
               : `Achadinhos com desconto por ${storeName}`}
           </h1>
 
-          <p className="mt-2.5 max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm break-words min-w-0">
-            {subtitle || 'Garimpamos as melhores ofertas com desconto real e compra 100% segura nos apps oficiais do Mercado Livre e Shopee.'}
+          <p className="mt-2 text-xs leading-relaxed text-slate-300 sm:text-sm max-w-xl break-words min-w-0">
+            {subtitle || 'Ofertas verificadas no Mercado Livre e Shopee para você economizar com compra 100% segura.'}
           </p>
 
           {/* Ações Rápidas Enxutas */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 md:justify-start">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 md:justify-start">
             <button
               type="button"
               onClick={handleVipClick}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20BD5A] text-slate-950 font-black text-xs sm:text-sm px-4 py-3 shadow-lg shadow-emerald-500/20 transition transform active:scale-95"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-slate-950 font-black text-xs sm:text-sm px-4 py-3 shadow-md transition transform active:scale-95 cursor-pointer"
             >
-              <MessageCircle className="h-4 w-4 fill-current" />
+              <MessageCircle className="h-4 w-4 fill-current shrink-0" />
               <span>Entrar no Grupo VIP WhatsApp</span>
             </button>
 
@@ -99,18 +87,14 @@ export function HeroBanner({
                 e.preventDefault();
                 document.getElementById('achadinho-do-dia')?.scrollIntoView({ behavior: 'smooth' });
               }}
-              style={{
-                backgroundColor: effectiveAccent,
-                color: '#0F172A',
-              }}
-              className="flex items-center justify-center gap-2 rounded-2xl font-black text-xs sm:text-sm px-4 py-3 shadow-lg transition transform active:scale-95 hover:brightness-95"
+              className="flex items-center justify-center gap-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black text-xs sm:text-sm px-4 py-3 shadow-md transition transform active:scale-95 cursor-pointer"
             >
               <span>⭐ Ver Achadinho do Dia</span>
             </a>
           </div>
         </div>
 
-        {/* Mascote / Imagem de Destaque da Loja (Apenas se Clarice ou se o lojista definiu imagem própria) */}
+        {/* Mascote / Imagem de Destaque da Loja */}
         {showMascot && resolvedMascote && (
           <div className="relative shrink-0 flex items-end justify-center md:justify-end self-center md:self-end">
             <div className="relative flex items-end justify-center">
@@ -128,21 +112,15 @@ export function HeroBanner({
                     e.currentTarget.style.display = 'none';
                   }
                 }}
-                alt={`${storeName} - Curadoria Oficial`}
+                alt={storeName}
                 width={340}
                 height={380}
                 className={
                   isClarice
-                    ? "h-48 sm:h-64 md:h-[340px] lg:h-[385px] w-auto object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
-                    : "max-h-52 sm:max-h-64 md:max-h-[320px] lg:max-h-[360px] max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg w-auto rounded-2xl object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
+                    ? "h-44 sm:h-56 md:h-[300px] lg:h-[340px] w-auto object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
+                    : "max-h-48 sm:max-h-56 md:max-h-[290px] lg:max-h-[320px] max-w-xs sm:max-w-sm md:max-w-md w-auto rounded-2xl object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
                 }
               />
-              <div
-                className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-black uppercase text-slate-950 shadow-lg ring-2 ring-slate-900/60"
-                style={{ backgroundColor: effectiveAccent }}
-              >
-                {isClarice ? 'Sua Curadora Oficial' : 'Curadoria Oficial'}
-              </div>
             </div>
           </div>
         )}

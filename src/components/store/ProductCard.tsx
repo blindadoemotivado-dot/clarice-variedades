@@ -85,18 +85,15 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
               <span className="text-muted-foreground/70">({p.reviewsCount.toLocaleString('pt-BR')})</span>
             </div>
           )}
-          <h3 className="my-1 line-clamp-2 min-h-[36px] text-xs font-medium leading-snug text-foreground/80 sm:min-h-[40px] sm:text-sm">{p.title}</h3>
+          <h3 className="my-1 line-clamp-2 min-h-[36px] text-xs font-semibold leading-snug text-foreground/90 sm:min-h-[40px] sm:text-sm">{p.title}</h3>
           {p.originalPrice > p.currentPrice && (
             <p className="text-[11px] text-muted-foreground line-through sm:text-xs">{formatBRL(p.originalPrice)}</p>
           )}
-          <div className="flex flex-wrap items-baseline gap-1.5">
-            <span className="text-base font-extrabold tracking-tight text-foreground sm:text-xl">{formatBRL(p.currentPrice)}</span>
-            {p.discountPercent > 0 && (
-              <span className="rounded bg-deal-soft px-1.5 py-0.5 text-[10px] font-extrabold text-deal sm:text-xs">{p.discountPercent}% OFF</span>
-            )}
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-base font-black tracking-tight text-foreground sm:text-xl">{formatBRL(p.currentPrice)}</span>
           </div>
           {p.installmentsText && (
-            <p className="line-clamp-1 text-[11px] text-muted-foreground">{p.installmentsText}</p>
+            <p className="line-clamp-1 text-[11px] text-muted-foreground mt-0.5">{p.installmentsText}</p>
           )}
           {/* 3. Frete Grátis em Verde Esmeralda apenas se real */}
           {p.freeShipping && (

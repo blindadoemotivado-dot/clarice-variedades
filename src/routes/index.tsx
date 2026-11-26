@@ -222,19 +222,18 @@ function AiSearchPanel({
                     <p className="text-[11px] font-semibold text-emerald-600">{product.discountPercent}% OFF</p>
                   </div>
                 </div>
-                <button
-                  type="button"
+                <a
+                  href={product.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => {
-                    toast.info('Ativando link de apoio...', { description: 'Redirecionando para o ambiente seguro do ML.' });
-                    window.open(product.affiliateUrl, '_blank', 'noopener,noreferrer');
+                    toast.info('Ativando link de apoio...', { description: 'Redirecionando para o ambiente seguro da oferta.' });
                   }}
-                  className="mt-3 flex w-full items-center justify-center rounded-lg bg-[#3483FA] px-3 py-2 text-xs font-bold text-white hover:bg-[#2968C8]"
+                  className="mt-3 flex min-h-[44px] h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md transition active:scale-[0.98]"
                 >
-                  Garantir Oferta no ML
-                </button>
-                <p className="mt-1.5 text-center text-[10px] text-slate-500">
-                  Direcionado com segurança para o ambiente oficial do Mercado Livre
-                </p>
+                  <span>Ver oferta</span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                </a>
               </article>
             ))}
           </div>
@@ -810,9 +809,9 @@ function Storefront() {
           )}
 
           {/* Filtros em Pílulas com Fixação Sticky e Indicador Visual de Deslize */}
-          <div className="sticky top-[108px] z-30 -mx-3 mb-5 px-3 py-2 bg-background/95 backdrop-blur-md border-b border-border/40 sm:static sm:border-none sm:bg-transparent sm:p-0">
+          <div className="sticky top-[88px] z-20 -mx-3 mb-5 px-3 py-2 bg-background/95 backdrop-blur-md border-b border-border/40 sm:static sm:border-none sm:bg-transparent sm:p-0">
             <div className="relative">
-              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 pr-6">
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 pr-8">
                 {FILTERS.map((filter) => (
                   <button
                     key={filter.value}
@@ -820,9 +819,9 @@ function Storefront() {
                     onClick={() => setCategory(filter.value)}
                     aria-pressed={category === filter.value}
                     className={cn(
-                      'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors',
+                      'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer',
                       category === filter.value
-                        ? 'border-yellow-400 bg-yellow-400 text-slate-950 font-bold shadow-xs'
+                        ? 'border-yellow-400 bg-yellow-400 text-slate-950 font-black shadow-xs'
                         : 'border-border bg-card text-muted-foreground hover:border-yellow-400/50 hover:text-foreground'
                     )}
                   >
@@ -965,13 +964,9 @@ function Storefront() {
               </div>
             )}
             <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="inline-flex items-center gap-1 rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
-                <BadgeCheck className="h-3 w-3 text-yellow-400" />
-                <span>Curadoria Oficial</span>
-              </div>
               <h3 className="text-sm font-bold text-foreground truncate">{store.nomeLoja}</h3>
               <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
-                {store.subtitulo || 'Ofertas verificadas no Mercado Livre e Shopee com redirecionamento seguro.'}
+                {store.subtitulo || 'Ofertas verificadas no Mercado Livre e Shopee com compra segura.'}
               </p>
             </div>
           </div>

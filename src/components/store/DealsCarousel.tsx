@@ -126,34 +126,40 @@ export function DealsCarousel({
                   className="h-full w-full object-contain transition-transform duration-300 hover:scale-105"
                 />
 
-                <span
-                  className={cn(
-                    "absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-black shadow-xs",
-                    isShopee ? "bg-[#EE4D2D] text-white" : "bg-[#FFE600] text-slate-950"
-                  )}
-                >
-                  {isShopee ? 'Shopee ' : ''}{p.discountPercent}% OFF
-                </span>
+                {p.discountPercent > 0 && (
+                  <span className="absolute left-2 top-2 rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-black text-white shadow-xs">
+                    -{p.discountPercent}%
+                  </span>
+                )}
 
-                <div className="absolute right-2 top-2 flex flex-col gap-1">
+                <div className="absolute right-2 top-2 flex items-center gap-1">
+                  {isShopee ? (
+                    <span className="rounded-md bg-[#EE4D2D] px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white shadow-xs">
+                      Shopee
+                    </span>
+                  ) : (
+                    <span className="rounded-md bg-[#FFE600] px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950 shadow-xs">
+                      ML
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => onToggleFavorite(p.id)}
                     aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                     className={cn(
-                      'flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card/90 shadow-2xs backdrop-blur-xs transition',
+                      'flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/90 shadow-2xs backdrop-blur-xs transition',
                       isFavorite ? 'text-destructive bg-destructive/10' : 'text-muted-foreground hover:text-destructive'
                     )}
                   >
-                    <Heart className={cn('h-3.5 w-3.5', isFavorite && 'fill-current')} />
+                    <Heart className={cn('h-3 w-3', isFavorite && 'fill-current')} />
                   </button>
                   <button
                     type="button"
                     onClick={() => copyText(buildWhatsAppCopy(p), 'Oferta copiada!')}
                     aria-label="Copiar link"
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card/90 shadow-2xs backdrop-blur-xs text-muted-foreground hover:text-emerald-600 transition"
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/90 shadow-2xs backdrop-blur-xs text-muted-foreground hover:text-emerald-600 transition"
                   >
-                    <Share2 className="h-3.5 w-3.5" />
+                    <Share2 className="h-3 w-3" />
                   </button>
                 </div>
               </div>

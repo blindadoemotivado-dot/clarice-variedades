@@ -50,28 +50,18 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
             <span
               className={cn(
                 "flex h-7 w-7 items-center justify-center rounded-full font-black text-xs shadow-sm",
-                isShopee ? "bg-[#EE4D2D] text-white" : "bg-amber-400 text-slate-950"
+                isShopee ? "bg-[#EE4D2D] text-white" : "bg-yellow-400 text-slate-950"
               )}
             >
               {isShopee ? '🛍️' : '⭐'}
             </span>
-            <div>
-              <span
-                className={cn(
-                  "inline-block text-[11px] font-extrabold uppercase tracking-wider",
-                  isShopee ? "text-[#EE4D2D]" : "text-amber-500"
-                )}
-              >
-                {isShopee ? 'Curadoria Oficial Shopee' : 'Curadoria Especial'}
-              </span>
-              <h2 className="text-base font-black tracking-tight text-foreground sm:text-lg">
-                Achadinho do Dia
-              </h2>
-            </div>
+            <h2 className="text-base font-black tracking-tight text-foreground sm:text-lg">
+              Achadinho do Dia
+            </h2>
           </div>
 
           {savings > 0 && (
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 border border-emerald-500/20">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500 border border-emerald-500/20">
               <Sparkles className="h-3.5 w-3.5" />
               <span>Você economiza {formatBRL(savings)}</span>
             </div>
@@ -94,25 +84,32 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
               className="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105"
             />
 
-            <div className="absolute left-3 top-3 flex flex-col gap-1 items-start">
-              <span
-                className={cn(
-                  "rounded-xl px-2.5 py-1 text-xs font-black uppercase shadow-md",
-                  isShopee ? "bg-[#EE4D2D] text-white" : "bg-[#FFE600] text-slate-950"
-                )}
-              >
-                {isShopee ? 'Shopee • ' : ''}{p.discountPercent}% OFF
-              </span>
+            <div className="absolute left-3 top-3 flex items-center gap-1">
+              {p.discountPercent > 0 && (
+                <span className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-black uppercase text-white shadow-md">
+                  -{p.discountPercent}%
+                </span>
+              )}
             </div>
 
-            <div className="absolute right-3 top-3 flex flex-col gap-2">
+            <div className="absolute right-3 top-3 flex items-center gap-1.5">
+              {isShopee ? (
+                <span className="rounded-md bg-[#EE4D2D] px-2 py-0.5 text-[10px] font-extrabold uppercase text-white shadow-xs">
+                  Shopee
+                </span>
+              ) : (
+                <span className="rounded-md bg-[#FFE600] px-2 py-0.5 text-[10px] font-black uppercase text-slate-950 shadow-xs">
+                  ML
+                </span>
+              )}
+
               <button
                 type="button"
                 onClick={() => onToggleFavorite(p.id)}
                 aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                 aria-pressed={isFavorite}
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-xs transition-colors',
+                  'flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-xs transition-colors',
                   isFavorite ? 'text-destructive bg-destructive/10' : 'text-muted-foreground hover:text-destructive'
                 )}
               >
@@ -123,7 +120,7 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
                 type="button"
                 onClick={() => copyText(buildWhatsAppCopy(p), 'Oferta copiada para WhatsApp!')}
                 aria-label="Copiar oferta para WhatsApp"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-xs text-muted-foreground hover:text-emerald-600 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-xs text-muted-foreground hover:text-emerald-500 transition-colors"
               >
                 <Share2 className="h-4 w-4" />
               </button>
@@ -143,14 +140,6 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
                     {p.rating.toLocaleString('pt-BR')} ({p.reviewsCount.toLocaleString('pt-BR')} avaliações)
                   </span>
                 )}
-                <span
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-[11px] font-extrabold uppercase",
-                    isShopee ? "bg-[#EE4D2D]/10 text-[#EE4D2D]" : "bg-[#FFE600]/20 text-slate-800"
-                  )}
-                >
-                  {isShopee ? 'Shopee' : 'Mercado Livre'}
-                </span>
               </div>
 
               <h3 className="text-base font-bold text-foreground sm:text-xl leading-snug">
@@ -159,24 +148,25 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
 
               {/* Preços */}
               <div className="mt-3 rounded-2xl bg-muted/40 p-3 sm:p-4 border border-border/60">
-                <p className="text-xs text-muted-foreground line-through">
-                  De: {formatBRL(p.originalPrice)}
-                </p>
+                {p.originalPrice > p.currentPrice && (
+                  <p className="text-xs text-muted-foreground line-through">
+                    De: {formatBRL(p.originalPrice)}
+                  </p>
+                )}
                 <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
                   <span className="text-2xl sm:text-3xl font-black text-foreground">
                     {formatBRL(p.currentPrice)}
                   </span>
-                  <span className="rounded-lg bg-emerald-500/10 px-2 py-0.5 text-xs font-extrabold text-emerald-600">
-                    {p.discountPercent}% de desconto
-                  </span>
                 </div>
-                <p className="mt-1 text-xs font-medium text-muted-foreground">
-                  💳 {p.installmentsText}
-                </p>
+                {p.installmentsText && (
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    💳 {p.installmentsText}
+                  </p>
+                )}
                 {p.freeShipping && (
-                  <p className="mt-2 flex items-center gap-1 text-xs font-bold text-emerald-600">
+                  <p className="mt-2 flex items-center gap-1 text-xs font-bold text-emerald-500">
                     <Zap className="h-3.5 w-3.5 fill-current" />
-                    Frete grátis para todo o Brasil {p.isFull && <span className="italic font-black text-amber-600">⚡ FULL</span>}
+                    Frete grátis {p.isFull && <span className="italic font-black text-amber-500">⚡ FULL</span>}
                   </p>
                 )}
               </div>
@@ -198,7 +188,7 @@ export function FeaturedDealCard({ product: p, isFavorite, onToggleFavorite }: F
               <button
                 type="button"
                 onClick={() => copyText(buildWhatsAppCopy(p), 'Texto copiado para envio no WhatsApp!')}
-                className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-bold text-xs sm:text-sm px-4 py-2.5 transition"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-bold text-xs sm:text-sm px-4 py-2.5 transition cursor-pointer"
               >
                 <MessageCircle className="h-4 w-4 text-emerald-500" />
                 <span>Copiar p/ WhatsApp</span>
