@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { PwaInstallPrompt } from "../components/store/PwaInstallPrompt";
+import { InstallAppPrompt } from "../components/pwa/InstallAppPrompt";
 import { SplashScreen } from "../components/store/SplashScreen";
 
 function NotFoundComponent() {
@@ -104,11 +104,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0, viewport-fit=cover" },
-      { name: "theme-color", content: "#FFE600" },
+      { name: "theme-color", content: "#0F172A" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { name: "apple-mobile-web-app-title", content: "Clarice" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Achadinhos" },
       { name: "application-name", content: "Clarice Achadinhos" },
       { name: "msapplication-TileColor", content: "#0F172A" },
       { property: "og:type", content: "website" },
@@ -121,11 +121,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", type: "image/png", sizes: "32x32", href: "/icons/favicon-32x32.png" },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icons/icon-192x192.png" },
       { rel: "shortcut icon", href: "/favicon.ico" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon.png" },
-      { rel: "apple-touch-icon-precomposed", href: "/icons/apple-touch-icon.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      { rel: "apple-touch-icon-precomposed", href: "/apple-touch-icon.png" },
       { rel: "apple-touch-startup-image", href: "/icons/apple-splash.png" },
     ],
   }),
@@ -135,42 +136,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-declare const __APP_BUILD_ID__: string | undefined;
-const BUILD_ID = typeof __APP_BUILD_ID__ !== 'undefined' ? __APP_BUILD_ID__ : 'dev-build';
-
-const BOOT_CLEANUP_SCRIPT = `
-(function() {
-  try {
-    var CURRENT_BUILD = '${BUILD_ID}';
-    var savedBuild = localStorage.getItem('clarice_ui_build');
-    if (savedBuild !== CURRENT_BUILD) {
-      localStorage.setItem('clarice_ui_build', CURRENT_BUILD);
-      var unregisterAll = ('serviceWorker' in navigator)
-        ? navigator.serviceWorker.getRegistrations().then(function(regs) {
-            return Promise.all(regs.map(function(r) { return r.unregister(); }));
-          })
-        : Promise.resolve();
-      var clearCaches = ('caches' in window)
-        ? caches.keys().then(function(keys) {
-            return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-          })
-        : Promise.resolve();
-      Promise.all([unregisterAll, clearCaches]).then(function() {
-        window.location.reload();
-      }).catch(function() {
-        window.location.reload();
-      });
-    }
-  } catch (e) {}
-})();
-`;
-
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
       <head>
         <HeadContent />
-        <script dangerouslySetInnerHTML={{ __html: BOOT_CLEANUP_SCRIPT }} />
       </head>
       <body>
         {children}
@@ -185,14 +155,11 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      if (localStorage.getItem('clarice_ui_build') !== BUILD_ID) {
-        return;
-      }
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js")
           .then((reg) => {
-            console.log("[Clarice PWA] Service Worker registrado com sucesso:", reg.scope);
+            console.log("[Clarice PWA] Service Worker registrado:", reg.scope);
           })
           .catch((err) => {
             console.warn("[Clarice PWA] Falha ao registrar Service Worker:", err);
@@ -205,7 +172,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <SplashScreen />
-      <PwaInstallPrompt />
+      <InstallAppPrompt />
     </QueryClientProvider>
   );
 }

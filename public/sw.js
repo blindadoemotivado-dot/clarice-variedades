@@ -1,33 +1,34 @@
-const CACHE_NAME = 'clarice-achadinhos-pwa-v5';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'clarice-achadinhos-pwa-v6';
+
+const PRECACHE_ASSETS = [
   '/',
+  '/manifest.json',
   '/manifest.webmanifest',
   '/offline.html',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
-  '/icons/icon-512x512-maskable.png',
-  '/icons/apple-touch-icon.png',
-  '/icons/apple-splash.png',
-  '/icons/favicon-32x32.png',
-  '/icons/favicon.ico',
+  '/icons/icon-maskable-512x512.png',
+  '/apple-touch-icon.png',
+  '/favicon-32x32.png',
+  '/favicon.ico',
 ];
 
+// Instalação do Service Worker
 self.addEventListener('install', (event) => {
-  // skipWaiting: true -> ativa imediatamente a nova versão do service worker
   event.waitUntil(
     caches
       .open(CACHE_NAME)
       .then((cache) => {
-        return cache.addAll(STATIC_ASSETS).catch((err) => {
-          console.warn('PWA Pre-cache partial warning:', err);
+        return cache.addAll(PRECACHE_ASSETS).catch((err) => {
+          console.warn('[PWA] Pré-cacheamento parcial:', err);
         });
       })
       .then(() => self.skipWaiting())
   );
 });
 
+// Ativação e limpeza de caches antigos
 self.addEventListener('activate', (event) => {
-  // clientsClaim: true -> assume o controle de todas as abas abertas imediatamente
   event.waitUntil(
     caches
       .keys()
@@ -44,6 +45,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Interceptação de requisições com estratégia Network-First para rotas dinâmicas
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
@@ -54,20 +56,21 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // 1. Estratégia NetworkOnly para o painel administrativo (/admin) e APIs
-  // navigateFallbackDenylist: [/^\/admin/]
-  // NUNCA busca nem armazena rotas ou recursos de /admin no Cache Storage
+  // 1. Network-Only para endpoints administrativos, server functions, Supabase e APIs
+  // NUNCA cacheia dados de produtos, autenticação ou APIs
   if (
-    url.pathname === '/admin' ||
-    url.pathname.startsWith('/admin/') ||
+    url.pathname.startsWith('/admin') ||
     url.pathname.startsWith('/api/') ||
-    url.pathname.includes('admin')
+    url.pathname.startsWith('/_server') ||
+    url.hostname.includes('supabase.co') ||
+    url.hostname.includes('mercadolivre') ||
+    url.hostname.includes('shopee')
   ) {
     event.respondWith(fetch(request));
     return;
   }
 
-  // Requisições de navegação (páginas HTML públicas) -> Network First com fallback para cache/offline
+  // 2. Requisições de Navegação (Páginas HTML): Network-First com fallback para cache/offline
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -84,7 +87,7 @@ self.addEventListener('fetch', (event) => {
           const offlinePage = await caches.match('/offline.html');
           return (
             offlinePage ||
-            new Response('Você está offline. Verifique sua conexão.', {
+            new Response('Você está offline. Verifique sua conexão com a internet.', {
               status: 503,
               headers: { 'Content-Type': 'text/plain; charset=utf-8' },
             })
@@ -94,45 +97,39 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Recursos estáticos públicos (imagens, ícones, fontes, CSS, JS) -> Stale While Revalidate
+  // 3. Recursos estáticos leves (CSS, JS, Fontes, Ícones): Stale-While-Revalidate
   const isStatic =
     url.pathname.startsWith('/icons/') ||
     url.pathname.startsWith('/brand/') ||
     url.pathname.startsWith('/assets/') ||
-    url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.jpg') ||
-    url.pathname.endsWith('.jpeg') ||
-    url.pathname.endsWith('.webp') ||
-    url.pathname.endsWith('.ico') ||
     url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.woff2');
+    url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.webp') ||
+    url.pathname.endsWith('.svg');
 
   if (isStatic) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          fetch(request)
-            .then((networkResponse) => {
-              if (networkResponse && networkResponse.status === 200) {
-                caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
-              }
-            })
-            .catch(() => {});
-          return cachedResponse;
-        }
+        const fetchPromise = fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const clone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            }
+            return networkResponse;
+          })
+          .catch(() => cachedResponse);
 
-        return fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return networkResponse;
-        });
+        return cachedResponse || fetchPromise;
       })
     );
     return;
   }
 
-  event.respondWith(fetch(request));
+  // Default: Network com fallback para Cache
+  event.respondWith(
+    fetch(request).catch(() => caches.match(request))
+  );
 });

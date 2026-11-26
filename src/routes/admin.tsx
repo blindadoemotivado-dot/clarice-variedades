@@ -92,6 +92,7 @@ import { LojistaVipDispatcher } from '@/components/admin/LojistaVipDispatcher';
 import { LojistaStoreSettings } from '@/components/admin/LojistaStoreSettings';
 import { LojistaTutorialGuide } from '@/components/admin/LojistaTutorialGuide';
 import { SuperAdminTenantDrawer } from '@/components/admin/SuperAdminTenantDrawer';
+import { InstallHeaderButton } from '@/components/pwa/InstallAppPrompt';
 import {
   recordProductAuditServerFn,
   adminGetGlobalShopeeCredentialsServerFn,
@@ -1452,6 +1453,10 @@ export function AdminRoutePage() {
             ← Voltar para a vitrine pública
           </a>
 
+          <div className="mt-3 flex justify-center">
+            <InstallHeaderButton />
+          </div>
+
           <div className="mt-6 pt-4 border-t border-slate-800 text-center text-[11px] text-slate-500">
             © 2026 FCIA • Todos os direitos reservados.
           </div>
@@ -1535,6 +1540,7 @@ export function AdminRoutePage() {
 
           {/* Linha 2 (Mobile) / Lado Direito (Desktop) */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            <InstallHeaderButton />
             {/* Se estiver no Painel Clarice após alternância rápida, Modo Suporte ou se logado na clarice */}
             {userRole === 'lojista' && (isSwitchedToClarice || impersonatedStore || loggedStore?.slug === 'clarice') && (
               <button

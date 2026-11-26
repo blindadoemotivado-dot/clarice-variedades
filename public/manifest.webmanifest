@@ -1,14 +1,14 @@
 {
-  "name": "Clarice Achadinhos",
-  "short_name": "Clarice",
-  "description": "Ofertas selecionadas e achadinhos do Mercado Livre todos os dias",
+  "name": "Clarice Achadinhos · Ofertas & Achados",
+  "short_name": "Achadinhos",
+  "description": "Os melhores achadinhos e ofertas selecionadas da Shopee e Mercado Livre em um só app.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0F172A",
-  "theme_color": "#FFE600",
+  "theme_color": "#0F172A",
   "lang": "pt-BR",
   "dir": "ltr",
   "categories": ["shopping", "lifestyle"],
@@ -26,32 +26,22 @@
       "purpose": "any"
     },
     {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/icons/icon-512x512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/apple-touch-icon.png",
+      "src": "/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Ofertas Relâmpago",
-      "short_name": "Relâmpago",
-      "description": "Ver achadinhos com os maiores descontos do dia",
-      "url": "/?cat=Relampago",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Meus Favoritos",
-      "short_name": "Favoritos",
-      "description": "Acessar produtos salvos",
-      "url": "/?fav=1",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     }
   ]
 }

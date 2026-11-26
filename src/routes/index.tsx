@@ -34,6 +34,7 @@ import { fetchStoreBySlug } from '@/services/tenantService';
 import { filterProducts, type CategoryFilter, type SortKey, type MarketplaceFilter } from '@/lib/catalog';
 import { CATEGORIES } from '@/types/product';
 import { cn } from '@/lib/utils';
+import { InstallHeaderButton } from '@/components/pwa/InstallAppPrompt';
 
 interface IndexSearchParams {
   loja?: string;
@@ -537,6 +538,7 @@ function Storefront() {
               <BadgeCheck className="h-4 w-4 shrink-0 text-ml sm:h-5 sm:w-5" aria-label="Loja verificada" />
             </a>
             <div className="flex items-center gap-2 shrink-0 md:order-3 md:ml-auto">
+              <InstallHeaderButton />
               <button
                 type="button"
                 onClick={() => setFavoritesOnly((value) => !value)}
