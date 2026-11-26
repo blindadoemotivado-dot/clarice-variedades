@@ -245,8 +245,7 @@ export function InstallAppPrompt() {
       role="dialog"
       aria-labelledby="pwa-install-title"
       aria-describedby="pwa-install-desc"
-      className="fixed bottom-4 left-3 right-3 sm:left-auto sm:right-4 z-50 mx-auto max-w-sm sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto z-50 mx-auto sm:mx-0 max-w-sm sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
     >
       <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/80 p-3 sm:p-3.5 text-white shadow-2xl backdrop-blur-md ring-1 ring-black/40">
         {/* Glow sutil de fundo */}
@@ -310,7 +309,7 @@ export function InstallAppPrompt() {
                 <button
                   type="button"
                   onClick={handleInstallClick}
-                  className="flex items-center gap-1.5 rounded-xl bg-yellow-400 px-3.5 py-1.5 text-xs font-black text-slate-950 shadow-md hover:bg-yellow-300 active:scale-95 transition"
+                  className="flex items-center gap-1.5 rounded-xl bg-yellow-400 px-3.5 py-1.5 text-xs font-black text-slate-950 shadow-md hover:bg-yellow-300 active:scale-95 transition shrink-0 whitespace-nowrap"
                 >
                   <Download className="h-3.5 w-3.5" />
                   <span>Baixar App (1 toque)</span>
