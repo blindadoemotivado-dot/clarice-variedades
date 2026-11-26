@@ -728,6 +728,7 @@ export function AdminRoutePage() {
 
     setProductAffiliateUrl(parsed.url);
     if (parsed.marketplace === 'shopee') setProductMarketplace('shopee');
+    else if (parsed.marketplace === 'mercadolivre') setProductMarketplace('mercadolivre');
 
     const detectedPrice = parsed.currentPrice;
     const detectedOrigPrice = parsed.originalPrice;
@@ -743,10 +744,11 @@ export function AdminRoutePage() {
     }
 
     if (parsed.isSharedText) {
+      const appName = parsed.marketplace === 'shopee' ? 'Shopee' : 'Mercado Livre';
       toast.success(
         detectedPrice
-          ? `⚡ Dados extraídos do app Shopee! Preço: R$ ${detectedPrice}`
-          : '⚡ Link da Shopee extraído do texto compartilhado!'
+          ? `⚡ Dados extraídos do app ${appName}! Preço: R$ ${detectedPrice}`
+          : `⚡ Link do ${appName} extraído do texto compartilhado!`
       );
     }
 
@@ -1810,10 +1812,10 @@ export function AdminRoutePage() {
                               onClick={handlePasteFromShopeeApp}
                               disabled={isFetchingOg}
                               className="text-[11px] font-bold text-amber-300 hover:text-white flex items-center gap-1 transition px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer disabled:opacity-50"
-                              title="Cola o texto copiado pelo botão 'Compartilhar' no app da Shopee e preenche preço e título automaticamente"
+                              title="Cola o texto ou link copiado do app do Mercado Livre ou Shopee e preenche preço, foto e título automaticamente"
                             >
                               <ClipboardPaste className="h-3 w-3" />
-                              <span>📋 Colar do App Shopee</span>
+                              <span>📋 Colar do App (ML / Shopee)</span>
                             </button>
                             <button
                               type="button"
@@ -1828,7 +1830,7 @@ export function AdminRoutePage() {
                         </div>
 
                         <p className="text-xs text-zinc-400 mb-1.5 leading-relaxed">
-                          No app da Shopee, toque em Compartilhar → Copiar Link e depois clique em Colar do App Shopee acima para puxar preço e foto automaticamente.
+                          Nos apps do Mercado Livre ou Shopee, toque em Compartilhar → Copiar Link e depois clique em Colar do App acima para puxar preço e foto automaticamente.
                         </p>
 
                         <input

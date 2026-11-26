@@ -5,15 +5,14 @@ import {
   Zap,
   Sparkles,
   Trash2,
-  ExternalLink,
   CheckCircle2,
   AlertTriangle,
   Image as ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatBRL, extractMlbId } from '@/lib/catalog';
-import { parseShopeeSharedText } from '@/utils/shopeeSharedText';
+import { extractMlbId } from '@/lib/catalog';
+import { parseShopeeSharedText, splitBatchTextIntoItems } from '@/utils/shopeeSharedText';
 import { CATEGORIES, type AffiliateProduct } from '@/types/product';
 import type { PlanPermissions } from '@/config/planPermissions';
 import type { LojaAfiliado } from '@/types/tenant';
@@ -26,6 +25,10 @@ function hash(s: string): number {
   let h = 0;
   for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0;
   return h;
+}
+
+interface BatchProductItem extends AffiliateProduct {
+  tempPriceInput?: string;
 }
 
 export interface LojistaBatchImportProps {
@@ -54,7 +57,7 @@ export function LojistaBatchImport({
   const [batchLinksText, setBatchLinksText] = useState('');
   const [batchDefaultCategory, setBatchDefaultCategory] =
     useState<AffiliateProduct['category']>('Casa & Cozinha');
-  const [batchParsedProducts, setBatchParsedProducts] = useState<AffiliateProduct[]>([]);
+  const [batchParsedProducts, setBatchParsedProducts] = useState<BatchProductItem[]>([]);
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
 
@@ -70,21 +73,50 @@ export function LojistaBatchImport({
   const allowed = isSuperAdminOrExempt || permissions.batchImportLimit > 0;
   const maxPerBatch = permissions.batchImportLimit > 0 ? permissions.batchImportLimit : 50;
 
-  // Atualização inline de campo em produto do lote (Poka-Yoke)
+  // Atualização inline de preço com suporte a digitação fluida em PT-BR (vírgula e ponto)
+  const handleUpdateProductPrice = (id: string, textValue: string, numValue: number) => {
+    setBatchParsedProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const orig = p.originalPrice;
+        const cur = numValue;
+        return {
+          ...p,
+          tempPriceInput: textValue,
+          currentPrice: cur,
+          discountPercent: orig > cur && cur > 0 ? Math.round(((orig - cur) / orig) * 100) : 0,
+          installmentsText: cur > 0 ? 'em até 6x sem juros' : '',
+        };
+      })
+    );
+  };
+
+  const handleBlurProductPrice = (id: string) => {
+    setBatchParsedProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        return {
+          ...p,
+          tempPriceInput: p.currentPrice > 0 ? p.currentPrice.toFixed(2).replace('.', ',') : '',
+        };
+      })
+    );
+  };
+
+  // Atualização inline de outros campos (Poka-Yoke)
   const handleUpdateProductField = (
     id: string,
-    field: 'currentPrice' | 'originalPrice' | 'title' | 'imageUrl' | 'category',
+    field: 'originalPrice' | 'title' | 'imageUrl' | 'category',
     value: any
   ) => {
     setBatchParsedProducts((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
         const updated = { ...p, [field]: value };
-        if (field === 'currentPrice' || field === 'originalPrice') {
-          const cur = field === 'currentPrice' ? Number(value) || 0 : p.currentPrice;
-          const orig = field === 'originalPrice' ? Number(value) || 0 : p.originalPrice;
+        if (field === 'originalPrice') {
+          const cur = p.currentPrice;
+          const orig = Number(value) || 0;
           updated.discountPercent = orig > cur && cur > 0 ? Math.round(((orig - cur) / orig) * 100) : 0;
-          updated.installmentsText = cur > 0 ? 'em até 6x sem juros' : '';
         }
         return updated;
       })
@@ -98,20 +130,17 @@ export function LojistaBatchImport({
 
   // Processamento do Lote de Links com concorrência controlada de 2 em 2
   const handleProcessBatch = async () => {
-    const rawLines = batchLinksText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const batchItems = splitBatchTextIntoItems(batchLinksText);
 
-    if (rawLines.length === 0) {
+    if (batchItems.length === 0) {
       toast.error('Cole ao menos um link válido do Mercado Livre ou Shopee para processar.');
       return;
     }
 
-    const limitedLines = rawLines.slice(0, maxPerBatch);
-    if (rawLines.length > maxPerBatch) {
+    const limitedItems = batchItems.slice(0, maxPerBatch);
+    if (batchItems.length > maxPerBatch) {
       toast.info(
-        `Seu plano permite até ${maxPerBatch} links por lote. Processando os primeiros ${maxPerBatch} links.`
+        `Seu plano permite até ${maxPerBatch} produtos por lote. Processando os primeiros ${maxPerBatch}.`
       );
     }
 
@@ -119,11 +148,14 @@ export function LojistaBatchImport({
     try {
       const concurrency = 2;
       let currentIndex = 0;
-      const parsedResults: AffiliateProduct[] = new Array(limitedLines.length);
+      const parsedResults: BatchProductItem[] = new Array(limitedItems.length);
 
-      const processLine = async (rawLine: string, i: number): Promise<AffiliateProduct> => {
-        const shared = parseShopeeSharedText(rawLine);
-        const rawUrl = shared?.url || rawLine;
+      const processItem = async (
+        item: { rawText: string; url: string },
+        i: number
+      ): Promise<BatchProductItem> => {
+        const shared = parseShopeeSharedText(item.rawText);
+        const rawUrl = shared?.url || item.url;
         const { finalUrl: url } = applyStoreAffiliateTracking(rawUrl, store);
         const isShopee = url.includes('shopee.com') || url.includes('shp.ee');
         const hashVal = Math.abs(hash(url) || Date.now() + i);
@@ -171,14 +203,14 @@ export function LojistaBatchImport({
 
         let curPrice = 0;
         if (meta?.currentPrice) {
-          curPrice = parseFloat(meta.currentPrice.replace(',', '.')) || 0;
+          curPrice = parseFloat(meta.currentPrice.replace(/\./g, '').replace(',', '.')) || 0;
         } else if (shared?.currentPrice) {
           curPrice = parseFloat(shared.currentPrice.replace(/\./g, '').replace(',', '.')) || 0;
         }
 
         let origPrice = curPrice;
         if (meta?.originalPrice) {
-          origPrice = parseFloat(meta.originalPrice.replace(',', '.')) || curPrice;
+          origPrice = parseFloat(meta.originalPrice.replace(/\./g, '').replace(',', '.')) || curPrice;
         } else if (shared?.originalPrice) {
           origPrice = parseFloat(shared.originalPrice.replace(/\./g, '').replace(',', '.')) || curPrice;
         }
@@ -196,6 +228,7 @@ export function LojistaBatchImport({
           title,
           originalPrice: origPrice,
           currentPrice: curPrice,
+          tempPriceInput: curPrice > 0 ? curPrice.toFixed(2).replace('.', ',') : '',
           discountPercent: disc,
           installmentsText: curPrice > 0 ? 'em até 6x sem juros' : '',
           imageUrl,
@@ -212,10 +245,10 @@ export function LojistaBatchImport({
         };
       };
 
-      const workers = Array.from({ length: Math.min(concurrency, limitedLines.length) }, async () => {
-        while (currentIndex < limitedLines.length) {
+      const workers = Array.from({ length: Math.min(concurrency, limitedItems.length) }, async () => {
+        while (currentIndex < limitedItems.length) {
           const idx = currentIndex++;
-          parsedResults[idx] = await processLine(limitedLines[idx], idx);
+          parsedResults[idx] = await processItem(limitedItems[idx], idx);
         }
       });
       await Promise.all(workers);
@@ -224,10 +257,10 @@ export function LojistaBatchImport({
       const pendingCount = parsedResults.filter((p) => p.currentPrice <= 0 || !p.imageUrl).length;
       if (pendingCount > 0) {
         toast.warning(
-          `${parsedResults.length} link(s) processado(s)! ${pendingCount} produto(s) requerem confirmação de preço ou foto antes de salvar.`
+          `${parsedResults.length} item(ns) processado(s)! ${pendingCount} produto(s) requerem confirmação de preço ou foto antes de salvar.`
         );
       } else {
-        toast.success(`${parsedResults.length} link(s) processado(s) com sucesso! Confira a prévia abaixo.`);
+        toast.success(`${parsedResults.length} produto(s) processado(s) com sucesso! Confira a prévia abaixo.`);
       }
     } catch (err: any) {
       toast.error(`Erro ao processar lote: ${err?.message || 'Falha ao analisar links'}`);
@@ -338,7 +371,7 @@ export function LojistaBatchImport({
                 Importação em Lote (Até {maxPerBatch} por vez)
               </h3>
               <p className="text-[11px] text-slate-400">
-                Cole vários links do Mercado Livre e Shopee de uma só vez (1 link por linha).
+                Cole links ou textos copiados dos apps do Mercado Livre e Shopee (1 item por linha ou blocos com preço).
               </p>
             </div>
           </div>
@@ -387,13 +420,13 @@ export function LojistaBatchImport({
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Links de Afiliado (1 por linha)
+                Links ou Textos Compartilhados (ML ou Shopee)
               </label>
               <textarea
                 rows={5}
                 value={batchLinksText}
                 onChange={(e) => setBatchLinksText(e.target.value)}
-                placeholder={'https://produto.mercadolivre.com.br/MLB-...\nhttps://shopee.com.br/product/...'}
+                placeholder={'https://produto.mercadolivre.com.br/MLB-...\nhttps://meli.la/...\nhttps://s.shopee.com.br/...\nOu cole blocos com título, preço e link copiados do app...'}
                 className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-100 font-mono outline-none focus:ring-2 focus:ring-[#FFE600] leading-relaxed"
               />
             </div>
@@ -540,18 +573,23 @@ export function LojistaBatchImport({
                                 R$
                               </span>
                               <input
-                                type="number"
-                                step="0.01"
-                                min="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 placeholder="0,00"
-                                value={p.currentPrice > 0 ? p.currentPrice : ''}
-                                onChange={(e) =>
-                                  handleUpdateProductField(
-                                    p.id,
-                                    'currentPrice',
-                                    parseFloat(e.target.value) || 0
-                                  )
+                                value={
+                                  p.tempPriceInput !== undefined
+                                    ? p.tempPriceInput
+                                    : p.currentPrice > 0
+                                      ? p.currentPrice.toFixed(2).replace('.', ',')
+                                      : ''
                                 }
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const rawVal = e.target.value.replace(/[^\d.,]/g, '');
+                                  const num = parseFloat(rawVal.replace(/\./g, '').replace(',', '.'));
+                                  handleUpdateProductPrice(p.id, rawVal, isNaN(num) ? 0 : num);
+                                }}
+                                onBlur={() => handleBlurProductPrice(p.id)}
                                 className={cn(
                                   'w-24 rounded-lg bg-slate-900 border py-1 pl-6 pr-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-[#FFE600]',
                                   hasZeroPrice ? 'border-amber-500 bg-amber-500/10' : 'border-slate-700'

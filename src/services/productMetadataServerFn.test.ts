@@ -76,6 +76,19 @@ describe('extractProductMetadata', () => {
     spy.mockRestore();
   });
 
+  it('extracts real price and title from Mercado Livre meli.la short link', async () => {
+    const res = await extractProductMetadata('https://meli.la/11rvn3r');
+
+    expect(res.success).toBe(true);
+    expect(res.marketplace).toBe('mercadolivre');
+    expect(res.title).toContain("Elseve Collagen Lifter");
+    expect(res.currentPrice).toBe('32,99');
+    expect(res.originalPrice).toBe('65,09');
+    expect(res.imageUrl).toBeDefined();
+    expect(res.imageUrl).toContain('mlstatic.com');
+    expect(res.partial).toBe(false);
+  }, 15000);
+
   it('handles invalid or empty URLs safely without throwing', async () => {
     const res = await extractProductMetadata('');
     expect(res.success).toBe(false);

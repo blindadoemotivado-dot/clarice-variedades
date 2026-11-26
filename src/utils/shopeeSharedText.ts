@@ -1,24 +1,14 @@
 /**
- * Utilitário de Extração Inteligente de Texto Compartilhado do App da Shopee
- *
- * Formato padrão gerado pelo botão "Compartilhar > Copiar Link" no app da Shopee:
- * "Confira [Título do Produto] por R$2.707,69! Encontre na Shopee agora! https://s.shopee.com.br/40iNZkIFU7"
- * ou
- * "Confira Beliche Casinha... por R$2.707,69! Encontre na Shopee agora! https://s.shopee.com.br/40iNZkIFU7"
- * ou
- * "De R$ 3.500,00 por R$ 2.707,69! Confira na Shopee: https://s.shopee.com.br/40iNZkIFU7"
- * ou
- * "Kit 5 Balões Encapsulados por 39,90 https://s.shopee.com.br/1qdtHEbiyo"
- * ou
- * "Kit 5 Balões Encapsulados por R$39.90 https://s.shopee.com.br/1qdtHEbiyo"
+ * Utilitário Universal de Extração Inteligente de Links e Textos Compartilhados
+ * Suporta Shopee e Mercado Livre (links curtos, meli.la, s.shopee.com.br, app shares)
  */
 
 export interface ParsedShopeeShare {
   isSharedText: boolean;
   url: string;
   title?: string | undefined;
-  currentPrice?: string | undefined; // Formato BRL: "2.707,69" ou "279,90"
-  originalPrice?: string | undefined; // Formato BRL: "3.500,00"
+  currentPrice?: string | undefined; // Formato BRL: "32,99" ou "2.707,69"
+  originalPrice?: string | undefined; // Formato BRL: "65,09"
   marketplace: 'shopee' | 'mercadolivre' | 'other';
 }
 
@@ -55,6 +45,17 @@ export function normalizePrice(raw: string | number | undefined | null): string 
   return undefined;
 }
 
+export function cleanSharedTitlePrefix(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^(?:olha|veja|confira|compre|dá uma olhada)\s+/i, '')
+    .replace(/^(?:o que eu encontrei\s+)?(?:(?:este|esse|o)\s+)?produto\s+/i, '')
+    .replace(/^(?:no\s+mercado\s+livre|na\s+shopee)\s*[:!.-]?\s*/i, '')
+    .replace(/^[:!.-]+\s*/, '')
+    .replace(/^\[+|\]+$/g, '')
+    .trim();
+}
+
 export function parseShopeeSharedText(rawText: string): ParsedShopeeShare | null {
   if (!rawText || typeof rawText !== 'string') return null;
   const text = rawText.trim();
@@ -81,8 +82,8 @@ export function parseShopeeSharedText(rawText: string): ParsedShopeeShare | null
   let currentPrice: string | undefined = undefined;
   let originalPrice: string | undefined = undefined;
 
-  // 2. Extração de Preços (Formatos brasileiros: R$ 2.707,69 ou R$2707,69 ou R$ 79,90 ou 39.90 ou por 39,90)
-  // Formato A: De R$ X por R$ Y / de X por Y
+  // 2. Extração de Preços
+  // Prioridade 1: Formato "De R$ X por R$ Y"
   const dePorMatch = text.match(
     /(?:de|de\s*r\$)\s*R?\$?\s*([\d.,]+)\s*(?:por|por\s*r\$)\s*R?\$?\s*([\d.,]+)/i
   );
@@ -95,46 +96,69 @@ export function parseShopeeSharedText(rawText: string): ParsedShopeeShare | null
     }
   }
 
-  // Formato B: por R$ Y ou por Y ou por apenas Y
+  // Prioridade 2: Menção explícita com "R$" (ex: "- R$ 32,99" ou "por R$ 32,99" ou "R$ 32,99")
+  if (!currentPrice) {
+    const rMatch =
+      text.match(/(?:-\s*|por\s*|apenas\s*)?R\$\s*([\d.,]+)/i) ||
+      text.match(/R\$\s*([\d.,]+)/i);
+    if (rMatch) {
+      currentPrice = normalizePrice(rMatch[1]);
+    }
+  }
+
+  // Prioridade 3: "por 39,90" ou "por 39.90" (sem R$, mas NÃO seguido de unidade de tempo/medida como h/x/dias)
   if (!currentPrice) {
     const porMatch = text.match(
-      /(?:por|apenas|por\s*apenas)\s*(?:r\$\s*)?([\d.,]+)/i
+      /(?:por|apenas|por\s*apenas)\s*([\d]+[.,]\d{1,2})(?!\s*(?:h|hora|horas|x|vezes|dia|dias|un|unidade|ml|g|kg|m|cm|mm|%))/i
     );
     if (porMatch) {
       currentPrice = normalizePrice(porMatch[1]);
     }
   }
 
-  // Formato C: R$ Y (qualquer menção com R$)
-  if (!currentPrice) {
-    const rMatch = text.match(/R\$\s*([\d.,]+)/i);
-    if (rMatch) {
-      currentPrice = normalizePrice(rMatch[1]);
-    }
-  }
-
   // 3. Extração de Título
-  // Tenta extrair entre "Confira" e "por R$" ou "!" ou "Encontre" ou "por"
-  const confiraMatch = text.match(
-    /Confira\s+(?:\[(.*?)\]|(.*?))\s*(?:por\s+R\$|por\s+|Encontre\s+na\s+Shopee|na\s+Shopee|!)/i
+  // Padrão Mercado Livre: "Olha o que eu encontrei! [Título] - R$ 32,99 no Mercado Livre. [URL]"
+  const mlSocialMatch = text.match(
+    /(?:Olha o que eu encontrei(?: no Mercado Livre)?!?:?\s*)(.*?)(?:\s*-\s*R\$|\s*no Mercado Livre|\s*https?:)/i
   );
-  if (confiraMatch) {
-    const rawT = (confiraMatch[1] || confiraMatch[2] || '').trim();
-    if (rawT && rawT.length >= 3 && !rawT.startsWith('http')) {
-      title = rawT.replace(/^\[+|\]+$/g, '').trim();
+  if (mlSocialMatch && mlSocialMatch[1]) {
+    const rawT = mlSocialMatch[1].trim();
+    if (rawT.length >= 3 && !rawT.startsWith('http')) {
+      title = cleanSharedTitlePrefix(rawT);
     }
   }
 
-  // Se não pegou por "Confira", tenta capturar tudo antes de "por R$" ou "por "
+  // Padrão Shopee: "Confira [Título] por R$..."
+  if (!title) {
+    const confiraMatch = text.match(
+      /Confira\s+(?:\[(.*?)\]|(.*?))\s*(?:por\s+R\$|por\s+\d|Encontre\s+na\s+Shopee|na\s+Shopee|!)/i
+    );
+    if (confiraMatch) {
+      const rawT = (confiraMatch[1] || confiraMatch[2] || '').trim();
+      if (rawT && rawT.length >= 3 && !rawT.startsWith('http')) {
+        title = cleanSharedTitlePrefix(rawT);
+      }
+    }
+  }
+
+  // Padrão com traço e preço: "... [Título] - R$ [Preço] ..."
+  if (!title && text.includes('- R$')) {
+    const beforeDash = text.split(/-\s*R\$/i)[0]?.trim();
+    if (beforeDash) {
+      const clean = cleanSharedTitlePrefix(beforeDash);
+      if (clean.length >= 3 && !clean.startsWith('http')) {
+        title = clean;
+      }
+    }
+  }
+
+  // Padrão genérico antes de "por R$" ou "por "
   if (!title && /por\s+(?:R\$|\d)/i.test(text)) {
     const beforePor = text.split(/por\s+(?:R\$|\d)/i)[0]?.trim();
     if (beforePor) {
-      const cleanBefore = beforePor
-        .replace(/^(?:olha|veja|confira|compre)\s+/i, '')
-        .replace(/^\[+|\]+$/g, '')
-        .trim();
-      if (cleanBefore.length >= 3 && !cleanBefore.startsWith('http')) {
-        title = cleanBefore;
+      const clean = cleanSharedTitlePrefix(beforePor);
+      if (clean.length >= 3 && !clean.startsWith('http')) {
+        title = clean;
       }
     }
   }
@@ -147,4 +171,48 @@ export function parseShopeeSharedText(rawText: string): ParsedShopeeShare | null
     originalPrice,
     marketplace,
   };
+}
+
+// Alias universal
+export const parseUniversalSharedText = parseShopeeSharedText;
+
+/**
+ * Divide o texto do lote em itens individuais, suportando blocos multi-linha compartilhados
+ * (onde o título e preço estão nas linhas acima da URL) ou links simples um por linha.
+ */
+export function splitBatchTextIntoItems(text: string): { rawText: string; url: string }[] {
+  if (!text || typeof text !== 'string') return [];
+
+  const urlMatches = [...text.matchAll(/https?:\/\/[^\s"'<>]+/gi)];
+  if (urlMatches.length === 0) {
+    return text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((line) => ({ rawText: line, url: line }));
+  }
+
+  const items: { rawText: string; url: string }[] = [];
+  let lastEnd = 0;
+
+  for (let i = 0; i < urlMatches.length; i++) {
+    const match = urlMatches[i];
+    const matchEnd = match.index! + match[0].length;
+    const url = match[0].replace(/[!.,;)]+$/, '');
+
+    const nextMatchStart = i < urlMatches.length - 1 ? urlMatches[i + 1].index! : text.length;
+    const afterUrl = text.slice(matchEnd, nextMatchStart);
+    const nlIdx = afterUrl.indexOf('\n');
+    const itemEnd = nlIdx !== -1 ? matchEnd + nlIdx + 1 : nextMatchStart;
+
+    const block = text.slice(lastEnd, itemEnd).trim();
+    lastEnd = itemEnd;
+
+    items.push({
+      rawText: block || url,
+      url,
+    });
+  }
+
+  return items;
 }

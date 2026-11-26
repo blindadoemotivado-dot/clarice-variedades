@@ -59,6 +59,7 @@ export function decodeHtmlEntities(raw: string): string {
 function cleanTitle(raw: string): string {
   const decoded = decodeHtmlEntities(raw);
   return decoded
+    .replace(/\s*-\s*R\$\s*[\d.,]+.*$/i, '')
     .replace(/\s*\|\s*(Mercado\s*Livre|Shopee|Frete\s*Gr[áa]tis).*$/i, '')
     .replace(/\s*-\s*(Mercado\s*Livre|Shopee).*$/i, '')
     .replace(/\s*\.\.\.$/, '')
@@ -79,6 +80,7 @@ export async function extractProductMetadata(
   }
 
   try {
+    const isMeliLa = currentUrl.includes('meli.la') || currentUrl.includes('/sec/');
     const isShopee = currentUrl.includes('shopee') || currentUrl.includes('shp.ee');
     const marketplace: 'mercadolivre' | 'shopee' = isShopee ? 'shopee' : 'mercadolivre';
     let resolvedUrl = currentUrl;
@@ -128,7 +130,7 @@ export async function extractProductMetadata(
       }
     }
 
-    // 2. Para links encurtados da Shopee ou ML, resolve o primeiro salto para obter o destino canônico
+    // 2. Para links encurtados da Shopee ou ML, resolve o primeiro salto
     if (
       currentUrl.includes('s.shopee.com.br') ||
       currentUrl.includes('shp.ee') ||
@@ -136,7 +138,13 @@ export async function extractProductMetadata(
       currentUrl.includes('/sec/')
     ) {
       try {
-        const manualRes = await fetch(currentUrl, { redirect: 'manual' });
+        const manualRes = await fetch(currentUrl, {
+          redirect: 'manual',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          },
+        });
         const loc = manualRes.headers.get('location');
         if (loc) {
           resolvedUrl = loc.startsWith('http') ? loc : new URL(loc, currentUrl).toString();
@@ -146,54 +154,100 @@ export async function extractProductMetadata(
       }
     }
 
-    // 3. Fetch com bot User-Agent (WhatsApp) para obter meta tags ricas e fotos sem bloqueio
+    // 3. Fetch inicial inteligente:
+    // Para meli.la e links /sec/, o User-Agent desktop segue a cadeia completa de redirects para a página /social/
+    // Para Shopee, o link direto com WhatsApp UA entrega o HTML SSR com título e foto oficial
+    const targetFetchUrl = currentUrl;
+    const primaryUa = isMeliLa
+      ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+      : 'WhatsApp/2.23.20.76 I';
+
     try {
-      const botRes = await fetch(currentUrl, {
+      const res = await fetch(targetFetchUrl, {
         method: 'GET',
         redirect: 'follow',
         headers: {
-          'User-Agent': 'WhatsApp/2.23.20.76 I',
+          'User-Agent': primaryUa,
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8',
         },
       });
-      if (botRes.url && resolvedUrl === currentUrl) {
-        resolvedUrl = botRes.url;
+      if (res.url && res.url !== currentUrl && resolvedUrl === currentUrl) {
+        resolvedUrl = res.url;
       }
-      if (botRes.ok) {
-        html = await botRes.text();
+      if (res.ok) {
+        html = await res.text();
       }
     } catch {
-      // bot fetch failed, try browser UA below
+      // primary fetch failed
     }
 
-    // 3. Fallback de requisição com navegador desktop se bot não retornou HTML suficiente
-    if (!html || html.length < 500) {
+    // Fallback: se o HTML retornado for muito pequeno (< 1000 bytes) ou contiver desafio de verificação, tenta o UA alternativo
+    const isChallenge = html.includes('account-verification') || html.includes('px-captcha');
+    if (!html || html.length < 1000 || isChallenge) {
+      const fallbackUa = primaryUa.includes('WhatsApp')
+        ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        : 'WhatsApp/2.23.20.76 I';
       try {
-        const browserRes = await fetch(currentUrl, {
+        const fallbackRes = await fetch(targetFetchUrl, {
           method: 'GET',
           redirect: 'follow',
           headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'User-Agent': fallbackUa,
             Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8',
           },
         });
-        resolvedUrl = browserRes.url || resolvedUrl;
-        if (browserRes.ok) {
-          html = await browserRes.text();
+        if (fallbackRes.ok) {
+          const fbHtml = await fallbackRes.text();
+          if (fbHtml.length > 1000 && !fbHtml.includes('account-verification')) {
+            html = fbHtml;
+            resolvedUrl = fallbackRes.url || resolvedUrl;
+          }
         }
       } catch {
-        // fetch error
+        // fallback fetch error
       }
     }
 
-    // 4. Se for Shopee, tenta consultar a Shopee Affiliate Open API (GraphQL) oficial
+    let extractedTitle = '';
+    let extractedPrice: string | undefined = options?.preservedCurrentPrice
+      ? normalizePrice(options.preservedCurrentPrice) || options.preservedCurrentPrice
+      : undefined;
+    let originalPrice: string | undefined = options?.preservedOriginalPrice
+      ? normalizePrice(options.preservedOriginalPrice) || options.preservedOriginalPrice
+      : undefined;
+    let extractedImage: string | undefined = undefined;
+
+    // 4. Se for Mercado Livre, tenta consultar a API Pública Oficial do ML se houver MLB ID
+    if (!isShopee) {
+      const mlbMatchFull = (resolvedUrl + ' ' + currentUrl + ' ' + html.slice(0, 10000)).match(/MLB-?([0-9]{8,14})/i);
+      if (mlbMatchFull && mlbMatchFull[1]) {
+        const mlbId = mlbMatchFull[1];
+        try {
+          const apiRes = await fetch(`https://api.mercadolibre.com/items/MLB${mlbId}`, {
+            headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
+            signal: AbortSignal.timeout(2500),
+          });
+          if (apiRes.ok) {
+            const item = await apiRes.json();
+            if (item.title && !extractedTitle) extractedTitle = cleanTitle(item.title);
+            if (item.price && !extractedPrice) extractedPrice = normalizePrice(item.price);
+            if (item.original_price && !originalPrice) originalPrice = normalizePrice(item.original_price);
+            if (item.pictures?.[0]?.secure_url && !extractedImage) extractedImage = item.pictures[0].secure_url;
+          }
+        } catch {
+          // ignore API error, continue to HTML layers
+        }
+      }
+    }
+
+    // 4b. Se for Shopee, tenta consultar a Shopee Affiliate Open API (GraphQL) oficial
     if (isShopee) {
       const itemId =
         shopeeOpenApi.extractShopeeItemId(resolvedUrl) ||
-        shopeeOpenApi.extractShopeeItemId(currentUrl);
+        shopeeOpenApi.extractShopeeItemId(currentUrl) ||
+        shopeeOpenApi.extractShopeeItemId(html);
       if (itemId) {
         let shopeeAppId = options?.shopeeAppId?.trim();
         let shopeeSecret = options?.shopeeSecret?.trim();
@@ -219,7 +273,7 @@ export async function extractProductMetadata(
           }
         }
 
-        // Fallback para variáveis de ambiente globais da aplicação (com todos os nomes suportados)
+        // Fallback para variáveis de ambiente globais da aplicação
         if (!shopeeAppId) {
           shopeeAppId =
             env['SHOPEE_APP_ID'] ||
@@ -237,7 +291,7 @@ export async function extractProductMetadata(
             '';
         }
 
-        // Se ainda não tiver credenciais, busca na loja mestre 'clarice' ou em system_settings no Supabase
+        // Se ainda não tiver credenciais, busca na loja mestre 'clarice'
         if ((!shopeeAppId || !shopeeSecret || shopeeSecret.includes('|')) && supabaseKey) {
           try {
             const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
@@ -257,29 +311,6 @@ export async function extractProductMetadata(
                 !masterStore.shopee_secret.includes('|')
               ) {
                 shopeeSecret = masterStore.shopee_secret;
-              }
-            }
-
-            // Tenta também system_settings se houver
-            if (!shopeeAppId || !shopeeSecret || shopeeSecret.includes('|')) {
-              const { data: settings } = await supabase
-                .from('system_settings')
-                .select('key, value')
-                .in('key', ['shopee_app_id', 'shopee_secret']);
-
-              if (Array.isArray(settings)) {
-                for (const row of settings) {
-                  if (row.key === 'shopee_app_id' && row.value && !shopeeAppId) {
-                    shopeeAppId = String(row.value);
-                  }
-                  if (
-                    row.key === 'shopee_secret' &&
-                    row.value &&
-                    (!shopeeSecret || shopeeSecret.includes('|'))
-                  ) {
-                    shopeeSecret = String(row.value);
-                  }
-                }
               }
             }
           } catch {
@@ -319,8 +350,6 @@ export async function extractProductMetadata(
     }
 
     // 5. Extração de Título Real via HTML
-    let extractedTitle = '';
-
     // Para Shopee: a meta description contém o título completo sem truncar com '...'
     if (isShopee && html) {
       const descMatch =
@@ -335,19 +364,29 @@ export async function extractProductMetadata(
       }
     }
 
-    // Se ainda não encontrou ou não é Shopee, busca no og:title
-    if (!extractedTitle && html) {
+    // Extração no og:title (captura preço embutido ex: "- R$ 32,99" e limpa título)
+    if (html) {
       const ogTitleMatch =
         html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i) ||
         html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']+)["']/i);
 
       if (ogTitleMatch?.[1]) {
-        extractedTitle = cleanTitle(ogTitleMatch[1]);
+        const rawOgTitle = ogTitleMatch[1];
+        if (!extractedPrice) {
+          const tpMatch = rawOgTitle.match(/-\s*R\$\s*([\d.,]+)/i) || rawOgTitle.match(/R\$\s*([\d.,]+)/i);
+          if (tpMatch) {
+            const norm = normalizePrice(tpMatch[1]);
+            if (norm) extractedPrice = norm;
+          }
+        }
+        if (!extractedTitle) {
+          extractedTitle = cleanTitle(rawOgTitle);
+        }
       }
     }
 
-    // Fallback de título derivado dos slugs da URL (da resolvedUrl e da URL original)
+    // Fallback de título derivado dos slugs da URL
     if (!extractedTitle) {
       const urlsToInspect = [resolvedUrl, currentUrl];
       for (const u of urlsToInspect) {
@@ -379,8 +418,7 @@ export async function extractProductMetadata(
     }
 
     // 6. Extração de Imagem Real (ZERO UNSPLASH - se não achar, fica undefined)
-    let extractedImage: string | undefined = undefined;
-    if (html) {
+    if (!extractedImage && html) {
       const ogImgMatch =
         html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) ||
@@ -395,16 +433,9 @@ export async function extractProductMetadata(
       }
     }
 
-    // 7. Extração de Preço Real (ZERO PREÇO INVENTADO - se não achar, verifica se veio preservado do texto colado)
-    let extractedPrice: string | undefined = options?.preservedCurrentPrice
-      ? normalizePrice(options.preservedCurrentPrice) || options.preservedCurrentPrice
-      : undefined;
-    let originalPrice: string | undefined = options?.preservedOriginalPrice
-      ? normalizePrice(options.preservedOriginalPrice) || options.preservedOriginalPrice
-      : undefined;
-
+    // 7. Extração de Preço Real Multi-Camada (ZERO PREÇO INVENTADO)
     if (!extractedPrice && html) {
-      // 1. Meta tags explícitas de preço (og:price, product:price, twitter:data1)
+      // 7.1 Meta tags explícitas de preço (og:price, product:price, twitter:data1)
       const priceMatch =
         html.match(/<meta[^>]*property=["'](?:product:price:amount|og:price:amount)["'][^>]*content=["']([\d.,]+)["']/i) ||
         html.match(/<meta[^>]*content=["']([\d.,]+)["'][^>]*property=["'](?:product:price:amount|og:price:amount)["']/i) ||
@@ -417,13 +448,16 @@ export async function extractProductMetadata(
     }
 
     if (!extractedPrice && html) {
-      // 2. Extração de preço dentro do og:description ou description
-      const descMatch =
-        html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
-        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i) ||
-        html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
-      if (descMatch?.[1]) {
-        const descText = descMatch[1];
+      // 7.2 Extração de preço dentro do og:description ou description
+      const descMatches = [
+        html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1],
+        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i)?.[1],
+        html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1],
+        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i)?.[1],
+      ].filter(Boolean) as string[];
+
+      for (const descText of descMatches) {
+        // Formato De R$ X por R$ Y
         const dePor = descText.match(/(?:de|de\s*r\$)\s*R?\$?\s*([\d.,]+)\s*(?:por|por\s*r\$)\s*R?\$?\s*([\d.,]+)/i);
         if (dePor) {
           const orig = normalizePrice(dePor[1]);
@@ -431,20 +465,47 @@ export async function extractProductMetadata(
           if (cur) {
             extractedPrice = cur;
             if (orig && !originalPrice) originalPrice = orig;
+            break;
           }
-        } else {
-          const porDesc =
-            descText.match(/(?:por|apenas|por\s*apenas)\s*(?:R\$\s*)?([\d.,]+)/i) ||
-            descText.match(/R\$\s*([\d.,]+)/i);
-          if (porDesc?.[1]) {
-            const norm = normalizePrice(porDesc[1]);
-            if (norm) extractedPrice = norm;
+        }
+        // Formato - R$ X ou por R$ X
+        const pMatch =
+          descText.match(/-\s*R\$\s*([\d.,]+)/i) ||
+          descText.match(/(?:por|apenas)\s*(?:R\$\s*)?([\d.,]+)/i) ||
+          descText.match(/R\$\s*([\d.,]+)/i);
+        if (pMatch) {
+          const cur = normalizePrice(pMatch[1]);
+          if (cur) {
+            extractedPrice = cur;
+            break;
           }
         }
       }
     }
 
-    // 8. Extração via JSON-LD estruturado se disponível
+    // 7.3 Preço original (De) em aria-label ("Antes: 65 reais com 09 centavos")
+    if (!originalPrice && html) {
+      const prevAriaMatch = html.match(/aria-label=["']Antes:\s*(\d+)\s*reais(?:\s*com\s*(\d+)\s*centavos)?["']/i);
+      if (prevAriaMatch) {
+        const r = prevAriaMatch[1];
+        const c = prevAriaMatch[2] || '00';
+        originalPrice = `${r},${c.padStart(2, '0')}`;
+      }
+    }
+
+    // 7.4 Preço em blocos .andes-money-amount
+    if (!extractedPrice && html) {
+      const andesMatch = html.match(
+        /class=["'][^"']*andes-money-amount[^"']*["'][\s\S]*?class=["'][^"']*andes-money-amount__fraction[^"']*["'][^>]*>(\d+)<\/span>(?:[\s\S]*?class=["'][^"']*andes-money-amount__cents[^"']*["'][^>]*>(\d+)<\/span>)?/i
+      );
+      if (andesMatch) {
+        const f = andesMatch[1];
+        const c = andesMatch[2] || '00';
+        extractedPrice = `${f},${c.padStart(2, '0')}`;
+      }
+    }
+
+    // 7.5 Extração via JSON-LD estruturado se disponível
     if (html && (!extractedImage || !extractedPrice || !extractedTitle)) {
       const ldMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
       for (const m of ldMatches) {
