@@ -7,6 +7,10 @@
  * "Confira Beliche Casinha... por R$2.707,69! Encontre na Shopee agora! https://s.shopee.com.br/40iNZkIFU7"
  * ou
  * "De R$ 3.500,00 por R$ 2.707,69! Confira na Shopee: https://s.shopee.com.br/40iNZkIFU7"
+ * ou
+ * "Kit 5 Balões Encapsulados por 39,90 https://s.shopee.com.br/1qdtHEbiyo"
+ * ou
+ * "Kit 5 Balões Encapsulados por R$39.90 https://s.shopee.com.br/1qdtHEbiyo"
  */
 
 export interface ParsedShopeeShare {
@@ -16,6 +20,39 @@ export interface ParsedShopeeShare {
   currentPrice?: string | undefined; // Formato BRL: "2.707,69" ou "279,90"
   originalPrice?: string | undefined; // Formato BRL: "3.500,00"
   marketplace: 'shopee' | 'mercadolivre' | 'other';
+}
+
+/**
+ * Normaliza qualquer representação de valor monetário (R$ 39,90, 39.90, 39, 2.707,69)
+ * para o padrão BRL estrito: "39,90" ou "2.707,69".
+ */
+export function normalizePrice(raw: string | number | undefined | null): string | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  const str = String(raw).trim().replace(/\s+/g, '');
+  if (!str) return undefined;
+
+  // Excluir IDs numéricos puros gigantes como item_id (ex: 22594819679)
+  if (/^\d{6,}$/.test(str)) return undefined;
+
+  // Formato: 2.707,69 ou 2707,69
+  if (/^\d{1,3}(\.\d{3})*,\d{2}$/.test(str) || /^\d+,\d{2}$/.test(str)) {
+    return str;
+  }
+  // Formato com ponto: 2.707.69 ou 2707.69 ou 39.90 ou 39.9
+  if (/^\d{1,3}(,\d{3})*\.\d{1,2}$/.test(str) || /^\d+\.\d{1,2}$/.test(str)) {
+    const num = parseFloat(str.replace(/,/g, ''));
+    if (!isNaN(num) && num > 0) return num.toFixed(2).replace('.', ',');
+  }
+  // Formato inteiro: 39 ou 2707
+  if (/^\d{1,5}$/.test(str)) {
+    const num = parseInt(str, 10);
+    if (!isNaN(num) && num > 0 && num < 100000) return `${num},00`;
+  }
+  // Formato com 1 casa decimal com vírgula: 39,9
+  if (/^\d+,\d{1}$/.test(str)) {
+    return `${str}0`;
+  }
+  return undefined;
 }
 
 export function parseShopeeSharedText(rawText: string): ParsedShopeeShare | null {
@@ -44,28 +81,42 @@ export function parseShopeeSharedText(rawText: string): ParsedShopeeShare | null
   let currentPrice: string | undefined = undefined;
   let originalPrice: string | undefined = undefined;
 
-  // 2. Extração de Preços (Formatos brasileiros: R$ 2.707,69 ou R$2707,69 ou R$ 79,90)
-  // Formato: De R$ X por R$ Y
+  // 2. Extração de Preços (Formatos brasileiros: R$ 2.707,69 ou R$2707,69 ou R$ 79,90 ou 39.90 ou por 39,90)
+  // Formato A: De R$ X por R$ Y / de X por Y
   const dePorMatch = text.match(
-    /(?:de|de\s*r\$)\s*R?\$?\s*([\d.]+,\d{2})\s*(?:por|por\s*r\$)\s*R?\$?\s*([\d.]+,\d{2})/i
+    /(?:de|de\s*r\$)\s*R?\$?\s*([\d.,]+)\s*(?:por|por\s*r\$)\s*R?\$?\s*([\d.,]+)/i
   );
-  if (dePorMatch && dePorMatch[1] && dePorMatch[2]) {
-    originalPrice = dePorMatch[1].trim();
-    currentPrice = dePorMatch[2].trim();
-  } else {
-    // Formato: por R$ Y ou apenas R$ Y
+  if (dePorMatch) {
+    const orig = normalizePrice(dePorMatch[1]);
+    const cur = normalizePrice(dePorMatch[2]);
+    if (cur) {
+      currentPrice = cur;
+      originalPrice = orig;
+    }
+  }
+
+  // Formato B: por R$ Y ou por Y ou por apenas Y
+  if (!currentPrice) {
     const porMatch = text.match(
-      /(?:por|apenas|por\s*apenas)?\s*R\$\s*([\d.]+,\d{2})/i
+      /(?:por|apenas|por\s*apenas)\s*(?:r\$\s*)?([\d.,]+)/i
     );
-    if (porMatch && porMatch[1]) {
-      currentPrice = porMatch[1].trim();
+    if (porMatch) {
+      currentPrice = normalizePrice(porMatch[1]);
+    }
+  }
+
+  // Formato C: R$ Y (qualquer menção com R$)
+  if (!currentPrice) {
+    const rMatch = text.match(/R\$\s*([\d.,]+)/i);
+    if (rMatch) {
+      currentPrice = normalizePrice(rMatch[1]);
     }
   }
 
   // 3. Extração de Título
-  // Tenta extrair entre "Confira" e "por R$" ou "!" ou "Encontre"
+  // Tenta extrair entre "Confira" e "por R$" ou "!" ou "Encontre" ou "por"
   const confiraMatch = text.match(
-    /Confira\s+(?:\[(.*?)\]|(.*?))\s*(?:por\s+R\$|Encontre\s+na\s+Shopee|na\s+Shopee|!)/i
+    /Confira\s+(?:\[(.*?)\]|(.*?))\s*(?:por\s+R\$|por\s+|Encontre\s+na\s+Shopee|na\s+Shopee|!)/i
   );
   if (confiraMatch) {
     const rawT = (confiraMatch[1] || confiraMatch[2] || '').trim();
@@ -74,9 +125,9 @@ export function parseShopeeSharedText(rawText: string): ParsedShopeeShare | null
     }
   }
 
-  // Se não pegou por "Confira", tenta capturar tudo antes de "por R$"
-  if (!title && text.includes('por R$')) {
-    const beforePor = text.split(/por\s+R\$/i)[0]?.trim();
+  // Se não pegou por "Confira", tenta capturar tudo antes de "por R$" ou "por "
+  if (!title && /por\s+(?:R\$|\d)/i.test(text)) {
+    const beforePor = text.split(/por\s+(?:R\$|\d)/i)[0]?.trim();
     if (beforePor) {
       const cleanBefore = beforePor
         .replace(/^(?:olha|veja|confira|compre)\s+/i, '')

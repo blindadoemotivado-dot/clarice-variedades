@@ -342,8 +342,8 @@ export function AdminRoutePage() {
         userRole === 'lojista' && loggedStore
           ? loggedStore.slug
           : selectedStoreFilter !== 'todos'
-          ? selectedStoreFilter
-          : 'clarice';
+            ? selectedStoreFilter
+            : 'clarice';
       const publicUrl = await uploadStoreImage(file, 'produtos', targetLoja);
       setProductImageUrl(publicUrl);
       toast.success('Foto do produto enviada com sucesso!');
@@ -415,7 +415,7 @@ export function AdminRoutePage() {
               }
               setLoggedStore(s);
             }
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
     } catch {
@@ -509,7 +509,7 @@ export function AdminRoutePage() {
       } else {
         // Loja antiga sem senha: se o lojista digitou uma senha, salva para os próximos logins
         if (password) {
-          updateStorePassword(store.slug, password).catch(() => {});
+          updateStorePassword(store.slug, password).catch(() => { });
         }
       }
 
@@ -724,42 +724,48 @@ export function AdminRoutePage() {
   // Processar texto compartilhado do App da Shopee ou URLs coladas
   const handleProcessPastedText = async (rawText: string): Promise<boolean> => {
     const parsed = parseShopeeSharedText(rawText);
-    if (parsed.isSharedText && parsed.url) {
-      setProductAffiliateUrl(parsed.url);
-      setProductMarketplace('shopee');
-      if (parsed.title) {
-        setProductTitle(parsed.title);
-      }
-      if (parsed.currentPrice) {
-        setProductCurrentPrice(parsed.currentPrice);
-      }
-      if (parsed.originalPrice) {
-        setProductOriginalPrice(parsed.originalPrice);
-      }
+    if (!parsed || !parsed.url) return false;
+
+    setProductAffiliateUrl(parsed.url);
+    if (parsed.marketplace === 'shopee') setProductMarketplace('shopee');
+
+    const detectedPrice = parsed.currentPrice;
+    const detectedOrigPrice = parsed.originalPrice;
+
+    if (parsed.title) {
+      setProductTitle(parsed.title);
+    }
+    if (detectedPrice) {
+      setProductCurrentPrice(detectedPrice);
+    }
+    if (detectedOrigPrice) {
+      setProductOriginalPrice(detectedOrigPrice);
+    }
+
+    if (parsed.isSharedText) {
       toast.success(
-        parsed.currentPrice
-          ? `⚡ Dados extraídos do app Shopee! Preço: R$ ${parsed.currentPrice}`
+        detectedPrice
+          ? `⚡ Dados extraídos do app Shopee! Preço: R$ ${detectedPrice}`
           : '⚡ Link da Shopee extraído do texto compartilhado!'
       );
-      await handleFetchOgMetadata(parsed.url, {
-        preservedCurrentPrice: parsed.currentPrice,
-        preservedOriginalPrice: parsed.originalPrice,
-      });
-      return true;
-    } else if (parsed.url && parsed.url !== rawText.trim()) {
-      setProductAffiliateUrl(parsed.url);
-      if (parsed.marketplace === 'shopee') setProductMarketplace('shopee');
-      await handleFetchOgMetadata(parsed.url);
-      return true;
     }
-    return false;
+
+    await handleFetchOgMetadata(parsed.url, {
+      preservedCurrentPrice:
+        detectedPrice || (productCurrentPrice.trim() ? productCurrentPrice.trim() : undefined),
+      preservedOriginalPrice:
+        detectedOrigPrice || (productOriginalPrice.trim() ? productOriginalPrice.trim() : undefined),
+    });
+    return true;
   };
 
   // Botão Colar do App Shopee (lê navigator.clipboard)
   const handlePasteFromShopeeApp = async () => {
     try {
       if (!navigator.clipboard || !navigator.clipboard.readText) {
-        toast.info('Seu navegador não suporta leitura direta da área de transferência. Cole o texto diretamente no campo.');
+        toast.info(
+          'Seu navegador não suporta leitura direta da área de transferência. Cole o texto diretamente no campo.'
+        );
         return;
       }
       const text = await navigator.clipboard.readText();
@@ -800,6 +806,18 @@ export function AdminRoutePage() {
         ? loggedStore
         : stores.find((s) => s.slug === (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter));
 
+    // Determina o preço atualmente ativo para proteção estrita
+    const existingCurrentPrice =
+      options?.preservedCurrentPrice ||
+      (productCurrentPrice.trim() && parseFloat(productCurrentPrice.replace(',', '.')) > 0
+        ? productCurrentPrice.trim()
+        : undefined);
+    const existingOriginalPrice =
+      options?.preservedOriginalPrice ||
+      (productOriginalPrice.trim() && parseFloat(productOriginalPrice.replace(',', '.')) > 0
+        ? productOriginalPrice.trim()
+        : undefined);
+
     // Injeta automaticamente parâmetros de rastreamento permanente se configurado
     const tracking = applyStoreAffiliateTracking(url, activeStore);
     if (tracking.tracked && tracking.finalUrl !== url) {
@@ -818,14 +836,27 @@ export function AdminRoutePage() {
           lojaSlug: activeStore?.slug,
           shopeeAppId: activeStore?.shopeeAppId || (activeStore as any)?.shopee_app_id,
           shopeeSecret: activeStore?.shopeeSecret || (activeStore as any)?.shopee_secret,
-          preservedCurrentPrice: options?.preservedCurrentPrice || (productCurrentPrice.trim() ? productCurrentPrice.trim() : undefined),
-          preservedOriginalPrice: options?.preservedOriginalPrice || (productOriginalPrice.trim() ? productOriginalPrice.trim() : undefined),
+          preservedCurrentPrice: existingCurrentPrice,
+          preservedOriginalPrice: existingOriginalPrice,
         },
       });
       if (res && res.success) {
         if (res.title) setProductTitle(res.title);
-        if (res.currentPrice) setProductCurrentPrice(res.currentPrice);
-        if (res.originalPrice) setProductOriginalPrice(res.originalPrice);
+
+        // PROTEÇÃO DE PREÇO ABSOLUTA: Se o servidor não retornou preço válido (> 0),
+        // NUNCA sobrescreve/apaga o existingCurrentPrice já presente no formulário!
+        if (res.currentPrice && parseFloat(res.currentPrice.replace(',', '.')) > 0) {
+          setProductCurrentPrice(res.currentPrice);
+        } else if (existingCurrentPrice) {
+          setProductCurrentPrice(existingCurrentPrice);
+        }
+
+        if (res.originalPrice && parseFloat(res.originalPrice.replace(',', '.')) > 0) {
+          setProductOriginalPrice(res.originalPrice);
+        } else if (existingOriginalPrice) {
+          setProductOriginalPrice(existingOriginalPrice);
+        }
+
         if (res.imageUrl) setProductImageUrl(res.imageUrl);
         if (res.marketplace) setProductMarketplace(res.marketplace);
         if (res.category) {
@@ -835,26 +866,27 @@ export function AdminRoutePage() {
           if (matchedCategory) setProductCategory(matchedCategory);
         }
 
-        if (res.partial) {
+        const effectivePrice =
+          (res.currentPrice && parseFloat(res.currentPrice.replace(',', '.')) > 0)
+            ? res.currentPrice
+            : existingCurrentPrice;
+
+        if (res.partial && !effectivePrice) {
           const warnMsg =
             res.warning ||
             (res.marketplace === 'shopee'
-              ? '⚠️ A Shopee bloqueou a leitura automática de preço e foto deste link. Confira o título extraído e preencha o preço e a imagem manualmente (ou use o botão Enviar Foto).'
-              : '⚠️ O Mercado Livre bloqueou a leitura automática de preço e foto deste link. Confira os dados e preencha manualmente.');
+              ? '⚠️ A Shopee bloqueou a leitura automática de preço deste link. Confira o título e foto extraídos e preencha o preço manualmente.'
+              : '⚠️ O Mercado Livre bloqueou a leitura automática de preço deste link. Confira os dados e preencha manualmente.');
           setExtractionWarning(warnMsg);
-          if (res.imageUrl && !res.currentPrice) {
+          if (res.imageUrl) {
             toast.warning('Título e foto extraídos! Preencha o preço manualmente.');
-          } else if (!res.imageUrl && !res.currentPrice) {
-            toast.warning('Título extraído! Preencha o preço e envie uma foto.');
           } else {
-            toast.warning('Dados parciais extraídos! Confira os campos abaixo.');
+            toast.warning('Título extraído! Preencha o preço e envie uma foto.');
           }
-          if (!res.currentPrice) {
-            setTimeout(() => {
-              const priceInput = document.getElementById('product-current-price-input');
-              if (priceInput) priceInput.focus();
-            }, 150);
-          }
+          setTimeout(() => {
+            const priceInput = document.getElementById('product-current-price-input');
+            if (priceInput) priceInput.focus();
+          }, 150);
         } else {
           setExtractionWarning(null);
           toast.success('⚡ Dados do produto puxados com sucesso!');
@@ -868,11 +900,11 @@ export function AdminRoutePage() {
       setProductMarketplace(isShopee ? 'shopee' : 'mercadolivre');
 
       if (isShopee) {
-        if (options?.preservedCurrentPrice) {
-          setProductCurrentPrice(options.preservedCurrentPrice);
+        if (existingCurrentPrice) {
+          setProductCurrentPrice(existingCurrentPrice);
         }
-        if (options?.preservedOriginalPrice) {
-          setProductOriginalPrice(options.preservedOriginalPrice);
+        if (existingOriginalPrice) {
+          setProductOriginalPrice(existingOriginalPrice);
         }
         const slugMatch = url.match(/shopee\.com\.br\/([^?]+)-i\./i);
         if (slugMatch && !productTitle) {
@@ -881,15 +913,18 @@ export function AdminRoutePage() {
             setProductTitle(autoTitle.charAt(0).toUpperCase() + autoTitle.slice(1));
           }
         }
-        const warnMsg =
-          '⚠️ A Shopee bloqueou a leitura automática de preço e foto deste link. Confira o título extraído e preencha o preço e a imagem manualmente (ou use o botão Enviar Foto).';
-        setExtractionWarning(warnMsg);
-        toast.warning('Título identificado pelo link. Preencha o preço e imagem manualmente.');
-        if (!options?.preservedCurrentPrice && !productCurrentPrice) {
+        if (!existingCurrentPrice) {
+          const warnMsg =
+            '⚠️ A Shopee bloqueou a leitura automática de preço deste link. Confira o título extraído e preencha o preço manualmente.';
+          setExtractionWarning(warnMsg);
+          toast.warning('Título identificado pelo link. Preencha o preço manualmente.');
           setTimeout(() => {
             const priceInput = document.getElementById('product-current-price-input');
             if (priceInput) priceInput.focus();
           }, 150);
+        } else {
+          setExtractionWarning(null);
+          toast.success('⚡ Link identificado com sucesso!');
         }
       } else if (isML) {
         const mlb = extractMlbId(url);
@@ -900,10 +935,12 @@ export function AdminRoutePage() {
         } else if (mlb && !productTitle) {
           setProductTitle(`Produto Mercado Livre ${mlb}`);
         }
-        const warnMsg =
-          '⚠️ O Mercado Livre bloqueou a leitura automática de preço e foto deste link. Preencha os dados manualmente.';
-        setExtractionWarning(warnMsg);
-        toast.warning('Link detectado. Preencha o preço e a imagem manualmente.');
+        if (!existingCurrentPrice) {
+          const warnMsg =
+            '⚠️ O Mercado Livre bloqueou a leitura automática de preço e foto deste link. Preencha os dados manualmente.';
+          setExtractionWarning(warnMsg);
+          toast.warning('Link detectado. Preencha o preço e a imagem manualmente.');
+        }
       } else {
         toast.info('URL detectada. Preencha os campos abaixo.');
       }
@@ -1048,7 +1085,7 @@ export function AdminRoutePage() {
                 entityTitle: newProduct.title,
                 payload: { product: newProduct },
               },
-            }).catch(() => {});
+            }).catch(() => { });
           }
         } else {
           const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newProduct.id);
@@ -1071,7 +1108,7 @@ export function AdminRoutePage() {
                 entityTitle: newProduct.title,
                 payload: { product: newProduct },
               },
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
       } catch (err) {
@@ -1681,409 +1718,422 @@ export function AdminRoutePage() {
                     </div>
 
                     <form onSubmit={handleSaveProduct} className="space-y-4">
-                  {/* Seletor de Marketplace */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Marketplace de Origem
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setProductMarketplace('mercadolivre')}
-                        className={cn(
-                          'flex items-center justify-center gap-2 py-2.5 rounded-xl border text-xs font-bold transition',
-                          productMarketplace === 'mercadolivre'
-                            ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                        )}
-                      >
-                        <span className="h-2 w-2 rounded-full bg-[#FFE600] ring-1 ring-slate-950" />
-                        Mercado Livre
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setProductMarketplace('shopee')}
-                        className={cn(
-                          'flex items-center justify-center gap-2 py-2.5 rounded-xl border text-xs font-bold transition',
-                          productMarketplace === 'shopee'
-                            ? 'bg-[#EE4D2D] text-white border-[#EE4D2D] shadow-sm'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                        )}
-                      >
-                        <span className="h-2 w-2 rounded-full bg-[#EE4D2D] ring-1 ring-white" />
-                        Shopee
-                      </button>
-                    </div>
-                  </div>
+                      {/* Seletor de Marketplace */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          Marketplace de Origem
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setProductMarketplace('mercadolivre')}
+                            className={cn(
+                              'flex items-center justify-center gap-2 py-2.5 rounded-xl border text-xs font-bold transition',
+                              productMarketplace === 'mercadolivre'
+                                ? 'bg-[#FFE600] text-slate-950 border-[#FFE600] shadow-sm'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            )}
+                          >
+                            <span className="h-2 w-2 rounded-full bg-[#FFE600] ring-1 ring-slate-950" />
+                            Mercado Livre
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProductMarketplace('shopee')}
+                            className={cn(
+                              'flex items-center justify-center gap-2 py-2.5 rounded-xl border text-xs font-bold transition',
+                              productMarketplace === 'shopee'
+                                ? 'bg-[#EE4D2D] text-white border-[#EE4D2D] shadow-sm'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            )}
+                          >
+                            <span className="h-2 w-2 rounded-full bg-[#EE4D2D] ring-1 ring-white" />
+                            Shopee
+                          </button>
+                        </div>
+                      </div>
 
-                  {/* Selo Permanente de Rastreamento de Afiliado adaptado ao Marketplace */}
-                  {(() => {
-                    const activeStore =
-                      userRole === 'lojista' && loggedStore
-                        ? loggedStore
-                        : stores.find(
-                            (s) =>
-                              s.slug ===
-                              (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter)
-                          ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined);
+                      {/* Selo Permanente de Rastreamento de Afiliado adaptado ao Marketplace */}
+                      {(() => {
+                        const activeStore =
+                          userRole === 'lojista' && loggedStore
+                            ? loggedStore
+                            : stores.find(
+                              (s) =>
+                                s.slug ===
+                                (selectedStoreFilter === 'todos' ? 'clarice' : selectedStoreFilter)
+                            ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined);
 
-                    const mlTag = activeStore?.mlAffiliateTag;
-                    const shopeeTag = activeStore?.shopeeAffiliateId || activeStore?.shopeeAppId;
+                        const mlTag = activeStore?.mlAffiliateTag;
+                        const shopeeTag = activeStore?.shopeeAffiliateId || activeStore?.shopeeAppId;
 
-                    if (productMarketplace === 'shopee') {
-                      return (
-                        <div className="w-full min-w-0 flex items-center justify-between gap-2 rounded-xl bg-orange-500/10 border border-orange-500/30 px-3 py-2 text-[11px] font-semibold text-orange-400">
-                          <div className="flex items-center gap-2 truncate min-w-0">
-                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#EE4D2D]" />
-                            <span className="truncate">
-                              Shopee conectada ✓ (ID Afiliado: {shopeeTag || 'Padrão Clarice'})
+                        if (productMarketplace === 'shopee') {
+                          return (
+                            <div className="w-full min-w-0 flex items-center justify-between gap-2 rounded-xl bg-orange-500/10 border border-orange-500/30 px-3 py-2 text-[11px] font-semibold text-orange-400">
+                              <div className="flex items-center gap-2 truncate min-w-0">
+                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#EE4D2D]" />
+                                <span className="truncate">
+                                  Shopee conectada ✓ (ID Afiliado: {shopeeTag || 'Padrão Clarice'})
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-orange-300/70 shrink-0">
+                                {isShopeeConfigured ? '⚡ API GraphQL Ativa' : 'Rastreamento Ativo'}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="w-full min-w-0 flex items-center justify-between gap-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30 px-3 py-2 text-[11px] font-semibold text-yellow-400">
+                            <div className="flex items-center gap-2 truncate min-w-0">
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#FFE600]" />
+                              <span className="truncate">
+                                Mercado Livre conectado ✓ (Tag: {mlTag || 'Padrão Clarice'})
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-yellow-300/70 shrink-0">
+                              Rastreamento Ativo
                             </span>
                           </div>
-                          <span className="text-[10px] text-orange-300/70 shrink-0">
-                            {isShopeeConfigured ? '⚡ API GraphQL Ativa' : 'Rastreamento Ativo'}
-                          </span>
-                        </div>
-                      );
-                    }
+                        );
+                      })()}
 
-                    return (
-                      <div className="w-full min-w-0 flex items-center justify-between gap-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30 px-3 py-2 text-[11px] font-semibold text-yellow-400">
-                        <div className="flex items-center gap-2 truncate min-w-0">
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#FFE600]" />
-                          <span className="truncate">
-                            Mercado Livre conectado ✓ (Tag: {mlTag || 'Padrão Clarice'})
-                          </span>
+                      {/* URL de Afiliado com Auto-Detection */}
+                      <div>
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                          <label className="text-xs font-semibold text-slate-300">
+                            Link de Afiliado Oficial
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handlePasteFromShopeeApp}
+                              disabled={isFetchingOg}
+                              className="text-[11px] font-bold text-amber-300 hover:text-white flex items-center gap-1 transition px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer disabled:opacity-50"
+                              title="Cola o texto copiado pelo botão 'Compartilhar' no app da Shopee e preenche preço e título automaticamente"
+                            >
+                              <ClipboardPaste className="h-3 w-3" />
+                              <span>📋 Colar do App Shopee</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleFetchOgMetadata()}
+                              disabled={isFetchingOg || !productAffiliateUrl.trim()}
+                              className="text-[11px] font-bold text-[#FFE600] hover:underline flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              {isFetchingOg ? 'Detectando...' : 'Puxar Dados'}
+                            </button>
+                          </div>
                         </div>
-                        <span className="text-[10px] text-yellow-300/70 shrink-0">
-                          Rastreamento Ativo
-                        </span>
-                      </div>
-                    );
-                  })()}
 
-                  {/* URL de Afiliado com Auto-Detection */}
-                  <div>
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Link de Afiliado Oficial
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handlePasteFromShopeeApp}
-                          disabled={isFetchingOg}
-                          className="text-[11px] font-bold text-amber-300 hover:text-white flex items-center gap-1 transition px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer disabled:opacity-50"
-                          title="Cola o texto copiado pelo botão 'Compartilhar' no app da Shopee e preenche preço e título automaticamente"
-                        >
-                          <ClipboardPaste className="h-3 w-3" />
-                          <span>📋 Colar do App Shopee</span>
-                        </button>
+                        <p className="text-xs text-zinc-400 mb-1.5 leading-relaxed">
+                          No app da Shopee, toque em Compartilhar → Copiar Link e depois clique em Colar do App Shopee acima para puxar preço e foto automaticamente.
+                        </p>
+
+                        <input
+                          type="url"
+                          required
+                          value={productAffiliateUrl}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setProductAffiliateUrl(val);
+                            if (
+                              val.includes('shopee.com') ||
+                              val.includes('s.shopee.com.br') ||
+                              val.includes('shp.ee')
+                            ) {
+                              if (
+                                val.includes('Confira') ||
+                                val.includes('R$') ||
+                                val.includes('por ') ||
+                                val.includes('\n')
+                              ) {
+                                handleProcessPastedText(val);
+                              }
+                            }
+                          }}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text');
+                            if (pasted) {
+                              const parsed = parseShopeeSharedText(pasted);
+                              if (parsed && parsed.url) {
+                                e.preventDefault();
+                                handleProcessPastedText(pasted);
+                              }
+                            }
+                          }}
+                          placeholder={
+                            productMarketplace === 'mercadolivre'
+                              ? 'https://meli.la/... ou https://mercadolivre.com/sec/...'
+                              : 'https://s.shopee.com.br/... ou https://shopee.com.br/...'
+                          }
+                          className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
+                        />
+
+                        {/* Botão/Link Discreto: Abrir link para conferir produto real */}
+                        {productAffiliateUrl.trim().startsWith('http') && (
+                          <div className="mt-1.5 flex items-center justify-end">
+                            <a
+                              href={productAffiliateUrl.trim()}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-[#FFE600] transition"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              <span>🔗 Abrir link para conferir produto real</span>
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Botão Destaque: Puxar Dados do Link Automaticamente */}
                         <button
                           type="button"
                           onClick={() => handleFetchOgMetadata()}
                           disabled={isFetchingOg || !productAffiliateUrl.trim()}
-                          className="text-[11px] font-bold text-[#FFE600] hover:underline flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                          className="w-full min-h-[44px] rounded-xl bg-gradient-to-r from-amber-400 to-[#FFE600] hover:from-yellow-400 hover:to-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/20 transition active:scale-[0.98] disabled:opacity-50 cursor-pointer mt-2"
                         >
-                          <Sparkles className="h-3 w-3" />
-                          {isFetchingOg ? 'Detectando...' : 'Puxar Dados'}
+                          {isFetchingOg ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                              <span>Puxando dados do link...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 shrink-0 fill-current" />
+                              <span>⚡ Puxar Dados do Link Automaticamente</span>
+                            </>
+                          )}
                         </button>
                       </div>
-                    </div>
-                    <p className="text-xs text-zinc-400 mb-1.5 leading-relaxed">
-                      No app da Shopee, toque em Compartilhar → Copiar Link e depois clique em Colar do App Shopee acima para puxar preço e foto automaticamente.
-                    </p>
-                    <input
-                      type="url"
-                      required
-                      value={productAffiliateUrl}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setProductAffiliateUrl(val);
-                        if (val.includes('shopee.com') && (val.includes('Confira') || val.includes('R$') || val.includes('\n'))) {
-                          handleProcessPastedText(val);
-                        }
-                      }}
-                      onPaste={(e) => {
-                        const pasted = e.clipboardData.getData('text');
-                        if (pasted) {
-                          const parsed = parseShopeeSharedText(pasted);
-                          if (parsed.isSharedText && parsed.url) {
-                            e.preventDefault();
-                            handleProcessPastedText(pasted);
-                          }
-                        }
-                      }}
-                      placeholder={
-                        productMarketplace === 'mercadolivre'
-                          ? 'https://meli.la/... ou https://mercadolivre.com/sec/...'
-                          : 'https://s.shopee.com.br/... ou https://shopee.com.br/...'
-                      }
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#FFE600]"
-                    />
 
-                    {/* Botão/Link Discreto: Abrir link para conferir produto real */}
-                    {productAffiliateUrl.trim().startsWith('http') && (
-                      <div className="mt-1.5 flex items-center justify-end">
-                        <a
-                          href={productAffiliateUrl.trim()}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-[#FFE600] transition"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          <span>🔗 Abrir link para conferir produto real</span>
-                        </a>
-                      </div>
-                    )}
-
-                    {/* Botão Destaque: Puxar Dados do Link Automaticamente */}
-                    <button
-                      type="button"
-                      onClick={() => handleFetchOgMetadata()}
-                      disabled={isFetchingOg || !productAffiliateUrl.trim()}
-                      className="w-full min-h-[44px] rounded-xl bg-gradient-to-r from-amber-400 to-[#FFE600] hover:from-yellow-400 hover:to-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/20 transition active:scale-[0.98] disabled:opacity-50 cursor-pointer mt-2"
-                    >
-                      {isFetchingOg ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                          <span>Puxando dados do link...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 shrink-0 fill-current" />
-                          <span>⚡ Puxar Dados do Link Automaticamente</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Alerta Poka-Yoke de Extração Parcial ou Bloqueio */}
-                  {extractionWarning && (
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-start gap-2.5">
-                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
-                      <div className="leading-relaxed">
-                        <p className="font-semibold">{extractionWarning}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Título do Produto */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Título do Produto
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={productTitle}
-                      onChange={(e) => setProductTitle(e.target.value)}
-                      placeholder="Ex: Fritadeira Air Fryer 4L Inox 110V"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                    />
-                  </div>
-
-                  {/* Preços e % Desconto */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Preço Atual (R$)
-                      </label>
-                      <input
-                        id="product-current-price-input"
-                        type="text"
-                        required
-                        value={productCurrentPrice}
-                        onChange={(e) => setProductCurrentPrice(e.target.value)}
-                        placeholder="Ex: 279,90"
-                        className={cn(
-                          'w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-[#FFE600]',
-                          productCurrentPrice.trim()
-                            ? 'text-emerald-400'
-                            : 'text-white placeholder-slate-500'
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Preço Original (R$)
-                      </label>
-                      <input
-                        type="text"
-                        value={productOriginalPrice}
-                        onChange={(e) => setProductOriginalPrice(e.target.value)}
-                        placeholder="Ex: 399,90"
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-400 outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Categoria & Parcelamento */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Categoria
-                      </label>
-                      <select
-                        value={productCategory}
-                        onChange={(e) => setProductCategory(e.target.value as any)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      >
-                        {CATEGORIES.filter((c) => c !== 'Todos').map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Parcelas
-                      </label>
-                      <input
-                        type="text"
-                        value={productInstallments}
-                        onChange={(e) => setProductInstallments(e.target.value)}
-                        placeholder="Ex: em 6x sem juros"
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* URL da Imagem com Botão de Upload */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-300">
-                        Imagem do Produto
-                      </label>
-                      <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-lg text-[11px] font-bold cursor-pointer border border-slate-700 transition">
-                        {uploadingProductImage ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Camera className="h-3.5 w-3.5" />
-                        )}
-                        <span>{uploadingProductImage ? 'Enviando...' : '📷 Enviar Foto'}</span>
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,image/jpg"
-                          className="hidden"
-                          disabled={uploadingProductImage}
-                          onChange={handleProductImageUpload}
-                        />
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="url"
-                        value={productImageUrl}
-                        onChange={(e) => setProductImageUrl(e.target.value)}
-                        placeholder="https://... ou envie a foto acima"
-                        className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
-                      />
-                      {productImageUrl && (
-                        <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center p-0.5">
-                          <img
-                            src={productImageUrl}
-                            alt="Prévia"
-                            className="h-full w-full object-contain"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
+                      {/* Alerta Poka-Yoke de Extração Parcial ou Bloqueio */}
+                      {extractionWarning && (
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-start gap-2.5">
+                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                          <div className="leading-relaxed">
+                            <p className="font-semibold">{extractionWarning}</p>
+                          </div>
                         </div>
                       )}
-                    </div>
-                  </div>
 
-                  {/* Toggles */}
-                  <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-800">
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer p-3 rounded-xl border border-slate-800 bg-slate-950/60 min-h-[46px]">
-                      <Switch checked={productFreeShipping} onCheckedChange={setProductFreeShipping} />
-                      <span>Frete Grátis</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer p-3 rounded-xl border border-slate-800 bg-slate-950/60 min-h-[46px]">
-                      <Switch checked={productFeatured} onCheckedChange={setProductFeatured} />
-                      <span>Destaque Carrossel</span>
-                    </label>
-                  </div>
+                      {/* Título do Produto */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">
+                          Título do Produto
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={productTitle}
+                          onChange={(e) => setProductTitle(e.target.value)}
+                          placeholder="Ex: Fritadeira Air Fryer 4L Inox 110V"
+                          className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                        />
+                      </div>
 
-                  <button
-                    type="submit"
-                    className="w-full rounded-2xl bg-[#FFE600] py-3 text-xs sm:text-sm font-black text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-400 active:scale-[0.98] transition mt-2"
-                  >
-                    {editingProductId ? 'Salvar Alterações' : 'Publicar na Vitrine'}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <LojistaBatchImport
-                lojaSlug={
-                  userRole === 'lojista' && loggedStore
-                    ? loggedStore.slug
-                    : selectedStoreFilter !== 'todos'
-                    ? selectedStoreFilter
-                    : 'clarice'
-                }
-                store={
-                  userRole === 'lojista' && loggedStore
-                    ? loggedStore
-                    : stores.find(
-                        (s) =>
-                          s.slug ===
-                          (selectedStoreFilter !== 'todos' ? selectedStoreFilter : 'clarice')
-                      ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined)
-                }
-                currentProductCount={
-                  c.products.filter(
-                    (p) =>
-                      p.lojaSlug ===
-                      (userRole === 'lojista' && loggedStore
+                      {/* Preços e % Desconto */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Preço Atual (R$)
+                          </label>
+                          <input
+                            id="product-current-price-input"
+                            type="text"
+                            required
+                            value={productCurrentPrice}
+                            onChange={(e) => setProductCurrentPrice(e.target.value)}
+                            placeholder="Ex: 279,90"
+                            className={cn(
+                              'w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-[#FFE600]',
+                              productCurrentPrice.trim()
+                                ? 'text-emerald-400'
+                                : 'text-white placeholder-slate-500'
+                            )}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Preço Original (R$)
+                          </label>
+                          <input
+                            type="text"
+                            value={productOriginalPrice}
+                            onChange={(e) => setProductOriginalPrice(e.target.value)}
+                            placeholder="Ex: 399,90"
+                            className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-400 outline-none focus:ring-2 focus:ring-[#FFE600]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Categoria & Parcelamento */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Categoria
+                          </label>
+                          <select
+                            value={productCategory}
+                            onChange={(e) => setProductCategory(e.target.value as any)}
+                            className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                          >
+                            {CATEGORIES.filter((c) => c !== 'Todos').map((cat) => (
+                              <option key={cat} value={cat}>
+                                {cat}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Parcelas
+                          </label>
+                          <input
+                            type="text"
+                            value={productInstallments}
+                            onChange={(e) => setProductInstallments(e.target.value)}
+                            placeholder="Ex: em 6x sem juros"
+                            className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* URL da Imagem com Botão de Upload */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-slate-300">
+                            Imagem do Produto
+                          </label>
+                          <label className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFE600] rounded-lg text-[11px] font-bold cursor-pointer border border-slate-700 transition">
+                            {uploadingProductImage ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Camera className="h-3.5 w-3.5" />
+                            )}
+                            <span>{uploadingProductImage ? 'Enviando...' : '📷 Enviar Foto'}</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/jpg"
+                              className="hidden"
+                              disabled={uploadingProductImage}
+                              onChange={handleProductImageUpload}
+                            />
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="url"
+                            value={productImageUrl}
+                            onChange={(e) => setProductImageUrl(e.target.value)}
+                            placeholder="https://... ou envie a foto acima"
+                            className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:ring-2 focus:ring-[#FFE600]"
+                          />
+                          {productImageUrl && (
+                            <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center p-0.5">
+                              <img
+                                src={productImageUrl}
+                                alt="Prévia"
+                                className="h-full w-full object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Toggles */}
+                      <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-800">
+                        <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer p-3 rounded-xl border border-slate-800 bg-slate-950/60 min-h-[46px]">
+                          <Switch checked={productFreeShipping} onCheckedChange={setProductFreeShipping} />
+                          <span>Frete Grátis</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer p-3 rounded-xl border border-slate-800 bg-slate-950/60 min-h-[46px]">
+                          <Switch checked={productFeatured} onCheckedChange={setProductFeatured} />
+                          <span>Destaque Carrossel</span>
+                        </label>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full rounded-2xl bg-[#FFE600] py-3 text-xs sm:text-sm font-black text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-400 active:scale-[0.98] transition mt-2"
+                      >
+                        {editingProductId ? 'Salvar Alterações' : 'Publicar na Vitrine'}
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <LojistaBatchImport
+                    lojaSlug={
+                      userRole === 'lojista' && loggedStore
                         ? loggedStore.slug
                         : selectedStoreFilter !== 'todos'
-                        ? selectedStoreFilter
-                        : 'clarice')
-                  ).length
-                }
-                permissions={
-                  userRole === 'super_admin'
-                    ? getPlanPermissions('advanced')
-                    : lojistaPermissions
-                }
-                isSuperAdmin={userRole === 'super_admin'}
-                onImported={(imported) => {
-                  c.add(imported);
-                  setProductInputMode('individual');
-                }}
-                onUpgrade={() => handleTabChange('minha-assinatura')}
-                onNavigateTab={handleTabChange}
-              />
-            )}
-          </div>
-
-          {/* Listagem de Produtos */}
-          <div className="w-full max-w-full min-w-0 lg:col-span-7 rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-5 shadow-xl">
-            {/* Indicador de Limite do Plano para Lojista */}
-            {userRole === 'lojista' && loggedStore && (
-              <div className="mb-4 px-3.5 py-2.5 rounded-2xl border border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Store className="h-3.5 w-3.5 text-[#FFE600]" />
-                  <span className="text-slate-300">
-                    Plano: <strong className="text-white uppercase">{loggedStore.plano}</strong>
-                  </span>
-                </div>
-                <div className="text-slate-400 font-medium">
-                  {lojistaPermissions.maxProducts < Infinity ? (
-                    <span>
-                      <strong className="text-[#FFE600]">{c.products.filter((p) => p.lojaSlug === loggedStore.slug).length}</strong>/{lojistaPermissions.maxProducts} produtos cadastrados
-                    </span>
-                  ) : (
-                    <span className="text-emerald-400 font-bold">
-                      Produtos Ilimitados ({c.products.filter((p) => p.lojaSlug === loggedStore.slug).length} ativos)
-                    </span>
-                  )}
-                </div>
+                          ? selectedStoreFilter
+                          : 'clarice'
+                    }
+                    store={
+                      userRole === 'lojista' && loggedStore
+                        ? loggedStore
+                        : stores.find(
+                          (s) =>
+                            s.slug ===
+                            (selectedStoreFilter !== 'todos' ? selectedStoreFilter : 'clarice')
+                        ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined)
+                    }
+                    currentProductCount={
+                      c.products.filter(
+                        (p) =>
+                          p.lojaSlug ===
+                          (userRole === 'lojista' && loggedStore
+                            ? loggedStore.slug
+                            : selectedStoreFilter !== 'todos'
+                              ? selectedStoreFilter
+                              : 'clarice')
+                      ).length
+                    }
+                    permissions={
+                      userRole === 'super_admin'
+                        ? getPlanPermissions('advanced')
+                        : lojistaPermissions
+                    }
+                    isSuperAdmin={userRole === 'super_admin'}
+                    onImported={(imported) => {
+                      c.add(imported);
+                      setProductInputMode('individual');
+                    }}
+                    onUpgrade={() => handleTabChange('minha-assinatura')}
+                    onNavigateTab={handleTabChange}
+                  />
+                )}
               </div>
-            )}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
+
+              {/* Listagem de Produtos */}
+              <div className="w-full max-w-full min-w-0 lg:col-span-7 rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-5 shadow-xl">
+                {/* Indicador de Limite do Plano para Lojista */}
+                {userRole === 'lojista' && loggedStore && (
+                  <div className="mb-4 px-3.5 py-2.5 rounded-2xl border border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Store className="h-3.5 w-3.5 text-[#FFE600]" />
+                      <span className="text-slate-300">
+                        Plano: <strong className="text-white uppercase">{loggedStore.plano}</strong>
+                      </span>
+                    </div>
+                    <div className="text-slate-400 font-medium">
+                      {lojistaPermissions.maxProducts < Infinity ? (
+                        <span>
+                          <strong className="text-[#FFE600]">{c.products.filter((p) => p.lojaSlug === loggedStore.slug).length}</strong>/{lojistaPermissions.maxProducts} produtos cadastrados
+                        </span>
+                      ) : (
+                        <span className="text-emerald-400 font-bold">
+                          Produtos Ilimitados ({c.products.filter((p) => p.lojaSlug === loggedStore.slug).length} ativos)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
                   <div>
                     <h2 className="font-black text-white text-base">
                       {userRole === 'lojista' ? 'Produtos da Minha Loja' : 'Catálogo Geral de Produtos'} ({filteredProducts.length})
@@ -2615,15 +2665,15 @@ export function AdminRoutePage() {
                                   s.statusAssinatura === 'ativo'
                                     ? 'bg-emerald-500/20 text-emerald-400'
                                     : s.statusAssinatura === 'pendente'
-                                    ? 'bg-amber-500/20 text-amber-400'
-                                    : 'bg-red-500/20 text-red-400'
+                                      ? 'bg-amber-500/20 text-amber-400'
+                                      : 'bg-red-500/20 text-red-400'
                                 )}
                               >
                                 {s.statusAssinatura === 'ativo'
                                   ? '🟢 Ativo'
                                   : s.statusAssinatura === 'pendente'
-                                  ? '🟡 Pendente'
-                                  : '🔴 Inadimplente'}
+                                    ? '🟡 Pendente'
+                                    : '🔴 Inadimplente'}
                               </span>
                             </td>
                             <td className="py-3">

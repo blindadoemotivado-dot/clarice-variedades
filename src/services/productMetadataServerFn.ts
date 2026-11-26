@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createClient } from '@supabase/supabase-js';
 import * as shopeeOpenApi from './shopeeOpenApi';
+import { normalizePrice } from '@/utils/shopeeSharedText';
 
 export interface ExtractProductMetadataResult {
   success: boolean;
@@ -395,16 +396,51 @@ export async function extractProductMetadata(
     }
 
     // 7. Extração de Preço Real (ZERO PREÇO INVENTADO - se não achar, verifica se veio preservado do texto colado)
-    let extractedPrice: string | undefined = options?.preservedCurrentPrice || undefined;
-    let originalPrice: string | undefined = options?.preservedOriginalPrice || undefined;
+    let extractedPrice: string | undefined = options?.preservedCurrentPrice
+      ? normalizePrice(options.preservedCurrentPrice) || options.preservedCurrentPrice
+      : undefined;
+    let originalPrice: string | undefined = options?.preservedOriginalPrice
+      ? normalizePrice(options.preservedOriginalPrice) || options.preservedOriginalPrice
+      : undefined;
 
     if (!extractedPrice && html) {
+      // 1. Meta tags explícitas de preço (og:price, product:price, twitter:data1)
       const priceMatch =
         html.match(/<meta[^>]*property=["'](?:product:price:amount|og:price:amount)["'][^>]*content=["']([\d.,]+)["']/i) ||
-        html.match(/<meta[^>]*content=["']([\d.,]+)["'][^>]*property=["'](?:product:price:amount|og:price:amount)["']/i);
+        html.match(/<meta[^>]*content=["']([\d.,]+)["'][^>]*property=["'](?:product:price:amount|og:price:amount)["']/i) ||
+        html.match(/<meta[^>]*name=["']twitter:data1["'][^>]*content=["'](?:R\$\s*)?([\d.,]+)["']/i);
 
       if (priceMatch?.[1]) {
-        extractedPrice = priceMatch[1].replace('.', ',');
+        const norm = normalizePrice(priceMatch[1]);
+        if (norm) extractedPrice = norm;
+      }
+    }
+
+    if (!extractedPrice && html) {
+      // 2. Extração de preço dentro do og:description ou description
+      const descMatch =
+        html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
+        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i) ||
+        html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
+      if (descMatch?.[1]) {
+        const descText = descMatch[1];
+        const dePor = descText.match(/(?:de|de\s*r\$)\s*R?\$?\s*([\d.,]+)\s*(?:por|por\s*r\$)\s*R?\$?\s*([\d.,]+)/i);
+        if (dePor) {
+          const orig = normalizePrice(dePor[1]);
+          const cur = normalizePrice(dePor[2]);
+          if (cur) {
+            extractedPrice = cur;
+            if (orig && !originalPrice) originalPrice = orig;
+          }
+        } else {
+          const porDesc =
+            descText.match(/(?:por|apenas|por\s*apenas)\s*(?:R\$\s*)?([\d.,]+)/i) ||
+            descText.match(/R\$\s*([\d.,]+)/i);
+          if (porDesc?.[1]) {
+            const norm = normalizePrice(porDesc[1]);
+            if (norm) extractedPrice = norm;
+          }
+        }
       }
     }
 
