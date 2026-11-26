@@ -1789,6 +1789,9 @@ export function AdminRoutePage() {
                         </button>
                       </div>
                     </div>
+                    <p className="text-xs text-zinc-400 mb-1.5 leading-relaxed">
+                      No app da Shopee, toque em Compartilhar → Copiar Link e depois clique em Colar do App Shopee acima para puxar preço e foto automaticamente.
+                    </p>
                     <input
                       type="url"
                       required
