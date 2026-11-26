@@ -24,8 +24,40 @@ export interface ExtractProductMetadataOptions {
   preservedOriginalPrice?: string | undefined;
 }
 
-function cleanTitle(raw: string): string {
+/**
+ * Decodifica entidades HTML comuns e numéricas no título
+ */
+export function decodeHtmlEntities(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
   return raw
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&#43;/g, '+')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, dec) => {
+      try {
+        return String.fromCharCode(parseInt(dec, 10));
+      } catch {
+        return _;
+      }
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      try {
+        return String.fromCharCode(parseInt(hex, 16));
+      } catch {
+        return _;
+      }
+    });
+}
+
+function cleanTitle(raw: string): string {
+  const decoded = decodeHtmlEntities(raw);
+  return decoded
     .replace(/\s*\|\s*(Mercado\s*Livre|Shopee|Frete\s*Gr[áa]tis).*$/i, '')
     .replace(/\s*-\s*(Mercado\s*Livre|Shopee).*$/i, '')
     .replace(/\s*\.\.\.$/, '')
@@ -186,12 +218,72 @@ export async function extractProductMetadata(
           }
         }
 
-        // Fallback para variáveis de ambiente globais da aplicação
+        // Fallback para variáveis de ambiente globais da aplicação (com todos os nomes suportados)
         if (!shopeeAppId) {
-          shopeeAppId = env['SHOPEE_AFFILIATE_APP_ID'] || env['VITE_SHOPEE_AFFILIATE_APP_ID'] || '';
+          shopeeAppId =
+            env['SHOPEE_APP_ID'] ||
+            env['SHOPEE_AFFILIATE_APP_ID'] ||
+            env['VITE_SHOPEE_APP_ID'] ||
+            env['VITE_SHOPEE_AFFILIATE_APP_ID'] ||
+            '';
         }
         if (!shopeeSecret || shopeeSecret.includes('|')) {
-          shopeeSecret = env['SHOPEE_AFFILIATE_SECRET'] || env['VITE_SHOPEE_AFFILIATE_SECRET'] || '';
+          shopeeSecret =
+            env['SHOPEE_SECRET'] ||
+            env['SHOPEE_AFFILIATE_SECRET'] ||
+            env['VITE_SHOPEE_SECRET'] ||
+            env['VITE_SHOPEE_AFFILIATE_SECRET'] ||
+            '';
+        }
+
+        // Se ainda não tiver credenciais, busca na loja mestre 'clarice' ou em system_settings no Supabase
+        if ((!shopeeAppId || !shopeeSecret || shopeeSecret.includes('|')) && supabaseKey) {
+          try {
+            const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+            const { data: masterStore } = await supabase
+              .from('lojas_afiliados')
+              .select('shopee_app_id, shopee_secret')
+              .eq('slug', 'clarice')
+              .maybeSingle();
+
+            if (masterStore) {
+              if (!shopeeAppId && masterStore.shopee_app_id) {
+                shopeeAppId = masterStore.shopee_app_id;
+              }
+              if (
+                (!shopeeSecret || shopeeSecret.includes('|')) &&
+                masterStore.shopee_secret &&
+                !masterStore.shopee_secret.includes('|')
+              ) {
+                shopeeSecret = masterStore.shopee_secret;
+              }
+            }
+
+            // Tenta também system_settings se houver
+            if (!shopeeAppId || !shopeeSecret || shopeeSecret.includes('|')) {
+              const { data: settings } = await supabase
+                .from('system_settings')
+                .select('key, value')
+                .in('key', ['shopee_app_id', 'shopee_secret']);
+
+              if (Array.isArray(settings)) {
+                for (const row of settings) {
+                  if (row.key === 'shopee_app_id' && row.value && !shopeeAppId) {
+                    shopeeAppId = String(row.value);
+                  }
+                  if (
+                    row.key === 'shopee_secret' &&
+                    row.value &&
+                    (!shopeeSecret || shopeeSecret.includes('|'))
+                  ) {
+                    shopeeSecret = String(row.value);
+                  }
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
         }
 
         if (shopeeAppId && shopeeSecret && !shopeeSecret.includes('|')) {

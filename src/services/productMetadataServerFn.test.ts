@@ -1,8 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { extractProductMetadata } from './productMetadataServerFn';
+import { extractProductMetadata, decodeHtmlEntities } from './productMetadataServerFn';
 import * as shopeeOpenApi from './shopeeOpenApi';
 
 describe('extractProductMetadata', () => {
+  it('decodes HTML entities correctly', () => {
+    expect(decodeHtmlEntities('Oferta &quot;Especial&#34; 10&#43; &amp; Frete')).toBe(
+      'Oferta "Especial" 10+ & Frete'
+    );
+    expect(decodeHtmlEntities('Beliche D&#39;Arte &lt;Premium&gt; &nbsp;')).toBe(
+      "Beliche D'Arte <Premium>  "
+    );
+  });
   it('extracts real title and image from Shopee short link without fake fallbacks', async () => {
     const res = await extractProductMetadata('https://s.shopee.com.br/40iNZkIFU7');
 

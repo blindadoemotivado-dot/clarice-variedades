@@ -17,21 +17,34 @@ export interface ShopeeProductOffer {
 const SHOPEE_GRAPHQL_ENDPOINT = 'https://open-api.affiliate.shopee.com.br/graphql';
 
 /**
- * Extrai o itemId numérico de qualquer URL da Shopee (resolvida ou canônica).
+ * Extrai o itemId numérico de qualquer URL da Shopee (resolvida ou canônica),
+ * ou de fragmentos HTML/JSON retornados por redirects.
  */
 export function extractShopeeItemId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
 
-  // Formato: /opaanlp/<shopId>/<itemId> ou /product/<shopId>/<itemId>
-  const pathMatch = url.match(/(?:\/opaanlp\/\d+\/|\/product\/\d+\/|-i\.\d+\.)(\d+)/i);
+  // Formato: /opaanlp/<shopId>/<itemId> ou /product/<shopId>/<itemId> ou -i.<shopId>.<itemId>
+  const pathMatch = url.match(/(?:\/opaanlp\/\d+\/|\/product\/\d+\/|-i\.\d+\.)(\d{6,16})/i);
   if (pathMatch?.[1]) {
     return pathMatch[1];
   }
 
-  // Formato: ?itemid=<itemId> ou &itemId=<itemId>
-  const queryMatch = url.match(/[?&](?:item_?id|itemid)=(\d+)/i);
+  // Formato: ?itemid=<itemId> ou &itemId=<itemId> ou item_id=<itemId>
+  const queryMatch = url.match(/[?&](?:item_?id|itemid)=(\d{6,16})/i);
   if (queryMatch?.[1]) {
     return queryMatch[1];
+  }
+
+  // Formato JSON / scripts: "itemid": 1234567890 ou "itemId": "1234567890"
+  const jsonMatch = url.match(/["']item_?id["']\s*:\s*["']?(\d{6,16})["']?/i);
+  if (jsonMatch?.[1]) {
+    return jsonMatch[1];
+  }
+
+  // Formato com slash final numérico: /product/12345/67890
+  const slashMatch = url.match(/\/(\d{8,16})(?:\?|#|$)/);
+  if (slashMatch?.[1]) {
+    return slashMatch[1];
   }
 
   return null;
@@ -72,7 +85,7 @@ export async function fetchShopeeProductOffer(
 
   const query = `
     query ProductOfferV2($itemId: Long) {
-      productOfferV2(itemId: $itemId) {
+      productOfferV2(itemId: $itemId, listType: 0, matchId: 0, page: 1, limit: 1) {
         nodes {
           itemId
           productName

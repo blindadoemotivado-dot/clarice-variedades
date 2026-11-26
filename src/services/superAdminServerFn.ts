@@ -513,3 +513,114 @@ export const recordProductAuditServerFn = createServerFn({ method: 'POST' })
       return { success: false, error: err?.message };
     }
   });
+
+export interface AdminShopeeCredentialsInput {
+  appId: string;
+  secret: string;
+  actorEmail?: string;
+}
+
+/**
+ * Salva credenciais globais da Shopee Affiliate Open API (GraphQL)
+ */
+export const adminSaveGlobalShopeeCredentialsServerFn = createServerFn({ method: 'POST' })
+  .validator((d: AdminShopeeCredentialsInput) => d)
+  .handler(async (ctx) => {
+    const { appId, secret, actorEmail } = ctx.data;
+    const supabaseAdmin = getSupabaseAdmin();
+    const cleanAppId = appId?.trim() || null;
+    const cleanSecret = secret?.trim() || null;
+
+    try {
+      // 1. Atualiza na loja matriz 'clarice' em lojas_afiliados
+      const { error: storeErr } = await supabaseAdmin
+        .from('lojas_afiliados')
+        .update({
+          shopee_app_id: cleanAppId,
+          shopee_secret: cleanSecret,
+        })
+        .eq('slug', 'clarice');
+
+      if (storeErr) {
+        console.warn('[superAdminServerFn] Erro ao atualizar lojas_afiliados (clarice):', storeErr);
+      }
+
+      // 2. Tenta registrar em system_settings se a tabela existir
+      try {
+        await supabaseAdmin.from('system_settings').upsert([
+          { key: 'shopee_app_id', value: cleanAppId },
+          { key: 'shopee_secret', value: cleanSecret },
+        ]);
+      } catch {
+        // system_settings pode não existir
+      }
+
+      // 3. Auditoria em saas_audit_logs
+      try {
+        await supabaseAdmin.from('saas_audit_logs').insert({
+          loja_slug: 'clarice',
+          actor_role: 'super_admin',
+          actor_email: actorEmail || 'superadmin@clarice.com.br',
+          action: 'GLOBAL_SHOPEE_CREDENTIALS_UPDATED',
+          entity_id: 'clarice',
+          entity_title: 'Credenciais Shopee Open API',
+          payload: {
+            shopee_app_id_configured: Boolean(cleanAppId),
+            shopee_secret_configured: Boolean(cleanSecret),
+            updated_at: new Date().toISOString(),
+          },
+        });
+      } catch {
+        // auditoria opcional
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erro ao salvar credenciais' };
+    }
+  });
+
+/**
+ * Lê credenciais globais da Shopee Affiliate Open API (GraphQL)
+ */
+export const adminGetGlobalShopeeCredentialsServerFn = createServerFn({ method: 'POST' })
+  .validator((d: { actorEmail?: string } = {}) => d)
+  .handler(async () => {
+    const supabaseAdmin = getSupabaseAdmin();
+    let appId =
+      process.env.SHOPEE_APP_ID ||
+      process.env.SHOPEE_AFFILIATE_APP_ID ||
+      process.env.VITE_SHOPEE_APP_ID ||
+      process.env.VITE_SHOPEE_AFFILIATE_APP_ID ||
+      '';
+    let secret =
+      process.env.SHOPEE_SECRET ||
+      process.env.SHOPEE_AFFILIATE_SECRET ||
+      process.env.VITE_SHOPEE_SECRET ||
+      process.env.VITE_SHOPEE_AFFILIATE_SECRET ||
+      '';
+
+    try {
+      const { data } = await supabaseAdmin
+        .from('lojas_afiliados')
+        .select('shopee_app_id, shopee_secret')
+        .eq('slug', 'clarice')
+        .maybeSingle();
+
+      if (data) {
+        if (data.shopee_app_id) appId = data.shopee_app_id;
+        if (data.shopee_secret && !data.shopee_secret.includes('|')) {
+          secret = data.shopee_secret;
+        }
+      }
+    } catch (err) {
+      console.warn('[superAdminServerFn] Falha ao ler credenciais Shopee:', err);
+    }
+
+    return {
+      success: true,
+      appId,
+      secret,
+      configured: Boolean(appId && secret && !secret.includes('|')),
+    };
+  });
