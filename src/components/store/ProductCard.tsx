@@ -18,11 +18,25 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
   const hasRating = (p.rating ?? 0) > 0 && (p.reviewsCount ?? 0) > 0;
 
   const handleLinkClick = () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.(15);
+      }
+    } catch {}
     toast.info('Ativando link de apoio...', {
       description: isShopee
         ? 'Redirecionando para o ambiente seguro da Shopee.'
         : 'Redirecionando para o ambiente seguro do Mercado Livre.',
     });
+  };
+
+  const handleShareClick = () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.(15);
+      }
+    } catch {}
+    copyText(buildWhatsAppCopy(p), 'Copiado com sucesso!');
   };
 
   const analysisPoints = [
@@ -39,6 +53,7 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
           src={p.imageUrl}
           alt={p.title}
           loading="lazy"
+          decoding="async"
           width={600}
           height={600}
           onError={(e) => {
@@ -70,7 +85,7 @@ export function ProductCard({ product: p, isFavorite, onToggleFavorite }: Produc
           <button type="button" onClick={() => onToggleFavorite(p.id)} aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'} aria-pressed={isFavorite} className={cn(floatBtn, isFavorite ? 'text-destructive' : 'text-muted-foreground hover:text-destructive')}>
             <Heart className={cn('h-3.5 w-3.5', isFavorite && 'fill-current')} />
           </button>
-          <button type="button" onClick={() => copyText(buildWhatsAppCopy(p), 'Copiado com sucesso!')} aria-label="Copiar oferta para WhatsApp" className={cn(floatBtn, 'text-muted-foreground hover:bg-deal-soft hover:text-deal')}>
+          <button type="button" onClick={handleShareClick} aria-label="Copiar oferta para WhatsApp" className={cn(floatBtn, 'text-muted-foreground hover:bg-deal-soft hover:text-deal')}>
             <Share2 className="h-3.5 w-3.5" />
           </button>
         </div>

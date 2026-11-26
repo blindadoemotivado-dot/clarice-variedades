@@ -1,4 +1,4 @@
-import { MessageCircle, Sparkles } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { useStoreSettings } from '@/lib/store-settings';
 
 interface HeroBannerProps {
@@ -23,18 +23,18 @@ export function HeroBanner({
   subtitle,
 }: HeroBannerProps) {
   const [settings] = useStoreSettings();
-  const generalUrl =
-    settings.generalAffiliateUrl ||
-    `https://www.mercadolivre.com.br/ofertas?matt_tool=${settings.mlAffiliateTag}`;
 
   const isClarice = (storeSlug || '').toLowerCase() === 'clarice' || storeName === 'Clarice Achadinhos';
   const customImage = (mascoteUrl && mascoteUrl.trim() !== '') ? mascoteUrl.trim() : (bannerUrl && bannerUrl.trim() !== '') ? bannerUrl.trim() : '';
-  const hasCustomImage = Boolean(customImage);
-  const showMascot = hasCustomImage || isClarice;
-  const resolvedMascote = hasCustomImage ? customImage : isClarice ? '/brand/clarice-hero.png' : undefined;
+  const resolvedMascote = customImage || (isClarice ? '/brand/avatar-circular.png' : undefined);
   const effectiveAccent = accentColor || '#FFE600';
 
   const handleVipClick = () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.(15);
+      }
+    } catch {}
     if (onVip) {
       onVip();
       return;
@@ -45,85 +45,50 @@ export function HeroBanner({
   };
 
   return (
-    <section className={`relative mb-6 overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-[#0B1329] via-[#0F172A] to-[#1E293B] px-4 pt-5 ${showMascot ? 'pb-0' : 'pb-6 sm:pb-8'} text-white shadow-xl sm:px-7 sm:pt-7 ${showMascot ? 'md:min-h-[380px] lg:min-h-[420px]' : 'min-h-[260px]'} flex flex-col justify-end`}>
-      {/* Luzes decorativas sutis no fundo */}
+    <section className="relative mb-4 overflow-hidden rounded-2xl border border-slate-700/60 bg-gradient-to-r from-[#0B1329] via-[#0F172A] to-[#1E293B] p-3 sm:p-4 text-white shadow-md">
+      {/* Luz decorativa sutil no fundo */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-12 -top-12 h-72 w-72 rounded-full opacity-20 blur-3xl"
+        className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full opacity-15 blur-2xl"
         style={{ backgroundColor: effectiveAccent }}
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-12 -bottom-12 h-72 w-72 rounded-full bg-[#3483FA]/10 blur-3xl"
-      />
 
-      <div className={`relative flex flex-col-reverse items-center justify-between gap-5 ${showMascot ? 'md:flex-row md:items-end' : 'md:flex-row md:items-center'} w-full`}>
-        {/* Texto & Chamadas para Ação */}
-        <div className={`flex-1 text-center md:text-left py-2 ${showMascot ? 'pb-6 md:pb-8' : 'pb-2'} ${!showMascot ? 'max-w-3xl' : ''}`}>
-          <h1 className="text-xl font-black leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl max-w-2xl break-words min-w-0">
-            {isClarice
-              ? 'Achadinhos reais com desconto todo dia'
-              : `Achadinhos com desconto por ${storeName}`}
-          </h1>
-
-          <p className="mt-2 text-xs leading-relaxed text-slate-300 sm:text-sm max-w-xl break-words min-w-0">
-            {subtitle || 'Ofertas verificadas no Mercado Livre e Shopee para você economizar com compra 100% segura.'}
-          </p>
-
-          {/* Ações Rápidas Enxutas */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 md:justify-start">
-            <button
-              type="button"
-              onClick={handleVipClick}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-slate-950 font-black text-xs sm:text-sm px-4 py-3 shadow-md transition transform active:scale-95 cursor-pointer"
-            >
-              <MessageCircle className="h-4 w-4 fill-current shrink-0" />
-              <span>Entrar no Grupo VIP WhatsApp</span>
-            </button>
-
-            <a
-              href="#achadinho-do-dia"
-              onClick={(e) => {
-                e.preventDefault();
-                document.getElementById('achadinho-do-dia')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="flex items-center justify-center gap-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black text-xs sm:text-sm px-4 py-3 shadow-md transition transform active:scale-95 cursor-pointer"
-            >
-              <span>⭐ Ver Achadinho do Dia</span>
-            </a>
-          </div>
+      <div className="relative flex items-center justify-between gap-3">
+        {/* Avatar / Mascote à Esquerda */}
+        <div className="relative shrink-0">
+          <img
+            src={resolvedMascote || '/icons/icon-192x192.png'}
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/icons/icon-192x192.png';
+            }}
+            alt={storeName}
+            width={52}
+            height={52}
+            className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl object-cover ring-2 ring-yellow-400/50 shadow-sm bg-slate-900 shrink-0"
+          />
         </div>
 
-        {/* Mascote / Imagem de Destaque da Loja */}
-        {showMascot && resolvedMascote && (
-          <div className="relative shrink-0 flex items-end justify-center md:justify-end self-center md:self-end">
-            <div className="relative flex items-end justify-center">
-              <div
-                className="absolute -inset-3 rounded-full blur-2xl -z-10 opacity-30"
-                style={{ background: `radial-gradient(circle, ${effectiveAccent} 0%, #3483FA 100%)` }}
-              />
-              <img
-                src={resolvedMascote}
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  if (isClarice) {
-                    e.currentTarget.src = '/brand/clarice-hero.png';
-                  } else {
-                    e.currentTarget.style.display = 'none';
-                  }
-                }}
-                alt={storeName}
-                width={340}
-                height={380}
-                className={
-                  isClarice
-                    ? "h-44 sm:h-56 md:h-[300px] lg:h-[340px] w-auto object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
-                    : "max-h-48 sm:max-h-56 md:max-h-[290px] lg:max-h-[320px] max-w-xs sm:max-w-sm md:max-w-md w-auto rounded-2xl object-contain object-bottom drop-shadow-2xl transition-transform duration-300 hover:scale-[1.02]"
-                }
-              />
-            </div>
-          </div>
-        )}
+        {/* Título Curto e Subtítulo Central */}
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xs sm:text-sm md:text-base font-extrabold tracking-tight text-white truncate leading-tight">
+            {isClarice ? 'Achadinhos reais com desconto todo dia' : `Achadinhos por ${storeName}`}
+          </h1>
+          <p className="text-[11px] sm:text-xs text-slate-300 truncate mt-0.5 leading-snug">
+            {subtitle || 'Ofertas verificadas no Mercado Livre e Shopee com compra 100% segura'}
+          </p>
+        </div>
+
+        {/* Pílula Grupo VIP WhatsApp à Direita */}
+        <button
+          type="button"
+          onClick={handleVipClick}
+          className="flex items-center gap-1.5 rounded-full bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-black text-xs px-3 py-2 sm:px-4 sm:py-2.5 shadow-md shrink-0 active:scale-95 transition cursor-pointer"
+        >
+          <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current shrink-0" />
+          <span className="hidden xs:inline sm:inline">Grupo VIP</span>
+          <span className="xs:hidden sm:hidden">VIP</span>
+        </button>
       </div>
     </section>
   );

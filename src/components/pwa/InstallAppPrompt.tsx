@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Download, Share, X, PlusSquare, Smartphone, Check } from 'lucide-react';
+import { Download, Share, X, PlusSquare, Check } from 'lucide-react';
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -13,7 +13,7 @@ declare global {
 }
 
 const DISMISS_KEY = 'clarice_pwa_dismissed_v2';
-const COOLDOWN_DAYS = 5;
+const COOLDOWN_DAYS = 7;
 const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 
 function checkIsStandalone(): boolean {
@@ -52,6 +52,12 @@ export function InstallHeaderButton({ className = '' }: { className?: string }) 
   const isStandalone = useIsStandalone();
 
   const handleInstallClick = () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.(15);
+      }
+    } catch {}
+
     if (typeof window === 'undefined') return;
 
     if (window.__clarice_deferred_pwa_prompt) {
@@ -77,7 +83,7 @@ export function InstallHeaderButton({ className = '' }: { className?: string }) 
       onClick={handleInstallClick}
       title="Instalar aplicativo oficial no celular ou computador"
       aria-label="Instalar Aplicativo Oficial"
-      className={`inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-xs font-bold text-yellow-400 hover:bg-yellow-400/20 active:scale-95 transition backdrop-blur-xs shadow-xs ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-xs font-bold text-yellow-400 hover:bg-yellow-400/20 active:scale-95 transition backdrop-blur-xs shadow-xs cursor-pointer ${className}`}
     >
       <Download className="h-3.5 w-3.5 shrink-0 text-yellow-400" />
       <span className="hidden sm:inline">Instalar App</span>
@@ -87,15 +93,14 @@ export function InstallHeaderButton({ className = '' }: { className?: string }) 
 }
 
 /**
- * Card / Prompt de instalação Flutuante com Glassmorphism.
- * Suporta Android/Chrome nativo, iOS Safari com passo-a-passo e Multi-Tenant.
+ * Card / Prompt de instalação Flutuante com padrão FCIA Android-First PWA (Glassmorphism leve).
+ * Suporta Android/Chrome nativo em 1 toque, iOS Safari com passo-a-passo e Multi-Tenant.
  */
 export function InstallAppPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIos, setIsIos] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [manualOpen, setManualOpen] = useState(false);
   const [installedSuccess, setInstalledSuccess] = useState(false);
 
   // Detecção de loja ativa (Multi-Tenant)
@@ -106,21 +111,11 @@ export function InstallAppPrompt() {
 
     const searchParams = new URLSearchParams(window.location.search);
     const lojaParam = searchParams.get('loja')?.trim();
-    const pathname = window.location.pathname;
 
     let storeName = 'Clarice Achadinhos';
     let shortName = 'Achadinhos';
 
-    if (pathname.startsWith('/admin')) {
-      const adminSlug = sessionStorage.getItem('clarice_admin_store_slug') || lojaParam;
-      if (adminSlug && adminSlug !== 'clarice') {
-        const formatted = adminSlug.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-        storeName = `${formatted} (Painel)`;
-        shortName = formatted;
-      } else {
-        storeName = 'Clarice Achadinhos (Painel)';
-      }
-    } else if (lojaParam && lojaParam !== 'clarice') {
+    if (lojaParam && lojaParam !== 'clarice') {
       const formatted = lojaParam.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       storeName = formatted;
       shortName = formatted;
@@ -138,10 +133,15 @@ export function InstallAppPrompt() {
     setIsStandalone(standaloneMode);
     if (standaloneMode) return;
 
+    // Se estiver na rota administrativa (/admin), oculta automaticamente
+    if (window.location.pathname.startsWith('/admin')) {
+      return;
+    }
+
     const iosDevice = checkIsIos();
     setIsIos(iosDevice);
 
-    // Verifica se foi dispensado nos últimos 5 dias
+    // Verifica se foi dispensado nos últimos 7 dias (cooldown de 7 dias)
     const lastDismissed = localStorage.getItem(DISMISS_KEY);
     const hasCooldown = lastDismissed && Date.now() - parseInt(lastDismissed, 10) < COOLDOWN_MS;
 
@@ -178,7 +178,6 @@ export function InstallAppPrompt() {
 
     // Ouvinte para abertura manual (ex.: via botão "Instalar App" no header)
     const handleManualOpen = () => {
-      setManualOpen(true);
       setIsVisible(true);
     };
 
@@ -205,16 +204,20 @@ export function InstallAppPrompt() {
 
   const handleDismiss = useCallback(() => {
     setIsVisible(false);
-    setManualOpen(false);
     if (typeof window !== 'undefined') {
       localStorage.setItem(DISMISS_KEY, Date.now().toString());
     }
   }, []);
 
   const handleInstallClick = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.(15);
+      }
+    } catch {}
+
     const promptEvent = deferredPrompt || window.__clarice_deferred_pwa_prompt;
     if (!promptEvent) {
-      // Se não temos deferredPrompt (ex.: Safari ou Chrome sem trigger pronto), mostra passos
       return;
     }
 
@@ -236,7 +239,9 @@ export function InstallAppPrompt() {
     }
   };
 
-  if (isStandalone || !isVisible) {
+  const isHiddenRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+
+  if (isStandalone || isHiddenRoute || !isVisible) {
     return null;
   }
 
@@ -247,7 +252,7 @@ export function InstallAppPrompt() {
       aria-describedby="pwa-install-desc"
       className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto z-50 mx-auto sm:mx-0 max-w-sm sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
     >
-      <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/80 p-3 sm:p-3.5 text-white shadow-2xl backdrop-blur-md ring-1 ring-black/40">
+      <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/75 p-3.5 text-white shadow-2xl backdrop-blur-md ring-1 ring-black/40">
         {/* Glow sutil de fundo */}
         <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-yellow-400/10 blur-2xl" />
 
@@ -263,8 +268,8 @@ export function InstallAppPrompt() {
             </div>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {/* Cabeçalho do Card: Ícone + Título + Fechar */}
+          <div className="space-y-3">
+            {/* Cabeçalho do Card: Ícone + Título + Fechar (×) */}
             <div className="flex items-start gap-3">
               <img
                 src={storeBranding.icon}
@@ -279,45 +284,38 @@ export function InstallAppPrompt() {
                     {storeBranding.name}
                   </h3>
                   <span className="shrink-0 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-black uppercase text-yellow-400">
-                    App
+                    APP
                   </span>
                 </div>
                 <p id="pwa-install-desc" className="text-[11px] text-slate-300 truncate">
-                  App Oficial · Leve, rápido e sem barras
+                  App Oficial · Rápido e leve
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleDismiss}
                 aria-label="Fechar aviso de instalação"
-                className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition shrink-0"
+                className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition shrink-0 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Corpo: Android / Chrome Nativo vs. iOS Safari vs. Outros */}
+            {/* Ação Principal: Android / Chrome Nativo em Largura Cheia (44px) */}
             {deferredPrompt ? (
-              <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={handleDismiss}
-                  className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition"
-                >
-                  Agora não
-                </button>
+              <div className="pt-2 border-t border-white/10">
                 <button
                   type="button"
                   onClick={handleInstallClick}
-                  className="flex items-center gap-1.5 rounded-xl bg-yellow-400 px-3.5 py-1.5 text-xs font-black text-slate-950 shadow-md hover:bg-yellow-300 active:scale-95 transition shrink-0 whitespace-nowrap"
+                  className="flex w-full min-h-[44px] h-11 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-2.5 text-xs sm:text-sm font-black text-slate-950 shadow-md hover:bg-yellow-300 active:scale-[0.98] transition cursor-pointer"
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  <Download className="h-4 w-4 shrink-0" />
                   <span>Baixar App (1 toque)</span>
                 </button>
               </div>
             ) : isIos ? (
-              <div className="space-y-2 pt-1 border-t border-white/10">
-                <div className="rounded-xl bg-white/5 p-2 text-[11px] text-slate-300 space-y-1.5">
+              <div className="space-y-2.5 pt-2 border-t border-white/10">
+                <div className="rounded-xl bg-white/5 p-2.5 text-[11px] text-slate-300 space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/20 font-bold text-blue-400 text-[10px]">
                       1
@@ -337,32 +335,28 @@ export function InstallAppPrompt() {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className="rounded-xl bg-yellow-400 px-3.5 py-1 text-xs font-black text-slate-950 hover:bg-yellow-300 active:scale-95 transition"
-                  >
-                    Entendi
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="flex w-full min-h-[44px] h-11 items-center justify-center rounded-xl bg-yellow-400 px-4 py-2.5 text-xs sm:text-sm font-black text-slate-950 hover:bg-yellow-300 active:scale-[0.98] transition cursor-pointer"
+                >
+                  Entendi
+                </button>
               </div>
             ) : (
-              <div className="space-y-2 pt-1 border-t border-white/10">
+              <div className="space-y-2.5 pt-2 border-t border-white/10">
                 <p className="text-[11px] text-slate-300">
                   No menu do navegador (<strong>⋮</strong> ou ícone de instalar na barra), toque em{' '}
                   <strong className="text-yellow-400">Instalar aplicativo</strong> ou{' '}
                   <strong>Adicionar à tela inicial</strong>.
                 </p>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className="rounded-xl bg-yellow-400 px-3.5 py-1 text-xs font-black text-slate-950 hover:bg-yellow-300 active:scale-95 transition"
-                  >
-                    Entendi
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="flex w-full min-h-[44px] h-11 items-center justify-center rounded-xl bg-yellow-400 px-4 py-2.5 text-xs sm:text-sm font-black text-slate-950 hover:bg-yellow-300 active:scale-[0.98] transition cursor-pointer"
+                >
+                  Entendi
+                </button>
               </div>
             )}
           </div>

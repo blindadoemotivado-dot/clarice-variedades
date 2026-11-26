@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clarice-achadinhos-pwa-v6';
+const CACHE_NAME = 'clarice-achadinhos-pwa-v7';
 
 const PRECACHE_ASSETS = [
   '/',

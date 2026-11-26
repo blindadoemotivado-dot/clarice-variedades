@@ -958,6 +958,29 @@ export function AdminRoutePage() {
     }
   };
 
+  // Suporte a Web Share Target API (Android Compartilhar direto no App Clarice)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const sharedUrl = searchParams.get('url') || searchParams.get('text') || searchParams.get('title');
+      if (sharedUrl) {
+        const parsed = parseShopeeSharedText(sharedUrl);
+        const targetUrl = parsed.url || sharedUrl.trim();
+        setProductAffiliateUrl(targetUrl);
+        if (parsed.marketplace === 'shopee') setProductMarketplace('shopee');
+        else if (parsed.marketplace === 'mercadolivre') setProductMarketplace('mercadolivre');
+        if (parsed.extractedPrice) setProductCurrentPrice(parsed.extractedPrice);
+        setActiveTab('produtos');
+        toast.success('📱 Link compartilhado do Android recebido!', {
+          description: 'Puxando informações do produto automaticamente...',
+        });
+        handleFetchOgMetadata(targetUrl);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch {}
+  }, []);
+
   // Salvar Produto (Novo ou Edição)
   const handleSaveProduct = async (e: FormEvent) => {
     e.preventDefault();

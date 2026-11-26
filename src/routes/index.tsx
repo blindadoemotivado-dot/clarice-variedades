@@ -133,7 +133,7 @@ const FILTERS: { value: CategoryFilter; label: string }[] = [
   ...CATEGORIES.map((c) => ({ value: c, label: c })),
 ];
 
-const ITEMS_PER_PAGE = 24;
+const ITEMS_PER_PAGE = 16;
 
 function getStoreInitials(name: string): string {
   if (!name) return 'LO';
@@ -496,77 +496,84 @@ function Storefront() {
           <span>🔒</span>
           <span>Você será levada ao ambiente oficial do Mercado Livre ou Shopee para comprar com segurança.</span>
         </div>
-        <div className="border-b border-border bg-card px-4 py-2.5 shadow-2xs">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-2.5 md:flex-nowrap">
-            <a
-              href={store.slug === 'clarice' ? '/' : `/?loja=${store.slug}`}
-              className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial"
-            >
-              {store.logoUrl ? (
-                <img
-                  src={store.logoUrl}
-                  alt={store.nomeLoja}
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A] shrink-0"
-                  style={{ borderColor: store.corDestaque || '#FFE600' }}
-                />
-              ) : store.slug === 'clarice' ? (
-                <img
-                  src="/icons/icon-192x192.png"
-                  alt={store.nomeLoja}
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A] shrink-0"
-                  style={{ borderColor: store.corDestaque || '#FFE600' }}
-                />
-              ) : (
-                <div
-                  className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full font-black text-xs text-slate-950 shadow-sm ring-2"
-                  style={{
-                    backgroundColor: store.corDestaque || '#FFE600',
-                    borderColor: store.corPrimaria || '#0F172A',
-                  }}
-                  aria-label={store.nomeLoja}
+        <div className="border-b border-border bg-card px-3 sm:px-4 py-2 sm:py-2.5 shadow-2xs">
+          <div className="mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-4">
+            {/* Linha Superior: Logo + Nome (Sem corte ...) à esquerda | Ações (Instalar App + Favoritos) à direita */}
+            <div className="flex items-center justify-between gap-2 w-full md:w-auto">
+              <a
+                href={store.slug === 'clarice' ? '/' : `/?loja=${store.slug}`}
+                className="flex items-center gap-2 min-w-0"
+              >
+                {store.logoUrl ? (
+                  <img
+                    src={store.logoUrl}
+                    alt={store.nomeLoja}
+                    width={36}
+                    height={36}
+                    className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A] shrink-0"
+                    style={{ borderColor: store.corDestaque || '#FFE600' }}
+                  />
+                ) : store.slug === 'clarice' ? (
+                  <img
+                    src="/icons/icon-192x192.png"
+                    alt={store.nomeLoja}
+                    width={36}
+                    height={36}
+                    className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover ring-2 shadow-sm bg-[#0F172A] shrink-0"
+                    style={{ borderColor: store.corDestaque || '#FFE600' }}
+                  />
+                ) : (
+                  <div
+                    className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full font-black text-xs text-slate-950 shadow-sm ring-2"
+                    style={{
+                      backgroundColor: store.corDestaque || '#FFE600',
+                      borderColor: store.corPrimaria || '#0F172A',
+                    }}
+                    aria-label={store.nomeLoja}
+                  >
+                    {getStoreInitials(store.nomeLoja)}
+                  </div>
+                )}
+                <span className="text-sm sm:text-base md:text-xl font-extrabold tracking-tight text-foreground whitespace-nowrap">
+                  {store.nomeLoja}
+                </span>
+                <BadgeCheck className="h-4 w-4 shrink-0 text-ml sm:h-5 sm:w-5" aria-label="Loja verificada" />
+              </a>
+
+              {/* Botões de Ação no Topo Mobile e Desktop */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <InstallHeaderButton />
+                <button
+                  type="button"
+                  onClick={() => setFavoritesOnly((value) => !value)}
+                  aria-pressed={favoritesOnly}
+                  aria-label="Meus Favoritos"
+                  className={cn(
+                    'relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-border transition-colors shrink-0',
+                    favoritesOnly
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-card text-muted-foreground hover:bg-muted'
+                  )}
                 >
-                  {getStoreInitials(store.nomeLoja)}
-                </div>
-              )}
-              <span className="text-base font-extrabold tracking-tight text-foreground truncate min-w-0 sm:text-xl">
-                {store.nomeLoja}
-              </span>
-              <BadgeCheck className="h-4 w-4 shrink-0 text-ml sm:h-5 sm:w-5" aria-label="Loja verificada" />
-            </a>
-            <div className="flex items-center gap-2 shrink-0 md:order-3 md:ml-auto">
-              <InstallHeaderButton />
-              <button
-                type="button"
-                onClick={() => setFavoritesOnly((value) => !value)}
-                aria-pressed={favoritesOnly}
-                aria-label="Meus Favoritos"
-                className={cn(
-                  'relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-border transition-colors shrink-0',
-                  favoritesOnly
-                    ? 'bg-destructive/10 text-destructive'
-                    : 'bg-card text-muted-foreground hover:bg-muted'
-                )}
-              >
-                <Heart className={cn('h-4 w-4 sm:h-5 sm:w-5', favoritesOnly && 'fill-current')} />
-                {c.favorites.length > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[9px] sm:text-[10px] font-bold text-on-brand">
-                    {c.favorites.length}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => openVipGroup()}
-                className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover shrink-0"
-              >
-                <MessageCircle className="h-4 w-4" /> <span className="hidden lg:inline">Grupo VIP</span> WhatsApp
-              </button>
+                  <Heart className={cn('h-4 w-4 sm:h-5 sm:w-5', favoritesOnly && 'fill-current')} />
+                  {c.favorites.length > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-on-brand">
+                      {c.favorites.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openVipGroup()}
+                  className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover shrink-0"
+                >
+                  <MessageCircle className="h-4 w-4" /> <span className="hidden lg:inline">Grupo VIP</span> WhatsApp
+                </button>
+              </div>
             </div>
-            <form onSubmit={runAiSearch} className="relative w-full md:order-2 md:mx-4 md:flex-1">
+
+            {/* Barra de Busca em Largura Total no Mobile */}
+            <form onSubmit={runAiSearch} className="relative w-full md:mx-4 md:flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
@@ -811,17 +818,24 @@ function Storefront() {
           )}
 
           {/* Filtros em Pílulas com Fixação Sticky e Indicador Visual de Deslize */}
-          <div className="sticky top-[88px] z-20 -mx-3 mb-5 px-3 py-2 bg-background/95 backdrop-blur-md border-b border-border/40 sm:static sm:border-none sm:bg-transparent sm:p-0">
+          <div className="sticky top-[132px] md:top-[88px] z-20 -mx-3 mb-5 px-3 py-2 bg-background/95 backdrop-blur-md border-b border-border/40 sm:static sm:border-none sm:bg-transparent sm:p-0">
             <div className="relative">
               <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 pr-8">
                 {FILTERS.map((filter) => (
                   <button
                     key={filter.value}
                     type="button"
-                    onClick={() => setCategory(filter.value)}
+                    onClick={() => {
+                      try {
+                        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                          navigator.vibrate?.(10);
+                        }
+                      } catch {}
+                      setCategory(filter.value);
+                    }}
                     aria-pressed={category === filter.value}
                     className={cn(
-                      'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer',
+                      'shrink-0 rounded-full border px-4 min-h-[40px] h-10 flex items-center justify-center text-xs sm:text-sm font-semibold transition-colors cursor-pointer',
                       category === filter.value
                         ? 'border-yellow-400 bg-yellow-400 text-slate-950 font-black shadow-xs'
                         : 'border-border bg-card text-muted-foreground hover:border-yellow-400/50 hover:text-foreground'
@@ -889,7 +903,9 @@ function Storefront() {
                   <div className="flex flex-col items-center gap-1.5 w-full max-w-xs text-center">
                     <span className="text-xs font-semibold text-muted-foreground">
                       Mostrando <strong className="text-foreground">{Math.min(visibleCount, visible.length)}</strong> de{' '}
-                      <strong className="text-foreground">{visible.length}</strong> ofertas
+                      <strong className="text-foreground">{visible.length}</strong> ofertas · Página{' '}
+                      <strong className="text-foreground">{Math.ceil(Math.min(visibleCount, visible.length) / ITEMS_PER_PAGE)}</strong> de{' '}
+                      <strong className="text-foreground">{Math.ceil(visible.length / ITEMS_PER_PAGE)}</strong>
                     </span>
                     <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                       <div
@@ -900,10 +916,17 @@ function Storefront() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
-                    className="flex items-center gap-2 rounded-2xl bg-card border-2 border-ml/40 hover:border-ml hover:bg-ml/5 text-foreground font-black text-xs sm:text-sm px-6 py-3.5 shadow-sm transition active:scale-95"
+                    onClick={() => {
+                      try {
+                        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                          navigator.vibrate?.(10);
+                        }
+                      } catch {}
+                      setVisibleCount((prev) => prev + ITEMS_PER_PAGE);
+                    }}
+                    className="flex items-center gap-2 rounded-2xl bg-card border-2 border-ml/40 hover:border-ml hover:bg-ml/5 text-foreground font-black text-xs sm:text-sm px-6 py-3.5 shadow-sm transition active:scale-95 cursor-pointer"
                   >
-                    <span>Carregar mais achadinhos (+16)</span>
+                    <span>Carregar mais 16 ofertas</span>
                     <ChevronDown className="h-4 w-4 text-ml" />
                   </button>
                 </div>

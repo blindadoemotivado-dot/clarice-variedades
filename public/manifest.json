@@ -12,6 +12,31 @@
   "lang": "pt-BR",
   "dir": "ltr",
   "categories": ["shopping", "lifestyle"],
+  "share_target": {
+    "action": "/admin",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "screenshots": [
+    {
+      "src": "/apple-splash.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Clarice Achadinhos no Celular"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Vitrine Clarice Achadinhos no Computador"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
