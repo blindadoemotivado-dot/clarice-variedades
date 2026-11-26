@@ -26,8 +26,6 @@ import { DealsCarousel } from '@/components/store/DealsCarousel';
 import { ProductCard } from '@/components/store/ProductCard';
 import { ConciergeDialog, openWhatsApp } from '@/components/store/ConciergeDialog';
 import { openVipGroup, useStoreSettings } from '@/lib/store-settings';
-import { AdminSheet } from '@/components/store/AdminSheet';
-import { AdminPinDialog } from '@/components/store/AdminPinDialog';
 import { askClariceAi } from '@/services/clariceAiService';
 import { useCatalog } from '@/hooks/use-catalog';
 import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
@@ -258,8 +256,6 @@ function Storefront() {
   const [sort, setSort] = useState<SortKey>('relevance');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [concierge, setConcierge] = useState(false);
-  const [admin, setAdmin] = useState(false);
-  const [pinOpen, setPinOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
@@ -389,21 +385,6 @@ function Storefront() {
     window.setTimeout(() => document.getElementById('mobile-search')?.focus(), 0);
   };
 
-  const handleOpenAdmin = () => {
-    let isAuthed = false;
-    try {
-      isAuthed = sessionStorage.getItem('clarice_admin_authenticated') === 'true';
-    } catch {
-      isAuthed = false;
-    }
-
-    if (isAuthed) {
-      setAdmin(true);
-    } else {
-      setPinOpen(true);
-    }
-  };
-
   const runAiSearch = async (event?: FormEvent) => {
     event?.preventDefault();
     if (!query.trim()) {
@@ -454,24 +435,14 @@ function Storefront() {
               <MessageCircle className="h-4 w-4" />
               Falar com o Suporte
             </a>
-            <button
-              onClick={() => setPinOpen(true)}
+            <a
+              href="/admin"
               className="text-xs font-semibold text-slate-500 hover:text-slate-300 transition"
             >
               Acesso Administrativo
-            </button>
+            </a>
           </div>
         </div>
-        <AdminPinDialog open={pinOpen} onOpenChange={setPinOpen} onSuccess={() => setAdmin(true)} />
-        <AdminSheet
-          open={admin}
-          onOpenChange={setAdmin}
-          products={c.products}
-          onAdd={c.add}
-          onRemove={c.remove}
-          onToggleFeatured={c.toggleFeatured}
-          onReset={c.reset}
-        />
       </div>
     );
   }
@@ -1033,14 +1004,13 @@ function Storefront() {
 
         {/* Link Discreto para Painel da Loja */}
         <div className="mb-4">
-          <button
-            type="button"
-            onClick={handleOpenAdmin}
+          <a
+            href="/admin"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-foreground transition underline"
           >
             <Lock className="h-3 w-3" />
             <span>Painel da Loja</span>
-          </button>
+          </a>
         </div>
 
         {/* Assinatura Oficial FCIA */}
@@ -1117,29 +1087,6 @@ function Storefront() {
       </div>
 
       <ConciergeDialog open={concierge} onOpenChange={setConcierge} />
-      <AdminPinDialog
-        open={pinOpen}
-        onOpenChange={setPinOpen}
-        onSuccess={() => setAdmin(true)}
-      />
-      <AdminSheet
-        open={admin}
-        onOpenChange={setAdmin}
-        products={c.products}
-        pendingProducts={c.pendingProducts}
-        onAdd={c.add}
-        onRemove={c.remove}
-        onBatchRemove={c.batchRemove}
-        onToggleFeatured={c.toggleFeatured}
-        onReset={c.reset}
-        onEmptyCatalog={c.emptyCatalog}
-        onClearDemo={c.clearDemoProducts}
-        onApprovePending={c.approveProduct}
-        onBatchApprovePending={c.batchApprovePending}
-        onRejectPending={c.rejectPending}
-        onBatchRejectPending={c.batchRejectPending}
-        onSyncRadar={c.syncRadar}
-      />
       <Toaster position="bottom-center" richColors />
     </div>
   );
