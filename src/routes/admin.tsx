@@ -238,6 +238,7 @@ export function AdminRoutePage() {
 
   // Alternância rápida entre Painel Super Admin e Painel Clarice
   const [isSwitchedToClarice, setIsSwitchedToClarice] = useState(false);
+  const [visibleAdminCount, setVisibleAdminCount] = useState(16);
   const [impersonatedStore, setImpersonatedStore] = useState<LojaAfiliado | null>(null);
   const [drawerStore, setDrawerStore] = useState<LojaAfiliado | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -1480,8 +1481,9 @@ export function AdminRoutePage() {
             <InstallHeaderButton />
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-800 text-center text-[11px] text-slate-500">
-            © 2026 FCIA • Todos os direitos reservados.
+          <div className="mt-6 pt-4 border-t border-slate-800 text-center text-xs text-slate-400 space-y-0.5">
+            <p>© 2026 Clarice Achadinhos · Tecnologia FCIA</p>
+            <p className="text-[11px] text-slate-500">Prof. Fernando Cabral</p>
           </div>
         </div>
         <Toaster position="bottom-center" richColors />
@@ -1515,65 +1517,73 @@ export function AdminRoutePage() {
       )}
 
       {/* Header do Painel */}
-      <header className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-md sticky top-0 z-30 px-4 py-3 sm:py-3.5">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Linha 1 (Mobile) / Lado Esquerdo (Desktop) */}
-          <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto min-w-0">
-            <a
-              href={userRole === 'lojista' && loggedStore ? `/?loja=${loggedStore.slug}` : '/'}
-              target={userRole === 'lojista' && loggedStore ? '_blank' : undefined}
-              rel={userRole === 'lojista' && loggedStore ? 'noreferrer' : undefined}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition"
-              title={userRole === 'lojista' ? 'Ver Minha Vitrine (Nova Aba)' : 'Ver vitrine pública'}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </a>
-            <div className="min-w-0 flex-1 sm:flex-initial">
-              <div className="flex items-center gap-2">
+      <header className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-md sticky top-0 z-30 px-3 sm:px-4 py-2.5 sm:py-3.5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          {/* Linha 1 no Mobile (3 elementos: [← Admin Clarice] [👑 MASTER] [Sair]) / Lado Esquerdo no Desktop */}
+          <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <a
+                href={userRole === 'lojista' && loggedStore ? `/?loja=${loggedStore.slug}` : '/'}
+                target={userRole === 'lojista' && loggedStore ? '_blank' : undefined}
+                rel={userRole === 'lojista' && loggedStore ? 'noreferrer' : undefined}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition"
+                title={userRole === 'lojista' ? 'Ver Minha Vitrine (Nova Aba)' : 'Ver vitrine pública'}
+              >
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+              </a>
+              <div className="flex items-center gap-1.5 min-w-0">
                 <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
-                <h1 className="text-sm sm:text-lg font-black tracking-tight text-white truncate min-w-0 max-w-[160px] xs:max-w-[200px] sm:max-w-none">
+                <span className="text-sm font-extrabold text-white whitespace-nowrap sm:hidden">
+                  Admin Clarice
+                </span>
+                <h1 className="text-sm sm:text-base font-extrabold text-white truncate min-w-0 hidden sm:block">
                   {userRole === 'super_admin'
                     ? 'Painel Super Admin • Clarice SaaS'
                     : `Gestão • ${loggedStore?.nomeLoja || 'Minha Loja'}`}
                 </h1>
-                {userRole === 'super_admin' ? (
-                  <span className="shrink-0 whitespace-nowrap rounded-md bg-[#FFE600]/20 px-2 py-0.5 text-[10px] font-black uppercase text-[#FFE600] flex items-center gap-1">
-                    <Crown className="h-3 w-3" /> SUPER ADMIN
-                  </span>
-                ) : (
-                  <span className="shrink-0 whitespace-nowrap rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1">
-                    <Store className="h-3 w-3" /> {loggedStore?.plano ? loggedStore.plano.toUpperCase() : 'PRO'}
-                  </span>
-                )}
               </div>
-              <p className="text-xs text-slate-400 hidden sm:block">
-                {userRole === 'super_admin'
-                  ? 'Controle mestre de assinaturas Asaas, vitrines e automações.'
-                  : `Gerencie seu catálogo exclusivo, personalize sua vitrine e acompanhe sua assinatura.`}
-              </p>
             </div>
-            {/* Botão Sair na Linha 1 no mobile */}
+
+            {/* Badge Central (👑 MASTER ou LOJISTA) */}
+            <div className="shrink-0">
+              {userRole === 'super_admin' ? (
+                <span className="whitespace-nowrap rounded-md bg-[#FFE600]/20 px-2 py-0.5 text-[10px] font-black uppercase text-[#FFE600] flex items-center gap-1 shrink-0">
+                  <Crown className="h-3 w-3 shrink-0" />
+                  <span className="sm:hidden">👑 MASTER</span>
+                  <span className="hidden sm:inline">SUPER ADMIN</span>
+                </span>
+              ) : (
+                <span className="whitespace-nowrap rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1 shrink-0">
+                  <Store className="h-3 w-3 shrink-0" /> {loggedStore?.nomeLoja ? loggedStore.nomeLoja.slice(0, 10) : 'LOJA'}
+                </span>
+              )}
+            </div>
+
+            {/* Botão Sair no Mobile */}
             <button
+              type="button"
               onClick={handleLogout}
-              className="ml-auto sm:hidden shrink-0 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              className="sm:hidden shrink-0 rounded-xl border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer"
             >
               Sair
             </button>
           </div>
 
-          {/* Linha 2 (Mobile) / Lado Direito (Desktop) */}
+          {/* Linha 2 no Mobile / Lado Direito no Desktop: Ações Rápidas Proporcionais (h-10) */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <InstallHeaderButton />
+            <InstallHeaderButton className="h-10 px-3 text-xs font-bold shrink-0" />
+
             {/* Se estiver no Painel Clarice após alternância rápida, Modo Suporte ou se logado na clarice */}
             {userRole === 'lojista' && (isSwitchedToClarice || impersonatedStore || loggedStore?.slug === 'clarice') && (
               <button
                 type="button"
                 onClick={impersonatedStore ? handleExitSupportMode : handleReturnToSuperAdmin}
-                className="inline-flex w-full sm:w-auto justify-center min-h-[40px] items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-black shadow-md shadow-purple-600/30 transition active:scale-95"
+                className="flex-1 sm:flex-initial inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 text-xs font-bold shadow-md shadow-purple-600/30 transition active:scale-95 cursor-pointer"
                 title="Retornar ao Painel Master Super Admin"
               >
-                <Crown className="h-3.5 w-3.5" />
-                <span>👑 Voltar ao Super Admin</span>
+                <Crown className="h-3.5 w-3.5 shrink-0" />
+                <span className="sm:hidden whitespace-nowrap">Voltar Master</span>
+                <span className="hidden sm:inline whitespace-nowrap">Voltar ao Super Admin</span>
               </button>
             )}
 
@@ -1582,11 +1592,11 @@ export function AdminRoutePage() {
               <button
                 type="button"
                 onClick={handleSwitchToClaricePanel}
-                className="inline-flex w-full sm:w-auto justify-center min-h-[40px] items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
+                className="flex-1 sm:flex-initial inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 px-3.5 py-2 text-xs font-bold shadow-md shadow-yellow-500/20 transition active:scale-95 cursor-pointer"
                 title="Acessar o Painel de Controle oficial da Clarice Achadinhos"
               >
-                <Store className="h-3.5 w-3.5" />
-                <span>🏪 Painel Clarice</span>
+                <Store className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-nowrap">🛍️ Painel Clarice</span>
               </button>
             )}
 
@@ -1595,16 +1605,20 @@ export function AdminRoutePage() {
                 href={`/?loja=${loggedStore.slug}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex w-full sm:w-auto justify-center min-h-[40px] items-center gap-1.5 rounded-xl bg-[#FFE600] hover:bg-yellow-400 text-slate-950 px-3.5 py-2 text-xs font-black shadow-md shadow-yellow-500/20 transition active:scale-95"
+                className="flex-1 sm:flex-initial inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#FFE600] hover:bg-yellow-400 text-slate-950 px-3.5 py-2 text-xs font-bold shadow-md shadow-yellow-500/20 transition active:scale-95 cursor-pointer"
                 title="Abrir minha vitrine pública em nova aba"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span>↗ Ver Minha Vitrine</span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                <span className="sm:hidden whitespace-nowrap">↗ Ver Vitrine</span>
+                <span className="hidden sm:inline whitespace-nowrap">↗ Ver Minha Vitrine</span>
               </a>
             )}
+
+            {/* Botão Sair no Desktop */}
             <button
+              type="button"
               onClick={handleLogout}
-              className="hidden sm:inline-flex shrink-0 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              className="hidden sm:inline-flex h-10 items-center shrink-0 rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer"
             >
               Sair
             </button>
@@ -1615,24 +1629,24 @@ export function AdminRoutePage() {
       {/* Conteúdo Principal com Abas */}
       <main className="mx-auto max-w-7xl px-3 sm:px-4 py-3 sm:py-6 overflow-x-hidden w-full max-w-full">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full overflow-x-hidden">
-          {/* Barra de Abas Unificada e Responsiva Mobile-First */}
-          <TabsList className="no-scrollbar flex items-center gap-1.5 w-full overflow-x-auto p-1.5 rounded-2xl mb-4 bg-slate-900 border border-slate-800">
+          {/* Barra de Abas Sem Corte na Borda Direita (Grid 3 Colunas no Mobile, Flex no Desktop) */}
+          <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 w-full p-1.5 rounded-2xl mb-4 bg-slate-900 border border-slate-800">
             <TabsTrigger
               value="produtos"
-              className="shrink-0 px-3 py-2 text-xs sm:text-sm font-bold min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition flex items-center gap-1.5"
+              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
-              <ShoppingBag className="h-4 w-4 shrink-0" />
-              <span>Produtos ({filteredProducts.length})</span>
+              <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
+              <span>Produtos</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="radar"
-              className="shrink-0 px-3 py-2 text-xs sm:text-sm font-bold min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition flex items-center gap-1.5"
+              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
-              <Zap className="h-4 w-4 shrink-0" />
-              <span>Ofertas encontradas</span>
+              <Zap className="h-3.5 w-3.5 shrink-0" />
+              <span>Ofertas</span>
               {c.pendingProducts.length > 0 && (
-                <span className="rounded-full bg-amber-400 text-slate-950 px-1.5 py-0.2 text-[10px] font-black">
+                <span className="rounded-full bg-amber-400 text-slate-950 px-1 py-0.2 text-[9px] font-black">
                   {c.pendingProducts.length}
                 </span>
               )}
@@ -1640,43 +1654,43 @@ export function AdminRoutePage() {
 
             <TabsTrigger
               value="lote"
-              className="shrink-0 px-3 py-2 text-xs sm:text-sm font-bold min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition flex items-center gap-1.5"
+              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
-              <Boxes className="h-4 w-4 shrink-0" />
-              <span>Cadastrar vários</span>
+              <Boxes className="h-3.5 w-3.5 shrink-0" />
+              <span>Lote</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="whatsapp"
-              className="shrink-0 px-3 py-2 text-xs sm:text-sm font-bold min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition flex items-center gap-1.5"
+              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
-              <MessageCircle className="h-4 w-4 shrink-0" />
-              <span>Textos WhatsApp</span>
+              <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>WhatsApp</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="config"
-              className="shrink-0 px-3 py-2 text-xs sm:text-sm font-bold min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition flex items-center gap-1.5"
+              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
-              <Settings className="h-4 w-4 shrink-0" />
-              <span>Configurações</span>
+              <Settings className="h-3.5 w-3.5 shrink-0" />
+              <span>Ajustes</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="guia-uso"
-              className="shrink-0 px-3 py-2 text-xs sm:text-sm font-bold min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition flex items-center gap-1.5"
+              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
-              <GraduationCap className="h-4 w-4 shrink-0" />
-              <span>🎓 Guia de Uso</span>
+              <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+              <span>Aulas</span>
             </TabsTrigger>
 
             {isSuperAdminUser && (
               <TabsTrigger
                 value="saas"
-                className="shrink-0 px-3 py-2 text-xs sm:text-sm font-bold min-h-[42px] rounded-xl data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition flex items-center gap-1.5"
+                className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
               >
-                <Users className="h-4 w-4 shrink-0" />
-                <span>Clientes SaaS ({stores.length})</span>
+                <Users className="h-3.5 w-3.5 shrink-0" />
+                <span>Lojas</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -1816,14 +1830,14 @@ export function AdminRoutePage() {
 
                         return (
                           <div className="w-full min-w-0 flex items-center justify-between gap-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30 px-3 py-2 text-[11px] font-semibold text-yellow-400">
-                            <div className="flex items-center gap-2 truncate min-w-0">
-                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#FFE600]" />
-                              <span className="truncate">
-                                Mercado Livre conectado ✓ (Tag: {mlTag || 'Padrão Clarice'})
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+                              <span className="font-bold text-xs text-yellow-400 whitespace-nowrap">
+                                ● Mercado Livre conectado
                               </span>
                             </div>
-                            <span className="text-[10px] text-yellow-300/70 shrink-0">
-                              Rastreamento Ativo
+                            <span className="rounded-md bg-yellow-400/20 px-2 py-0.5 text-[10px] font-black uppercase text-yellow-400 shrink-0">
+                              Tag Ativa
                             </span>
                           </div>
                         );
@@ -1858,8 +1872,8 @@ export function AdminRoutePage() {
                           </div>
                         </div>
 
-                        <p className="text-xs text-zinc-400 mb-1.5 leading-relaxed">
-                          Nos apps do Mercado Livre ou Shopee, toque em Compartilhar → Copiar Link e depois clique em Colar do App acima para puxar preço e foto automaticamente.
+                        <p className="text-xs text-slate-400 mb-1.5 leading-relaxed">
+                          Copie o link no app da Shopee ou Mercado Livre e toque em Colar do App.
                         </p>
 
                         <input
@@ -2227,7 +2241,7 @@ export function AdminRoutePage() {
                   </div>
                 ) : (
                   <div className="space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
-                    {filteredProducts.map((p) => (
+                    {filteredProducts.slice(0, visibleAdminCount).map((p) => (
                       <div
                         key={p.id}
                         className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-3 hover:border-slate-700 transition"
@@ -2302,6 +2316,18 @@ export function AdminRoutePage() {
                         </div>
                       </div>
                     ))}
+
+                    {filteredProducts.length > visibleAdminCount && (
+                      <div className="pt-3 pb-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setVisibleAdminCount((prev) => prev + 16)}
+                          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-4 py-2.5 text-xs font-bold text-white transition active:scale-95 cursor-pointer shadow-sm"
+                        >
+                          Carregar mais 16 ofertas ({Math.min(visibleAdminCount, filteredProducts.length)} de {filteredProducts.length})
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -3102,8 +3128,9 @@ export function AdminRoutePage() {
       </main>
 
       {/* Rodapé Institucional FCIA */}
-      <footer className="mt-12 border-t border-slate-800/80 bg-[#0F172A] py-6 px-4 text-center text-xs text-slate-400">
-        <p>© 2026 FCIA • Todos os direitos reservados.</p>
+      <footer className="mt-12 border-t border-slate-800/80 bg-[#0F172A] py-6 px-4 text-center text-xs text-slate-400 space-y-0.5">
+        <p>© 2026 Clarice Achadinhos · Tecnologia FCIA</p>
+        <p className="text-[11px] text-slate-500">Prof. Fernando Cabral</p>
       </footer>
 
       {/* Modal de Criação de Loja (Super Admin) */}

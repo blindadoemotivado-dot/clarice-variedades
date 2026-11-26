@@ -26,4 +26,19 @@ for (const vp of VIEWPORTS) {
     const productCards = await page.locator('#catalogo-completo article[id^="produto-"]').count();
     expect(productCards).toBeLessThanOrEqual(16);
   });
+
+  test(`deve renderizar a rota /admin sem overflow horizontal em ${vp.name} (${vp.width}px)`, async ({ page }) => {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    await page.goto('/admin', { waitUntil: 'load' });
+
+    // Aguarda o container principal do admin ser montado
+    await page.waitForTimeout(2000);
+
+    const hasHorizontalOverflow = await page.evaluate(() => {
+      const doc = document.documentElement;
+      return doc.scrollWidth > doc.clientWidth;
+    });
+
+    expect(hasHorizontalOverflow).toBe(false);
+  });
 }

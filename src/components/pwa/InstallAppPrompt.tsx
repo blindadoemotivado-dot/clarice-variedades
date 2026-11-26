@@ -250,7 +250,7 @@ export function InstallAppPrompt() {
       role="dialog"
       aria-labelledby="pwa-install-title"
       aria-describedby="pwa-install-desc"
-      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto z-50 mx-auto sm:mx-0 max-w-sm sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
+      className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto z-50 mx-auto sm:mx-0 max-w-sm sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
     >
       <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/75 p-3.5 text-white shadow-2xl backdrop-blur-md ring-1 ring-black/40">
         {/* Glow sutil de fundo */}
