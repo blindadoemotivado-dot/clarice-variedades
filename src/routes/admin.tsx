@@ -2338,7 +2338,7 @@ export function AdminRoutePage() {
           {/* ABA 2 (LOJISTA): DISPARADOR VIP PARA WHATSAPP */}
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
-            <TabsContent value="disparador-vip" className="space-y-6 overflow-x-hidden w-full max-w-full">
+            <TabsContent value="whatsapp" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <LojistaVipDispatcher
                 store={loggedStore}
                 products={c.products}
@@ -2349,10 +2349,10 @@ export function AdminRoutePage() {
           )}
 
           {/* ========================================================================= */}
-          {/* ABA 3 (LOJISTA): MINHA LOJA (CUSTOMIZAÇÃO DE BRANDING) */}
+          {/* ABA 3 (LOJISTA): AJUSTES DA LOJA (BRANDING & ASSINATURA SAAS) */}
           {/* ========================================================================= */}
           {userRole === 'lojista' && loggedStore && (
-            <TabsContent value="minha-loja" className="space-y-6 overflow-x-hidden w-full max-w-full">
+            <TabsContent value="config" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <LojistaStoreSettings
                 store={loggedStore}
                 permissions={lojistaPermissions}
@@ -2361,14 +2361,7 @@ export function AdminRoutePage() {
                 }}
                 onUpgrade={() => handleTabChange('minha-assinatura')}
               />
-            </TabsContent>
-          )}
 
-          {/* ========================================================================= */}
-          {/* ABA 3 (LOJISTA): MINHA ASSINATURA ASAAS */}
-          {/* ========================================================================= */}
-          {userRole === 'lojista' && loggedStore && (
-            <TabsContent value="minha-assinatura" className="space-y-6 overflow-x-hidden w-full max-w-full">
               <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-6 shadow-xl max-w-2xl overflow-x-hidden w-full">
                 <div className="border-b border-slate-800 pb-4 mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
