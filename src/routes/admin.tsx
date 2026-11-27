@@ -1629,8 +1629,8 @@ export function AdminRoutePage() {
       {/* Conteúdo Principal com Abas */}
       <main className="mx-auto max-w-7xl px-3 sm:px-4 py-3 sm:py-6 overflow-x-hidden w-full max-w-full">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full overflow-x-hidden">
-          {/* Barra de Abas Sem Corte na Borda Direita (Grid 3 Colunas no Mobile, Flex no Desktop) */}
-          <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 w-full p-1.5 rounded-2xl mb-4 bg-slate-900 border border-slate-800">
+          {/* Barra de Abas Sem Corte na Borda Direita (Grid 3 Colunas no Mobile, Flex no Desktop, Altura Automática) */}
+          <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 w-full h-auto p-1.5 rounded-2xl mb-4 bg-slate-900 border border-slate-800">
             <TabsTrigger
               value="produtos"
               className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
