@@ -625,3 +625,72 @@ export const adminGetGlobalShopeeCredentialsServerFn = createServerFn({ method: 
       configured: Boolean(appId && secret && !secret.includes('|')),
     };
   });
+
+export interface LojistaUpdateStoreBrandingInput {
+  slug: string;
+  updates: Record<string, any>;
+}
+
+/**
+ * Atualização segura de identidade visual e dados do lojista via Service Role
+ * Impede bloqueios de RLS quando o lojista estiver autenticado via PIN / owner_password
+ */
+export const lojistaUpdateStoreBrandingServerFn = createServerFn({ method: 'POST' })
+  .validator((d: LojistaUpdateStoreBrandingInput) => d)
+  .handler(async (ctx) => {
+    const { slug, updates } = ctx.data;
+    const cleanSlug = (slug || '').trim().toLowerCase();
+    if (!cleanSlug) {
+      return { success: false, error: 'Slug da loja não informado.' };
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const dbPayload: Record<string, any> = {};
+    if (updates.nomeLoja !== undefined) dbPayload.nome_loja = updates.nomeLoja;
+    if (updates.subtitulo !== undefined) dbPayload.subtitulo = updates.subtitulo;
+    if (updates.corPrimaria !== undefined) dbPayload.cor_primaria = updates.corPrimaria;
+    if (updates.corDestaque !== undefined) dbPayload.cor_destaque = updates.corDestaque;
+    if (updates.logoUrl !== undefined) dbPayload.logo_url = updates.logoUrl;
+    if (updates.heroMascoteUrl !== undefined) dbPayload.hero_mascote_url = updates.heroMascoteUrl;
+    if (updates.whatsappVipUrl !== undefined) dbPayload.whatsapp_vip_url = updates.whatsappVipUrl;
+    if (updates.instagramUrl !== undefined) dbPayload.instagram_url = updates.instagramUrl;
+    if (updates.dominioCustomizado !== undefined) dbPayload.dominio_customizado = updates.dominioCustomizado || null;
+    if (updates.whatsappContato !== undefined) dbPayload.whatsapp_contato = updates.whatsappContato;
+
+    // Tratamento de tags de afiliado / credenciais compatíveis
+    const effectiveTag = (updates.mlAffiliateTag || '').trim();
+    const effectiveTool = (updates.mlMattTool || '').trim();
+    if (updates.shopeeSecret !== undefined && !updates.shopeeSecret.includes('|')) {
+      dbPayload.shopee_secret = updates.shopeeSecret || null;
+    } else if (effectiveTool) {
+      dbPayload.shopee_secret = `${effectiveTag}|${effectiveTool}`;
+    } else if (updates.mlAffiliateTag !== undefined) {
+      dbPayload.shopee_secret = updates.mlAffiliateTag || null;
+    }
+
+    if (updates.shopeeAppId !== undefined && updates.shopeeAppId.trim()) {
+      dbPayload.shopee_app_id = updates.shopeeAppId.trim();
+    } else if (updates.shopeeAffiliateId !== undefined) {
+      dbPayload.shopee_app_id = updates.shopeeAffiliateId || null;
+    }
+
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('lojas_afiliados')
+        .update(dbPayload)
+        .eq('slug', cleanSlug)
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('[lojistaUpdateStoreBrandingServerFn] Erro ao atualizar loja:', error.message);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
+    } catch (err: any) {
+      console.error('[lojistaUpdateStoreBrandingServerFn] Exceção:', err);
+      return { success: false, error: err?.message || 'Falha ao atualizar branding da loja.' };
+    }
+  });

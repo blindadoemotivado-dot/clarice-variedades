@@ -642,6 +642,7 @@ function Storefront() {
           storeName={store.nomeLoja}
           mascoteUrl={store.heroMascoteUrl}
           bannerUrl={store.heroMascoteUrl}
+          logoUrl={store.logoUrl}
           vipUrl={store.whatsappVipUrl || (store.slug === 'clarice' ? 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o' : undefined)}
           accentColor={store.corDestaque}
           storeSlug={store.slug}

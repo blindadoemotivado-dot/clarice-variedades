@@ -44,7 +44,8 @@ describe('PWA Install Components', () => {
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByText('Clarice Achadinhos')).toBeInTheDocument();
-      expect(screen.getByText(/App Oficial · Rápido e leve/i)).toBeInTheDocument();
+      expect(screen.getByText(/App Oficial · Leve, rápido e sem barras/i)).toBeInTheDocument();
+      expect(screen.getByText(/Agora não/i)).toBeInTheDocument();
     });
 
     it('dismisses prompt and records 7-day cooldown in localStorage on close', () => {

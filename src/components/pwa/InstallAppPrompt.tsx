@@ -250,9 +250,9 @@ export function InstallAppPrompt() {
       role="dialog"
       aria-labelledby="pwa-install-title"
       aria-describedby="pwa-install-desc"
-      className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto z-50 mx-auto sm:mx-0 max-w-sm sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
+      className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto z-[70] mx-auto sm:mx-0 max-w-sm sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
     >
-      <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/75 p-3.5 text-white shadow-2xl backdrop-blur-md ring-1 ring-black/40">
+      <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/85 p-3.5 text-white shadow-2xl backdrop-blur-md ring-1 ring-black/40">
         {/* Glow sutil de fundo */}
         <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-yellow-400/10 blur-2xl" />
 
@@ -276,19 +276,19 @@ export function InstallAppPrompt() {
                 alt={storeBranding.name}
                 width={40}
                 height={40}
-                className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-yellow-400/40 bg-slate-900 shadow-xs"
+                className="h-10 w-10 shrink-0 rounded-full ring-2 ring-yellow-400 p-0.5 object-cover bg-slate-900 shadow-xs"
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <h3 id="pwa-install-title" className="text-xs sm:text-sm font-extrabold tracking-tight text-white truncate">
                     {storeBranding.name}
                   </h3>
-                  <span className="shrink-0 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-black uppercase text-yellow-400">
+                  <span className="shrink-0 rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-black uppercase text-yellow-400">
                     APP
                   </span>
                 </div>
                 <p id="pwa-install-desc" className="text-[11px] text-slate-300 truncate">
-                  App Oficial · Rápido e leve
+                  App Oficial · Leve, rápido e sem barras
                 </p>
               </div>
               <button
@@ -301,15 +301,22 @@ export function InstallAppPrompt() {
               </button>
             </div>
 
-            {/* Ação Principal: Android / Chrome Nativo em Largura Cheia (44px) */}
+            {/* Ação Principal: Android / Chrome Nativo */}
             {deferredPrompt ? (
-              <div className="pt-2 border-t border-white/10">
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                >
+                  Agora não
+                </button>
                 <button
                   type="button"
                   onClick={handleInstallClick}
-                  className="flex w-full min-h-[44px] h-11 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-2.5 text-xs sm:text-sm font-black text-slate-950 shadow-md hover:bg-yellow-300 active:scale-[0.98] transition cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-full bg-yellow-400 px-3.5 py-1.5 text-xs font-black text-slate-950 shadow-md hover:bg-yellow-300 active:scale-95 transition cursor-pointer"
                 >
-                  <Download className="h-4 w-4 shrink-0" />
+                  <Download className="h-3.5 w-3.5 shrink-0" />
                   <span>Baixar App (1 toque)</span>
                 </button>
               </div>
@@ -335,13 +342,22 @@ export function InstallAppPrompt() {
                     </span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDismiss}
-                  className="flex w-full min-h-[44px] h-11 items-center justify-center rounded-xl bg-yellow-400 px-4 py-2.5 text-xs sm:text-sm font-black text-slate-950 hover:bg-yellow-300 active:scale-[0.98] transition cursor-pointer"
-                >
-                  Entendi
-                </button>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                  >
+                    Agora não
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="rounded-full bg-yellow-400 px-4 py-1.5 text-xs font-black text-slate-950 hover:bg-yellow-300 active:scale-95 transition cursor-pointer"
+                  >
+                    Entendi
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-2.5 pt-2 border-t border-white/10">
@@ -350,13 +366,22 @@ export function InstallAppPrompt() {
                   <strong className="text-yellow-400">Instalar aplicativo</strong> ou{' '}
                   <strong>Adicionar à tela inicial</strong>.
                 </p>
-                <button
-                  type="button"
-                  onClick={handleDismiss}
-                  className="flex w-full min-h-[44px] h-11 items-center justify-center rounded-xl bg-yellow-400 px-4 py-2.5 text-xs sm:text-sm font-black text-slate-950 hover:bg-yellow-300 active:scale-[0.98] transition cursor-pointer"
-                >
-                  Entendi
-                </button>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                  >
+                    Agora não
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="rounded-full bg-yellow-400 px-4 py-1.5 text-xs font-black text-slate-950 hover:bg-yellow-300 active:scale-95 transition cursor-pointer"
+                  >
+                    Entendi
+                  </button>
+                </div>
               </div>
             )}
           </div>

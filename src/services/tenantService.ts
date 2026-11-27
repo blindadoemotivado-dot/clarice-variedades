@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { lojistaUpdateStoreBrandingServerFn } from './superAdminServerFn';
 import {
   DEFAULT_CLARICE_STORE,
   type LojaAfiliado,
@@ -366,6 +367,16 @@ export async function updateStoreBranding(
   if (targetIdx >= 0) {
     local[targetIdx] = { ...local[targetIdx]!, ...updates };
     saveLocalStores(local);
+  }
+
+  // 1. Tenta atualizar via Server Function segura (Service Role) para blindar contra bloqueios de RLS no painel do lojista
+  try {
+    const srvRes = await lojistaUpdateStoreBrandingServerFn({ data: { slug, updates } });
+    if (srvRes?.success && srvRes.data) {
+      return mapRowToStore(srvRes.data);
+    }
+  } catch (srvErr) {
+    console.warn('[updateStoreBranding] Server function indisponível ou em ambiente estático, tentando cliente direto:', srvErr);
   }
 
   if (isSupabaseConfigured) {
