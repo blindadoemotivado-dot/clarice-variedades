@@ -235,15 +235,30 @@ test.describe('AUDITORIA E2E EM PRODUÇÃO - CLARICE ACHADINHOS', () => {
   test('Ponta 3.3: Super Admin - Modo Suporte, Nome da Loja no Header e Zero Botões Duplicados', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`${PROD_URL}/admin`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
 
-    // Login como Super Admin
-    await page.locator('input[type="email"]').fill('admin@clariceachadinhos.com.br');
-    await page.locator('input[type="password"]').fill('admin123456');
-    await page.locator('button:has-text("Acessar Painel")').click();
+    // Se estiver logado de teste anterior, clica em Sair para voltar à tela de login limpa
+    const sairBtn = page.locator('button:has-text("Sair"):visible');
+    if (await sairBtn.isVisible()) {
+      await sairBtn.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // Garante que a aba Super Admin está selecionada
+    const superAdminTab = page.getByRole('button', { name: 'Super Admin', exact: true });
+    if (await superAdminTab.isVisible()) {
+      await superAdminTab.click();
+      await page.waitForTimeout(300);
+    }
+
+    // Login via PIN Mestre do Super Admin
+    const pinInput = page.locator('input[placeholder="••••••••"]');
+    await pinInput.waitFor({ state: 'visible', timeout: 10000 });
+    await pinInput.fill('clarice2026');
+    await page.locator('button:has-text("Entrar como Super Admin")').click();
 
     // Aguarda carregar o painel
-    await page.locator('button:has-text("Sair")').first().waitFor({ state: 'visible', timeout: 15000 });
+    await page.locator('button:has-text("Sair"):visible').waitFor({ state: 'visible', timeout: 15000 });
     await page.waitForTimeout(1500);
 
     // Acessa aba SaaS / Lojas Parceiras
