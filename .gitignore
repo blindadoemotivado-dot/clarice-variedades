@@ -42,3 +42,4 @@ supabase/.temp/
 .edge-ml-profile/
 .ml-profile/
 .ml-browser-session/
+test-results/
