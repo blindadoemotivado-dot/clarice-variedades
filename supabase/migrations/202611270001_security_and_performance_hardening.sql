@@ -117,8 +117,6 @@ SELECT
   plano,
   status_assinatura,
   vencimento_em,
-  ml_affiliate_tag,
-  shopee_affiliate_id,
   dominio_customizado,
   whatsapp_contato,
   created_at

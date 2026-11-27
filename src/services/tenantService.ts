@@ -22,7 +22,7 @@ function getLocalStores(): LojaAfiliado[] {
 }
 
 export const PUBLIC_STORE_COLUMNS =
-  'id, slug, nome_loja, subtitulo, cor_primaria, cor_destaque, logo_url, hero_mascote_url, whatsapp_vip_url, instagram_url, plano, status_assinatura, vencimento_em, ml_affiliate_tag, shopee_affiliate_id, dominio_customizado, whatsapp_contato, created_at';
+  'id, slug, nome_loja, subtitulo, cor_primaria, cor_destaque, logo_url, hero_mascote_url, whatsapp_vip_url, instagram_url, plano, status_assinatura, vencimento_em, dominio_customizado, whatsapp_contato, created_at';
 
 function saveLocalStores(stores: LojaAfiliado[]) {
   if (typeof window === 'undefined') return;
