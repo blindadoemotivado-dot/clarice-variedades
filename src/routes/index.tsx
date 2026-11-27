@@ -427,7 +427,7 @@ function Storefront() {
           </p>
           <div className="mt-6 flex flex-col gap-3">
             <a
-              href={store.whatsappVipUrl || "https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o"}
+              href={store.whatsappVipUrl || (store.slug === 'clarice' ? "https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o" : "#")}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition"
@@ -564,8 +564,11 @@ function Storefront() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => openVipGroup()}
-                  className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover shrink-0"
+                  onClick={() => {
+                    const vip = store.whatsappVipUrl || (store.slug === 'clarice' ? 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o' : '');
+                    if (vip) window.open(vip, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-whatsapp px-3.5 py-2 text-xs font-bold text-on-brand shadow-xs hover:bg-whatsapp-hover shrink-0 cursor-pointer"
                 >
                   <MessageCircle className="h-4 w-4" /> <span className="hidden lg:inline">Grupo VIP</span> WhatsApp
                 </button>
@@ -631,11 +634,14 @@ function Storefront() {
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
         {/* 1. Hero Banner Alinhado ao Brand Book com Personalização do Tenant */}
         <HeroBanner
-          onVip={() => (store.whatsappVipUrl ? window.open(store.whatsappVipUrl, '_blank') : openVipGroup())}
+          onVip={() => {
+            const vip = store.whatsappVipUrl || (store.slug === 'clarice' ? 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o' : '');
+            if (vip) window.open(vip, '_blank', 'noopener,noreferrer');
+          }}
           storeName={store.nomeLoja}
           mascoteUrl={store.heroMascoteUrl}
           bannerUrl={store.heroMascoteUrl}
-          vipUrl={store.whatsappVipUrl}
+          vipUrl={store.whatsappVipUrl || (store.slug === 'clarice' ? 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o' : undefined)}
           accentColor={store.corDestaque}
           storeSlug={store.slug}
           subtitle={store.subtitulo}
@@ -1001,8 +1007,11 @@ function Storefront() {
         <div className="mx-auto mb-5 max-w-xs">
           <button
             type="button"
-            onClick={() => (store.whatsappVipUrl ? window.open(store.whatsappVipUrl, '_blank') : openVipGroup())}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-black text-xs sm:text-sm py-3 px-4 shadow-md transition active:scale-[0.98]"
+            onClick={() => {
+              const vip = store.whatsappVipUrl || (store.slug === 'clarice' ? 'https://chat.whatsapp.com/IXxtNFu9ZppJkYFx1Jdk7o' : '');
+              if (vip) window.open(vip, '_blank', 'noopener,noreferrer');
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-slate-950 font-black text-xs sm:text-sm py-3 px-4 shadow-md transition active:scale-[0.98] cursor-pointer"
           >
             <MessageCircle className="h-4 w-4 text-slate-950 shrink-0 fill-current" />
             <span>Entrar no Grupo VIP WhatsApp</span>
@@ -1098,15 +1107,22 @@ function Storefront() {
         <button
           type="button"
           onClick={() => setConcierge(true)}
-          aria-label="Falar com a Clarice no WhatsApp"
-          className="flex items-center gap-2 rounded-full bg-whatsapp px-4 py-3 text-on-brand shadow-lg hover:bg-whatsapp-hover"
+          aria-label={`Falar no WhatsApp • ${store.nomeLoja || 'Atendimento'}`}
+          className="flex items-center gap-2 rounded-full bg-whatsapp px-4 py-3 text-on-brand shadow-lg hover:bg-whatsapp-hover cursor-pointer"
         >
           <MessageCircle className="h-5 w-5" />
           <span className="text-sm font-semibold">Peça um achadinho</span>
         </button>
       </div>
 
-      <ConciergeDialog open={concierge} onOpenChange={setConcierge} />
+      <ConciergeDialog
+        open={concierge}
+        onOpenChange={setConcierge}
+        storeName={store.nomeLoja}
+        whatsappNumber={store.whatsappContato || undefined}
+        vipUrl={store.whatsappVipUrl || undefined}
+        isPartnerStore={store.slug !== 'clarice'}
+      />
       <Toaster position="bottom-center" richColors />
     </div>
   );
