@@ -95,7 +95,7 @@ describe('AdminRoutePage (/admin)', () => {
     });
   });
 
-  it('permite ao Super Admin alternar rapidamente para o Painel Clarice e retornar em 1 clique', async () => {
+  it('mantém o header limpo sem botão redundante no Super Admin e exibe abas unificadas', async () => {
     sessionStorage.setItem('clarice_admin_authenticated', 'true');
     sessionStorage.setItem('clarice_admin_role', 'super_admin');
 
@@ -105,22 +105,22 @@ describe('AdminRoutePage (/admin)', () => {
       expect(screen.getByText(/Painel Super Admin • Clarice SaaS/i)).toBeInTheDocument();
     });
 
-    const clariceBtn = screen.getByRole('button', { name: /Painel Clarice/i });
-    expect(clariceBtn).toBeInTheDocument();
+    // Garante que o botão redundante 'Painel Clarice' foi removido do header
+    expect(screen.queryByRole('button', { name: /Painel Clarice/i })).not.toBeInTheDocument();
 
-    fireEvent.click(clariceBtn);
+    // Garante que 'Voltar ao Super Admin' NÃO aparece quando já está na matriz
+    expect(screen.queryByRole('button', { name: /Voltar ao Super Admin/i })).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(screen.getByText(/Gestão • Clarice Achadinhos/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Voltar ao Super Admin/i })).toBeInTheDocument();
-    });
+    // Valida que a aba unificada 'Produtos & Ofertas' está presente e 'Radar' foi removida das abas principais
+    expect(screen.getByRole('tab', { name: /Produtos & Ofertas/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /WhatsApp/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Ajustes/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Aulas/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Lojas/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Radar/i })).not.toBeInTheDocument();
 
-    const returnBtn = screen.getByRole('button', { name: /Voltar ao Super Admin/i });
-    fireEvent.click(returnBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Painel Super Admin • Clarice SaaS/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Painel Clarice/i })).toBeInTheDocument();
-    });
+    // Valida que o seletor interno tem 'Cadastro Individual' e 'Lote / Radar de Ofertas'
+    expect(screen.getByRole('button', { name: /Cadastro Individual/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Lote \/ Radar de Ofertas/i })).toBeInTheDocument();
   });
 });

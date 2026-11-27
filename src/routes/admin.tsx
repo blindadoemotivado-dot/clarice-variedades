@@ -356,8 +356,9 @@ export function AdminRoutePage() {
     }
   };
 
-  // Modo de Entrada de Produtos (Individual vs. Lote)
+  // Modo de Entrada de Produtos (Individual vs. Lote / Radar)
   const [productInputMode, setProductInputMode] = useState<'individual' | 'batch'>('individual');
+  const [batchSubTab, setBatchSubTab] = useState<'import' | 'radar'>('import');
 
   // Checagem de autenticação no sessionStorage e localStorage (com proteção SSR)
   useEffect(() => {
@@ -567,6 +568,11 @@ export function AdminRoutePage() {
       resolved = 'whatsapp';
     } else if (value === 'lote') {
       setProductInputMode('batch');
+      setBatchSubTab('import');
+      resolved = 'produtos';
+    } else if (value === 'radar' || value === 'ofertas') {
+      setProductInputMode('batch');
+      setBatchSubTab('radar');
       resolved = 'produtos';
     } else if (value === 'saas-clientes') {
       resolved = 'saas';
@@ -1312,22 +1318,27 @@ export function AdminRoutePage() {
   };
 
   // Métricas do SaaS (Super Admin)
+  // Apenas lojas parceiras externas (exclui a matriz 'clarice') para a gestão SaaS
+  const partnerStores = useMemo(() => {
+    return stores.filter((s) => (s.slug || '').toLowerCase().trim() !== 'clarice');
+  }, [stores]);
+
   const saasMetrics = useMemo(() => {
-    const total = stores.length;
-    const active = stores.filter((s) => s.statusAssinatura === 'ativo').length;
-    const pending = stores.filter((s) => s.statusAssinatura === 'pendente').length;
-    const suspended = stores.filter(
+    const total = partnerStores.length;
+    const active = partnerStores.filter((s) => s.statusAssinatura === 'ativo').length;
+    const pending = partnerStores.filter((s) => s.statusAssinatura === 'pendente').length;
+    const suspended = partnerStores.filter(
       (s) => s.statusAssinatura === 'inadimplente' || s.statusAssinatura === 'suspenso'
     ).length;
-    const mrr = stores
+    const mrr = partnerStores
       .filter((s) => s.statusAssinatura === 'ativo')
       .reduce((acc, s) => acc + (PLANO_PRICES[s.plano]?.value || 67), 0);
     return { total, active, pending, suspended, mrr };
-  }, [stores]);
+  }, [partnerStores]);
 
   const pendingStores = useMemo(() => {
-    return stores.filter((s) => s.statusAssinatura === 'pendente');
-  }, [stores]);
+    return partnerStores.filter((s) => s.statusAssinatura === 'pendente');
+  }, [partnerStores]);
 
   // Produtos filtrados para a listagem (com busca, marketplace e chips horizontais)
   const filteredProducts = useMemo(() => {
@@ -1606,33 +1617,20 @@ export function AdminRoutePage() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <InstallHeaderButton className="h-10 px-3 text-xs font-bold shrink-0" />
 
-            {/* Se estiver no Painel Clarice após alternância rápida (e NÃO em Modo Suporte, mantendo apenas 1 botão claro) */}
-            {userRole === 'lojista' && !impersonatedStore && (isSwitchedToClarice || loggedStore?.slug === 'clarice') && (
+            {/* Exibe o botão Voltar ao Super Admin EXCLUSIVAMENTE quando o Super Admin estiver no painel de uma loja parceira externa (Modo Suporte) */}
+            {impersonatedStore && (
               <button
                 type="button"
-                onClick={handleReturnToSuperAdmin}
-                className="flex-1 sm:flex-initial inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 text-xs font-bold shadow-md shadow-purple-600/30 transition active:scale-95 cursor-pointer"
+                onClick={handleExitSupportMode}
+                className="flex-1 sm:flex-initial inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-bold shadow-md shadow-purple-600/30 transition active:scale-95 cursor-pointer"
                 title="Retornar ao Painel Master Super Admin"
               >
-                <Crown className="h-3.5 w-3.5 shrink-0" />
+                <Crown className="h-3.5 w-3.5 shrink-0 text-[#FFE600]" />
                 <span className="whitespace-nowrap">Voltar ao Super Admin</span>
               </button>
             )}
 
-            {/* No Painel Super Admin: botão de alternância rápida para o Painel Clarice */}
-            {userRole === 'super_admin' && (
-              <button
-                type="button"
-                onClick={handleSwitchToClaricePanel}
-                className="flex-1 sm:flex-initial inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 px-3.5 py-2 text-xs font-bold shadow-md shadow-yellow-500/20 transition active:scale-95 cursor-pointer"
-                title="Acessar o Painel de Controle oficial da Clarice Achadinhos"
-              >
-                <Store className="h-3.5 w-3.5 shrink-0" />
-                <span className="whitespace-nowrap">🛍️ Painel Clarice</span>
-              </button>
-            )}
-
-            {userRole === 'lojista' && loggedStore && (
+            {userRole === 'lojista' && loggedStore && !impersonatedStore && (
               <a
                 href={`/?loja=${loggedStore.slug}`}
                 target="_blank"
@@ -1660,35 +1658,40 @@ export function AdminRoutePage() {
 
       {/* Conteúdo Principal com Abas */}
       <main className="mx-auto max-w-7xl px-3 sm:px-4 py-3 sm:py-6 overflow-x-hidden w-full max-w-full">
+        {/* Banner Informativo de Modo Suporte da Loja Parceira */}
+        {impersonatedStore && (
+          <div className="mb-4 rounded-2xl bg-purple-600/10 border border-purple-500/30 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Crown className="h-4 w-4 text-[#FFE600] shrink-0" />
+              <span className="text-purple-200">
+                Você está acessando o painel da loja parceira <strong>{impersonatedStore.nomeLoja}</strong> ({impersonatedStore.slug}) em <strong>Modo Suporte</strong>.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleExitSupportMode}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0 cursor-pointer transition shadow-sm active:scale-95"
+            >
+              <Crown className="h-3.5 w-3.5 text-[#FFE600]" />
+              <span>Voltar ao Super Admin</span>
+            </button>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full overflow-x-hidden">
-          {/* Barra de Abas Sem Corte na Borda Direita (Grid 3 Colunas no Mobile, Flex no Desktop, Altura Automática) */}
-          <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 w-full h-auto p-1.5 rounded-2xl mb-4 bg-slate-900 border border-slate-800">
+          {/* Barra de Abas Unificada e Limpa (Sem Radar Duplicado) */}
+          <TabsList className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 w-full h-auto p-1.5 rounded-2xl mb-4 bg-slate-900 border border-slate-800">
             <TabsTrigger
               value="produtos"
-              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
+              className="min-h-[40px] px-2.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
               <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
-              <span>Produtos</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="radar"
-              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
-            >
-              <Zap className="h-3.5 w-3.5 shrink-0" />
-              <span>{userRole === 'super_admin' ? 'Radar' : 'Ofertas'}</span>
-              {(userRole === 'super_admin' ? c.pendingProducts.length : c.products.filter((p) => p.featured).length) > 0 && (
-                <span className="rounded-full bg-amber-400 text-slate-950 px-1 py-0.2 text-[9px] font-black">
-                  {userRole === 'super_admin'
-                    ? c.pendingProducts.length
-                    : c.products.filter((p) => p.featured).length}
-                </span>
-              )}
+              <span>Produtos & Ofertas</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="whatsapp"
-              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
+              className="min-h-[40px] px-2.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
               <MessageCircle className="h-3.5 w-3.5 shrink-0" />
               <span>WhatsApp</span>
@@ -1696,7 +1699,7 @@ export function AdminRoutePage() {
 
             <TabsTrigger
               value="config"
-              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
+              className="min-h-[40px] px-2.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
               <Settings className="h-3.5 w-3.5 shrink-0" />
               <span>Ajustes</span>
@@ -1704,7 +1707,7 @@ export function AdminRoutePage() {
 
             <TabsTrigger
               value="guia-uso"
-              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
+              className="min-h-[40px] px-2.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
               <GraduationCap className="h-3.5 w-3.5 shrink-0" />
               <span>Aulas</span>
@@ -1713,7 +1716,7 @@ export function AdminRoutePage() {
             {isSuperAdminUser && (
               <TabsTrigger
                 value="saas"
-                className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
+                className="min-h-[40px] px-2.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
               >
                 <Users className="h-3.5 w-3.5 shrink-0" />
                 <span>Lojas</span>
@@ -1757,7 +1760,12 @@ export function AdminRoutePage() {
                     )}
                   >
                     <Zap className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">Puxar Dados / Lote</span>
+                    <span className="truncate">Lote / Radar de Ofertas</span>
+                    {userRole === 'super_admin' && c.pendingProducts.length > 0 && (
+                      <span className="ml-1 rounded-full bg-red-500 text-white px-1.5 py-0.2 text-[9px] font-black">
+                        {c.pendingProducts.length}
+                      </span>
+                    )}
                   </button>
                 </div>
 
@@ -2136,47 +2144,246 @@ export function AdminRoutePage() {
                     </form>
                   </>
                 ) : (
-                  <LojistaBatchImport
-                    lojaSlug={
-                      userRole === 'lojista' && loggedStore
-                        ? loggedStore.slug
-                        : selectedStoreFilter !== 'todos'
-                          ? selectedStoreFilter
-                          : 'clarice'
-                    }
-                    store={
-                      userRole === 'lojista' && loggedStore
-                        ? loggedStore
-                        : stores.find(
-                          (s) =>
-                            s.slug ===
-                            (selectedStoreFilter !== 'todos' ? selectedStoreFilter : 'clarice')
-                        ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined)
-                    }
-                    currentProductCount={
-                      c.products.filter(
-                        (p) =>
-                          p.lojaSlug ===
-                          (userRole === 'lojista' && loggedStore
+                  <div className="space-y-4">
+                    {/* Sub-modos internos de Lote / Radar de Ofertas */}
+                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setBatchSubTab('import')}
+                        className={cn(
+                          'py-1.5 px-2 text-xs font-bold rounded-lg transition text-center cursor-pointer flex items-center justify-center gap-1.5',
+                          batchSubTab === 'import'
+                            ? 'bg-[#FFE600] text-slate-950 shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        )}
+                      >
+                        <Layers className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">Importação em Lote</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBatchSubTab('radar')}
+                        className={cn(
+                          'py-1.5 px-2 text-xs font-bold rounded-lg transition text-center cursor-pointer flex items-center justify-center gap-1.5',
+                          batchSubTab === 'radar'
+                            ? 'bg-[#FFE600] text-slate-950 shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        )}
+                      >
+                        {userRole === 'super_admin' ? (
+                          <>
+                            <Zap className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">Fila do Radar</span>
+                            {c.pendingProducts.length > 0 && (
+                              <span className="rounded-full bg-red-500 text-white px-1.5 py-0.2 text-[9px] font-black shrink-0">
+                                {c.pendingProducts.length}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <Star className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                            <span className="truncate">Destaques</span>
+                            {c.products.filter((p) => p.featured).length > 0 && (
+                              <span className="rounded-full bg-amber-400/20 text-amber-300 px-1.5 py-0.2 text-[9px] font-black shrink-0">
+                                {c.products.filter((p) => p.featured).length}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {batchSubTab === 'import' ? (
+                      <LojistaBatchImport
+                        lojaSlug={
+                          userRole === 'lojista' && loggedStore
                             ? loggedStore.slug
                             : selectedStoreFilter !== 'todos'
                               ? selectedStoreFilter
-                              : 'clarice')
-                      ).length
-                    }
-                    permissions={
-                      userRole === 'super_admin'
-                        ? getPlanPermissions('advanced')
-                        : lojistaPermissions
-                    }
-                    isSuperAdmin={userRole === 'super_admin'}
-                    onImported={(imported) => {
-                      c.add(imported);
-                      setProductInputMode('individual');
-                    }}
-                    onUpgrade={() => handleTabChange('minha-assinatura')}
-                    onNavigateTab={handleTabChange}
-                  />
+                              : 'clarice'
+                        }
+                        store={
+                          userRole === 'lojista' && loggedStore
+                            ? loggedStore
+                            : stores.find(
+                              (s) =>
+                                s.slug ===
+                                (selectedStoreFilter !== 'todos' ? selectedStoreFilter : 'clarice')
+                            ) || (selectedStoreFilter === 'todos' || selectedStoreFilter === 'clarice' ? DEFAULT_CLARICE_STORE : undefined)
+                        }
+                        currentProductCount={
+                          c.products.filter(
+                            (p) =>
+                              p.lojaSlug ===
+                              (userRole === 'lojista' && loggedStore
+                                ? loggedStore.slug
+                                : selectedStoreFilter !== 'todos'
+                                  ? selectedStoreFilter
+                                  : 'clarice')
+                          ).length
+                        }
+                        permissions={
+                          userRole === 'super_admin'
+                            ? getPlanPermissions('advanced')
+                            : lojistaPermissions
+                        }
+                        isSuperAdmin={userRole === 'super_admin'}
+                        onImported={(imported) => {
+                          c.add(imported);
+                          setProductInputMode('individual');
+                        }}
+                        onUpgrade={() => handleTabChange('minha-assinatura')}
+                        onNavigateTab={handleTabChange}
+                      />
+                    ) : userRole === 'super_admin' ? (
+                      /* Fila de Aprovação do Radar (Super Admin) */
+                      <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                          <div>
+                            <h3 className="font-bold text-white text-sm">
+                              Fila de Aprovação ({c.pendingProducts.length})
+                            </h3>
+                            <p className="text-[11px] text-slate-400">
+                              Achadinhos minerados aguardando confirmação.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => c.syncRadar()}
+                            disabled={c.isSyncing}
+                            className="flex items-center gap-1 rounded-xl bg-slate-800 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-700 transition disabled:opacity-50 cursor-pointer w-fit"
+                          >
+                            <RefreshCw className={cn('h-3 w-3', c.isSyncing && 'animate-spin')} />
+                            <span>{c.isSyncing ? 'Sincronizando...' : 'Recarregar Fila'}</span>
+                          </button>
+                        </div>
+
+                        {c.pendingProducts.length === 0 ? (
+                          <div className="py-8 text-center text-slate-400 rounded-2xl border border-dashed border-slate-800 p-4">
+                            <Zap className="mx-auto h-6 w-6 mb-2 text-amber-400/60" />
+                            <h4 className="text-xs font-bold text-white mb-1">Fila do Radar vazia</h4>
+                            <p className="text-[11px] text-slate-400 max-w-xs mx-auto mb-3">
+                              Todos os achadinhos já foram aprovados.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => c.syncRadar()}
+                              disabled={c.isSyncing}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFE600] px-3 py-1.5 text-xs font-black text-slate-950 hover:bg-yellow-400 transition cursor-pointer"
+                            >
+                              <RefreshCw className={cn('h-3 w-3', c.isSyncing && 'animate-spin')} />
+                              <span>Sincronizar Ofertas Agora</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                            {c.pendingProducts.map((p) => (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between gap-2.5 rounded-2xl border border-slate-800 bg-slate-950 p-3"
+                              >
+                                <img
+                                  src={p.imageUrl}
+                                  alt={p.title}
+                                  className="h-12 w-12 rounded-xl object-contain bg-white p-1 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-white truncate">{p.title}</p>
+                                  <p className="text-xs font-extrabold text-emerald-400 mt-0.5">
+                                    {formatBRL(p.currentPrice)}{' '}
+                                    <span className="text-[10px] text-slate-400 font-normal">
+                                      ({p.discountPercent}% OFF)
+                                    </span>
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => c.approveProduct(p.id)}
+                                    className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-2.5 py-1.5 text-xs font-black text-slate-950 transition cursor-pointer"
+                                  >
+                                    Aprovar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => c.rejectPending(p.id)}
+                                    className="rounded-xl bg-red-500/10 hover:bg-red-500/20 px-2 py-1.5 text-xs font-bold text-red-400 transition cursor-pointer"
+                                  >
+                                    Rejeitar
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Ofertas em Destaque & Carrossel (Lojista) */
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                          <div>
+                            <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
+                              <Star className="h-4 w-4 text-[#FFE600]" />
+                              Destaques Carrossel ({c.products.filter((p) => p.featured).length})
+                            </h3>
+                            <p className="text-[11px] text-slate-400">
+                              Produtos em evidência no topo da sua vitrine.
+                            </p>
+                          </div>
+                        </div>
+
+                        {c.products.filter((p) => p.featured).length === 0 ? (
+                          <div className="py-8 text-center text-slate-400 rounded-2xl border border-dashed border-slate-800 p-4">
+                            <Star className="mx-auto h-6 w-6 mb-2 text-amber-400/60" />
+                            <h4 className="text-xs font-bold text-white mb-1">Nenhum produto em destaque</h4>
+                            <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                              Marque &quot;Destaque Carrossel&quot; no cadastro de qualquer produto.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                            {c.products
+                              .filter((p) => p.featured)
+                              .map((p) => (
+                                <div
+                                  key={p.id}
+                                  className="flex items-center justify-between gap-2.5 rounded-2xl border border-slate-800 bg-slate-950 p-3"
+                                >
+                                  <img
+                                    src={p.imageUrl}
+                                    alt={p.title}
+                                    className="h-12 w-12 rounded-xl object-contain bg-white p-1 shrink-0"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-white truncate">{p.title}</p>
+                                    <p className="text-xs font-extrabold text-emerald-400 mt-0.5">
+                                      {formatBRL(p.currentPrice)}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleProductFeatured(p)}
+                                      className="rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-300 transition cursor-pointer"
+                                    >
+                                      Tirar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditProduct(p)}
+                                      className="rounded-xl bg-[#FFE600]/10 hover:bg-[#FFE600]/20 px-2 py-1 text-[11px] font-bold text-[#FFE600] transition cursor-pointer"
+                                    >
+                                      Editar
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -2681,7 +2888,7 @@ export function AdminRoutePage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
                   <div>
                     <h2 className="font-black text-white text-base sm:text-lg">
-                      Lojas Parceiras & Assinantes ({stores.length})
+                      Lojas Parceiras & Assinantes ({partnerStores.length})
                     </h2>
                     <p className="text-xs text-slate-400">
                       Gerencie status de assinatura, limites e liberação instantânea de acesso.
@@ -2698,6 +2905,10 @@ export function AdminRoutePage() {
 
                 {loadingStores ? (
                   <div className="py-12 text-center text-slate-400 text-xs">Carregando lojistas...</div>
+                ) : partnerStores.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs rounded-2xl border border-dashed border-slate-800 p-6">
+                    Nenhuma loja parceira externa cadastrada ainda.
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
@@ -2712,7 +2923,7 @@ export function AdminRoutePage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
-                        {stores.map((s) => (
+                        {partnerStores.map((s) => (
                           <tr key={s.id} className="hover:bg-slate-900/40 transition">
                             <td className="py-3 pl-2">
                               <p className="font-bold text-white">{s.nomeLoja}</p>
@@ -2843,190 +3054,6 @@ export function AdminRoutePage() {
             </TabsContent>
           )}
 
-          {/* ========================================================================= */}
-          {/* ABA 2: RADAR DE OFERTAS (SUPER ADMIN) OU DESTAQUES DA LOJA (LOJISTA) */}
-          {/* ========================================================================= */}
-          <TabsContent value="radar" className="space-y-6 overflow-x-hidden w-full max-w-full">
-            {userRole === 'super_admin' ? (
-              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
-                  <div>
-                    <h2 className="font-black text-white text-base sm:text-lg">
-                      Fila de Aprovação do Radar ({c.pendingProducts.length})
-                    </h2>
-                    <p className="text-xs text-slate-400">
-                      Achadinhos garimpados automaticamente aguardando confirmação de link.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => c.syncRadar()}
-                    disabled={c.isSyncing}
-                    className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-700 transition disabled:opacity-50"
-                  >
-                    <RefreshCw className={cn('h-3.5 w-3.5', c.isSyncing && 'animate-spin')} />
-                    {c.isSyncing ? 'Sincronizando...' : 'Recarregar Fila'}
-                  </button>
-                </div>
-
-                {c.pendingProducts.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 rounded-2xl border border-dashed border-slate-800 p-6">
-                    <Zap className="mx-auto h-8 w-8 mb-2 text-amber-400/60" />
-                    <h3 className="text-sm font-bold text-white mb-1">Fila do Radar vazia</h3>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-                      Todos os achadinhos já foram aprovados ou o robô ainda não rodou.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => c.syncRadar()}
-                      disabled={c.isSyncing}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFE600] px-4 py-2 text-xs font-black text-slate-950 hover:bg-yellow-400 transition"
-                    >
-                      <RefreshCw className={cn('h-3.5 w-3.5', c.isSyncing && 'animate-spin')} />
-                      <span>Sincronizar Ofertas Agora</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {c.pendingProducts.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3.5"
-                      >
-                        <img
-                          src={p.imageUrl}
-                          alt={p.title}
-                          className="h-14 w-14 rounded-xl object-contain bg-white p-1 shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-white truncate">{p.title}</p>
-                          <p className="text-xs font-extrabold text-emerald-400 mt-0.5">
-                            {formatBRL(p.currentPrice)}{' '}
-                            <span className="text-[10px] text-slate-400 font-normal">
-                              ({p.discountPercent}% OFF)
-                            </span>
-                          </p>
-                          <span className="text-[10px] text-slate-500 font-mono truncate block mt-0.5">
-                            {p.affiliateUrl}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => c.approveProduct(p.id)}
-                            className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition"
-                          >
-                            Aprovar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => c.rejectPending(p.id)}
-                            className="rounded-xl bg-red-500/10 hover:bg-red-500/20 px-3 py-2 text-xs font-bold text-red-400 transition"
-                          >
-                            Rejeitar
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-5 shadow-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
-                  <div>
-                    <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-[#FFE600]" />
-                      Ofertas em Destaque & Carrossel ({c.products.filter((p) => p.featured).length})
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Produtos exibidos com prioridade no carrossel do topo da vitrine da sua loja ({loggedStore?.nomeLoja || 'Minha Loja'}).
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingProductId(null);
-                      setProductFeatured(true);
-                      handleTabChange('produtos');
-                    }}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FFE600] px-3.5 py-2 text-xs font-black text-slate-950 hover:bg-yellow-400 transition active:scale-95 cursor-pointer shrink-0"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Destacar Nova Oferta</span>
-                  </button>
-                </div>
-
-                {c.products.filter((p) => p.featured).length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 rounded-2xl border border-dashed border-slate-800 p-6">
-                    <Zap className="mx-auto h-8 w-8 mb-2 text-amber-400/60" />
-                    <h3 className="text-sm font-bold text-white mb-1">Nenhuma oferta destacada no momento</h3>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-                      Todas as suas {c.products.length} ofertas ativas continuam sendo exibidas na grade da sua vitrine.
-                      Ative o destaque em um produto para colocá-lo no carrossel principal.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => handleTabChange('produtos')}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 transition"
-                    >
-                      <ShoppingBag className="h-3.5 w-3.5 text-[#FFE600]" />
-                      <span>Ir para Meus Produtos</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {c.products
-                      .filter((p) => p.featured)
-                      .map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-950 p-3.5 hover:border-slate-700 transition"
-                        >
-                          <div className="flex gap-3">
-                            <img
-                              src={p.imageUrl}
-                              alt={p.title}
-                              className="h-16 w-16 rounded-xl object-contain bg-white p-1 shrink-0"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <span className="inline-flex items-center gap-1 rounded bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-black uppercase text-amber-400 mb-1">
-                                ⭐ Carrossel Ativo
-                              </span>
-                              <h4 className="text-xs font-bold text-white line-clamp-2">{p.title}</h4>
-                              <p className="text-xs font-black text-emerald-400 mt-1">
-                                {formatBRL(p.currentPrice)}{' '}
-                                {p.discountPercent > 0 && (
-                                  <span className="text-[10px] text-slate-400 font-normal">
-                                    ({p.discountPercent}% OFF)
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800/80">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleProductFeatured(p)}
-                              className="flex-1 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 py-1.5 text-[11px] font-semibold text-slate-300 transition text-center cursor-pointer"
-                            >
-                              Remover Destaque
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => startEditProduct(p)}
-                              className="rounded-xl bg-[#FFE600]/10 hover:bg-[#FFE600]/20 px-3 py-1.5 text-[11px] font-bold text-[#FFE600] transition cursor-pointer"
-                            >
-                              Editar
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </TabsContent>
 
           {/* ========================================================================= */}
           {/* ABA 4 (SUPER ADMIN): CONFIGURAÇÕES GERAIS */}
