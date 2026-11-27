@@ -21,10 +21,22 @@ function getLocalStores(): LojaAfiliado[] {
   return [DEFAULT_CLARICE_STORE];
 }
 
+export const PUBLIC_STORE_COLUMNS =
+  'id, slug, nome_loja, subtitulo, cor_primaria, cor_destaque, logo_url, hero_mascote_url, whatsapp_vip_url, instagram_url, plano, status_assinatura, vencimento_em, ml_affiliate_tag, shopee_affiliate_id, dominio_customizado, whatsapp_contato, created_at';
+
 function saveLocalStores(stores: LojaAfiliado[]) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stores));
+    const sanitized = stores.map((s) => ({
+      ...s,
+      ownerPassword: undefined,
+      shopeeSecret: undefined,
+      cpfCnpj: undefined,
+      asaasCustomerId: undefined,
+      asaasSubscriptionId: undefined,
+      asaasPaymentUrl: undefined,
+    }));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sanitized));
   } catch {
     // ignore
   }
@@ -87,7 +99,7 @@ export async function fetchStoreBySlug(slug: string = 'clarice'): Promise<LojaAf
   try {
     const { data, error } = await supabase
       .from('lojas_afiliados')
-      .select('*')
+      .select(PUBLIC_STORE_COLUMNS)
       .eq('slug', slug)
       .maybeSingle();
 
@@ -121,7 +133,7 @@ export async function fetchStoreByDomain(domain: string): Promise<LojaAfiliado |
   try {
     const { data, error } = await supabase
       .from('lojas_afiliados')
-      .select('*')
+      .select(PUBLIC_STORE_COLUMNS)
       .eq('dominio_customizado', cleanDomain)
       .maybeSingle();
 

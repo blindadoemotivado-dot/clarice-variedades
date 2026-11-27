@@ -61,6 +61,15 @@ export default async function handler(req, res) {
     const rawBase64 = matches ? matches[2] : base64Data;
     const fileBuffer = Buffer.from(rawBase64, 'base64');
 
+    // Validação de tipo MIME e tamanho máximo (security-protection-master)
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    if (!allowedMimes.includes(contentType)) {
+      throw new Error(`Tipo de arquivo não permitido: ${contentType}. Use apenas imagens (JPEG, PNG, WebP).`);
+    }
+    if (fileBuffer.length > 5 * 1024 * 1024) {
+      throw new Error('Tamanho máximo do arquivo excedido (limite de 5MB).');
+    }
+
     const cleanLoja = (lojaSlug || 'clarice').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
     const safeName = fileName || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
     const filePath = `${cleanLoja}/${folder}/${safeName}`;

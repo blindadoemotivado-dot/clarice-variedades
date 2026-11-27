@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
   // Supabase Client com Service Role Key para persistir a assinatura
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://tuxvpzeciwxgxhmcrprt.supabase.co';
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   const supabase = supabaseUrl && serviceKey ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } }) : null;
 
   // Se for teste/QA ou a chave Asaas não estiver configurada, gera fallback simulado seguro

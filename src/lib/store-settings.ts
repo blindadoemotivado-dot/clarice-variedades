@@ -75,17 +75,18 @@ export async function fetchStoreSettingsFromSupabase(): Promise<StoreSettings> {
   try {
     const { data, error } = await supabase
       .from('store_settings')
-      .select('*')
+      .select('affiliate_tag, whatsapp_number, whatsapp_group_url, general_affiliate_url')
       .eq('id', 'default')
       .maybeSingle();
 
     if (!error && data) {
+      const current = getStoreSettings();
       const fromCloud: StoreSettings = {
-        mlAffiliateTag: data.affiliate_tag?.trim() || DEFAULT_STORE_SETTINGS.mlAffiliateTag,
-        whatsappNumber: data.whatsapp_number?.trim() || DEFAULT_STORE_SETTINGS.whatsappNumber,
-        whatsappVipGroupUrl: data.whatsapp_group_url?.trim() || DEFAULT_STORE_SETTINGS.whatsappVipGroupUrl,
-        adminPin: data.admin_pin_hash?.trim() || DEFAULT_STORE_SETTINGS.adminPin,
-        generalAffiliateUrl: data.general_affiliate_url?.trim() || DEFAULT_STORE_SETTINGS.generalAffiliateUrl,
+        ...current,
+        mlAffiliateTag: data.affiliate_tag?.trim() || current.mlAffiliateTag,
+        whatsappNumber: data.whatsapp_number?.trim() || current.whatsappNumber,
+        whatsappVipGroupUrl: data.whatsapp_group_url?.trim() || current.whatsappVipGroupUrl,
+        generalAffiliateUrl: data.general_affiliate_url?.trim() || current.generalAffiliateUrl,
       };
 
       if (typeof window !== 'undefined') {

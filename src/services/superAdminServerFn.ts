@@ -3,10 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import type { SubscriptionPlan, SubscriptionStatus } from '@/types/tenant';
 import type { AffiliateProduct } from '@/types/product';
 
-const DEFAULT_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1eHZwemVjaXd4Z3hobWNycHJ0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDk5NjY2MSwiZXhwIjoyMTEwNTcyNjYxfQ.62yQ_MWEcDL3kmU_sdC4hLQuUQYECZn63wnm3HjJ7uE';
-
 export function getSupabaseAdmin() {
   const supabaseUrl =
     process.env.VITE_SUPABASE_URL ||
@@ -14,7 +10,12 @@ export function getSupabaseAdmin() {
     'https://tuxvpzeciwxgxhmcrprt.supabase.co';
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    DEFAULT_SERVICE_ROLE_KEY;
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    '';
+
+  if (!supabaseKey) {
+    throw new Error('Supabase Key não configurada no servidor.');
+  }
 
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false },

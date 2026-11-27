@@ -108,11 +108,14 @@ export function useCatalog(lojaSlug?: string) {
       return;
     }
 
+    const PUBLIC_PRODUCT_COLUMNS =
+      'id, mlb_id, title, original_price, current_price, discount_percent, installments_text, image_url, affiliate_url, category, badge_text, free_shipping, is_full, rating, reviews_count, featured, active, status, marketplace, loja_slug, created_at';
+
     setIsSyncing(true);
     try {
       let activeQuery = supabase
         .from('produtos_clarice')
-        .select('*')
+        .select(PUBLIC_PRODUCT_COLUMNS)
         .eq('active', true);
 
       if (isClarice) {
@@ -130,7 +133,7 @@ export function useCatalog(lojaSlug?: string) {
           ? Promise.resolve({ data: [] as SupabaseProductRow[], error: null })
           : supabase
               .from('produtos_clarice')
-              .select('*')
+              .select(PUBLIC_PRODUCT_COLUMNS)
               .eq('status', 'pendente_afiliado')
               .order('created_at', { ascending: false }),
       ]);
