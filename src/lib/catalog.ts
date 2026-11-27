@@ -154,3 +154,77 @@ export function normalizeImageUrl(url?: string | null): string {
   return clean.toLowerCase();
 }
 
+/**
+ * Deduplicação inteligente de produtos para a vitrine e importação:
+ * Elimina produtos duplicados com base em:
+ * 1. Mesmo ID externo normalizado (MLB-... ou SHP-...)
+ * 2. Mesma URL de imagem normalizada (mesmo asset do Mercado Livre / Shopee)
+ * 3. Título normalizado idêntico ou similaridade >= 85% com preços idênticos ou próximos
+ */
+export function deduplicateProducts<
+  T extends {
+    id?: string;
+    mlbId?: string;
+    imageUrl?: string;
+    title?: string;
+    currentPrice?: number;
+  }
+>(items: T[]): T[] {
+  if (!items || !Array.isArray(items) || items.length === 0) return [];
+  const seenImages = new Set<string>();
+  const seenMlbs = new Set<string>();
+  const seenTitles = new Map<string, number>();
+  const result: T[] = [];
+
+  for (const item of items) {
+    const rawImg = item.imageUrl?.trim() || '';
+    const normImg = normalizeImageUrl(rawImg);
+    const rawMlb = (item.mlbId || '').trim().toUpperCase();
+    const isRealMlb =
+      rawMlb.length > 5 &&
+      !rawMlb.startsWith('MLB-HASH') &&
+      !rawMlb.startsWith('SHP-HASH');
+    const normTitle = normalizeTitle(item.title || '');
+    const price = Math.round(Number(item.currentPrice || 0));
+
+    let isDupe = false;
+
+    // 1. Mesmo MLB/Shopee ID real
+    if (isRealMlb && seenMlbs.has(rawMlb)) {
+      isDupe = true;
+    }
+
+    // 2. Mesma imagem normalizada
+    if (!isDupe && normImg && normImg.length > 5 && seenImages.has(normImg)) {
+      isDupe = true;
+    }
+
+    // 3. Título normalizado equivalente (alta similaridade ou mesmas palavras-chave iniciais com preço similar)
+    if (!isDupe && normTitle.length >= 10) {
+      for (const [existingTitle, existingPrice] of seenTitles.entries()) {
+        const sim = calculateSimilarity(normTitle, existingTitle);
+        const wordsA = normTitle.split(' ').slice(0, 4).join(' ');
+        const wordsB = existingTitle.split(' ').slice(0, 4).join(' ');
+        const priceDiff = Math.abs(price - existingPrice);
+
+        if (
+          sim >= 0.85 ||
+          (wordsA.length >= 8 && wordsA === wordsB && priceDiff <= 5)
+        ) {
+          isDupe = true;
+          break;
+        }
+      }
+    }
+
+    if (!isDupe) {
+      if (isRealMlb) seenMlbs.add(rawMlb);
+      if (normImg && normImg.length > 5) seenImages.add(normImg);
+      if (normTitle.length >= 10) seenTitles.set(normTitle, price);
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+

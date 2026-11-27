@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { extractMlbId } from '@/lib/catalog';
+import { extractMlbId, deduplicateProducts } from '@/lib/catalog';
 import { parseShopeeSharedText, splitBatchTextIntoItems } from '@/utils/shopeeSharedText';
 import { CATEGORIES, type AffiliateProduct } from '@/types/product';
 import type { PlanPermissions } from '@/config/planPermissions';
@@ -277,8 +277,10 @@ export function LojistaBatchImport({
     const invalidItems = batchParsedProducts.filter(
       (p) => p.currentPrice <= 0 || !p.imageUrl?.trim() || p.title.includes('Produto Shopee #')
     );
-    const validItems = batchParsedProducts.filter(
-      (p) => p.currentPrice > 0 && Boolean(p.imageUrl?.trim()) && !p.title.includes('Produto Shopee #')
+    const validItems = deduplicateProducts(
+      batchParsedProducts.filter(
+        (p) => p.currentPrice > 0 && Boolean(p.imageUrl?.trim()) && !p.title.includes('Produto Shopee #')
+      )
     );
 
     if (validItems.length === 0) {

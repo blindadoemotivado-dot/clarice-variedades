@@ -4,6 +4,7 @@ import { MOCK_PRODUCTS } from '@/data/mockProducts';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { RadarSyncResult } from '@/services/radarServerFn';
 import { recordProductAuditServerFn } from '@/services/superAdminServerFn';
+import { deduplicateProducts } from '@/lib/catalog';
 
 const FAV_KEY = 'clarice:favorites:v1';
 const LEGACY_FAV_KEY = 'zizi:favorites:v1';
@@ -136,10 +137,12 @@ export function useCatalog(lojaSlug?: string) {
 
       if (!activeRes.error && Array.isArray(activeRes.data)) {
         const mapped = (activeRes.data as SupabaseProductRow[]).map(mapRowToProduct);
-        // Trava inquebrável em memória
-        const strictlyIsolated = isClarice
-          ? mapped
-          : mapped.filter((p) => p.lojaSlug === activeSlug);
+        // Trava inquebrável em memória com deduplicação inteligente
+        const strictlyIsolated = deduplicateProducts(
+          isClarice
+            ? mapped
+            : mapped.filter((p) => p.lojaSlug === activeSlug)
+        );
         setProducts(strictlyIsolated);
       } else if (activeRes.error) {
         console.warn('[useCatalog] Aviso ao buscar produtos ativos:', activeRes.error.message);

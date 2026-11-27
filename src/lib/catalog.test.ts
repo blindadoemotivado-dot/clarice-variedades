@@ -8,6 +8,7 @@ import {
   normalizeTitle,
   calculateSimilarity,
   normalizeImageUrl,
+  deduplicateProducts,
   isValidShopeeUrl,
 } from './catalog';
 import { isValidMercadoLivreUrl, isMonetizedUrl } from '@/components/store/AdminSheet';
@@ -99,6 +100,43 @@ describe('catalog', () => {
       const url2 = 'https://http2.mlstatic.com/D_NQ_NP_813292-MLA74620358212_022024-O.webp?v=1';
       expect(normalizeImageUrl(url1)).toBe(normalizeImageUrl(url2));
       expect(normalizeImageUrl(url1)).toBe('813292-mla74620358212_022024');
+    });
+
+    it('deduplica produtos com mesma imagem, mesmo MLB ou títulos/preços idênticos', () => {
+      const items = [
+        {
+          id: '1',
+          mlbId: 'MLB-12345678',
+          title: 'Smartwatch Relógio Inteligente Pro À Prova Dágua',
+          imageUrl: 'https://http2.mlstatic.com/D_NQ_NP_2X_813292-MLA74620358212_022024-F.webp',
+          currentPrice: 199.9,
+        },
+        {
+          id: '2',
+          mlbId: 'MLB-88888888',
+          title: 'Smartwatch Relógio Inteligente Pro À Prova Dágua',
+          imageUrl: 'https://http2.mlstatic.com/D_NQ_NP_813292-MLA74620358212_022024-O.webp?v=2', // Mesma imagem normalizada
+          currentPrice: 199.9,
+        },
+        {
+          id: '3',
+          mlbId: 'MLB-12345678', // Mesmo MLB
+          title: 'Outro Título Qualquer',
+          imageUrl: 'https://http2.mlstatic.com/D_NQ_NP_2X_999999-MLA11111111111_022024-F.webp',
+          currentPrice: 250.0,
+        },
+        {
+          id: '4',
+          mlbId: 'MLB-77777777',
+          title: 'Air Fryer Mondial 4L Inox 110V',
+          imageUrl: 'https://http2.mlstatic.com/D_NQ_NP_2X_777777-MLA22222222222_022024-F.webp',
+          currentPrice: 289.9,
+        },
+      ];
+
+      const deduped = deduplicateProducts(items);
+      expect(deduped.length).toBe(2);
+      expect(deduped.map((x) => x.id)).toEqual(['1', '4']);
     });
   });
 });

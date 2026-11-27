@@ -31,7 +31,7 @@ import { useCatalog } from '@/hooks/use-catalog';
 import { applyStoreAffiliateTracking } from '@/utils/affiliateUrl';
 import { useTenant } from '@/hooks/use-tenant';
 import { fetchStoreBySlug } from '@/services/tenantService';
-import { filterProducts, type CategoryFilter, type SortKey, type MarketplaceFilter } from '@/lib/catalog';
+import { filterProducts, deduplicateProducts, type CategoryFilter, type SortKey, type MarketplaceFilter } from '@/lib/catalog';
 import { CATEGORIES } from '@/types/product';
 import { cn } from '@/lib/utils';
 import { InstallHeaderButton } from '@/components/pwa/InstallAppPrompt';
@@ -311,15 +311,16 @@ function Storefront() {
     }
   }, [c.products]);
 
-  // Garante isolamento estrito de tags de afiliado em tempo de execução para a vitrine ativa
+  // Garante isolamento estrito de tags de afiliado em tempo de execução e deduplicação inteligente para a vitrine ativa
   const trackedProducts = useMemo(() => {
     if (!c.products || c.products.length === 0) return [];
-    return c.products.map((p) => {
+    const mapped = c.products.map((p) => {
       const tracking = applyStoreAffiliateTracking(p.affiliateUrl, store);
       return tracking.tracked && tracking.finalUrl !== p.affiliateUrl
         ? { ...p, affiliateUrl: tracking.finalUrl }
         : p;
     });
+    return deduplicateProducts(mapped);
   }, [c.products, store]);
 
   const hasBothMarketplaces = useMemo(() => {

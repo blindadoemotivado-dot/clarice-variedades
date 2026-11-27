@@ -565,6 +565,11 @@ export function AdminRoutePage() {
       resolved = 'config';
     } else if (value === 'disparador-vip') {
       resolved = 'whatsapp';
+    } else if (value === 'lote') {
+      setProductInputMode('batch');
+      resolved = 'produtos';
+    } else if (value === 'saas-clientes') {
+      resolved = 'saas';
     }
     startTransition(() => {
       setActiveTab(resolved);
@@ -709,8 +714,39 @@ export function AdminRoutePage() {
     setLoggedStore(null);
     setImpersonatedStore(null);
     setIsSwitchedToClarice(false);
-    setActiveTab('saas-clientes');
+    setActiveTab('saas');
     toast.success('Retornado ao Painel Super Admin!');
+  };
+
+  const startEditProduct = (p: AffiliateProduct) => {
+    setEditingProductId(p.id);
+    setProductTitle(p.title);
+    setProductAffiliateUrl(p.affiliateUrl);
+    setProductCurrentPrice(String(p.currentPrice));
+    setProductOriginalPrice(String(p.originalPrice));
+    setProductCategory(p.category);
+    setProductImageUrl(p.imageUrl);
+    setProductInstallments(p.installmentsText || 'À vista');
+    setProductFeatured(Boolean(p.featured));
+    setProductMarketplace(p.marketplace || 'mercadolivre');
+    setProductInputMode('individual');
+    handleTabChange('produtos');
+  };
+
+  const handleToggleProductFeatured = async (product: AffiliateProduct) => {
+    const newFeatured = !product.featured;
+    c.updateProduct(product.id, { featured: newFeatured });
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('produtos_clarice')
+          .update({ featured: newFeatured })
+          .eq('id', product.id);
+      } catch (err) {
+        console.warn('Erro ao atualizar destaque no Supabase:', err);
+      }
+    }
+    toast.success(newFeatured ? 'Oferta adicionada aos Destaques!' : 'Oferta removida dos Destaques.');
   };
 
   // Cálculo automático do desconto
@@ -1533,10 +1569,7 @@ export function AdminRoutePage() {
               </a>
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-sm font-extrabold text-white whitespace-nowrap sm:hidden">
-                  Admin Clarice
-                </span>
-                <h1 className="text-sm sm:text-base font-extrabold text-white truncate min-w-0 hidden sm:block">
+                <h1 className="text-xs sm:text-base font-extrabold text-white truncate min-w-0">
                   {userRole === 'super_admin'
                     ? 'Painel Super Admin • Clarice SaaS'
                     : `Gestão • ${loggedStore?.nomeLoja || 'Minha Loja'}`}
@@ -1573,17 +1606,16 @@ export function AdminRoutePage() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <InstallHeaderButton className="h-10 px-3 text-xs font-bold shrink-0" />
 
-            {/* Se estiver no Painel Clarice após alternância rápida, Modo Suporte ou se logado na clarice */}
-            {userRole === 'lojista' && (isSwitchedToClarice || impersonatedStore || loggedStore?.slug === 'clarice') && (
+            {/* Se estiver no Painel Clarice após alternância rápida (e NÃO em Modo Suporte, mantendo apenas 1 botão claro) */}
+            {userRole === 'lojista' && !impersonatedStore && (isSwitchedToClarice || loggedStore?.slug === 'clarice') && (
               <button
                 type="button"
-                onClick={impersonatedStore ? handleExitSupportMode : handleReturnToSuperAdmin}
+                onClick={handleReturnToSuperAdmin}
                 className="flex-1 sm:flex-initial inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 text-xs font-bold shadow-md shadow-purple-600/30 transition active:scale-95 cursor-pointer"
                 title="Retornar ao Painel Master Super Admin"
               >
                 <Crown className="h-3.5 w-3.5 shrink-0" />
-                <span className="sm:hidden whitespace-nowrap">Voltar Master</span>
-                <span className="hidden sm:inline whitespace-nowrap">Voltar ao Super Admin</span>
+                <span className="whitespace-nowrap">Voltar ao Super Admin</span>
               </button>
             )}
 
@@ -1644,20 +1676,14 @@ export function AdminRoutePage() {
               className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
             >
               <Zap className="h-3.5 w-3.5 shrink-0" />
-              <span>Ofertas</span>
-              {c.pendingProducts.length > 0 && (
+              <span>{userRole === 'super_admin' ? 'Radar' : 'Ofertas'}</span>
+              {(userRole === 'super_admin' ? c.pendingProducts.length : c.products.filter((p) => p.featured).length) > 0 && (
                 <span className="rounded-full bg-amber-400 text-slate-950 px-1 py-0.2 text-[9px] font-black">
-                  {c.pendingProducts.length}
+                  {userRole === 'super_admin'
+                    ? c.pendingProducts.length
+                    : c.products.filter((p) => p.featured).length}
                 </span>
               )}
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="lote"
-              className="min-h-[40px] px-2 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 data-[state=active]:bg-[#FFE600] data-[state=active]:text-slate-950 transition cursor-pointer text-center"
-            >
-              <Boxes className="h-3.5 w-3.5 shrink-0" />
-              <span>Lote</span>
             </TabsTrigger>
 
             <TabsTrigger
@@ -2818,10 +2844,10 @@ export function AdminRoutePage() {
           )}
 
           {/* ========================================================================= */}
-          {/* ABA 3 (SUPER ADMIN): FILA DO RADAR */}
+          {/* ABA 2: RADAR DE OFERTAS (SUPER ADMIN) OU DESTAQUES DA LOJA (LOJISTA) */}
           {/* ========================================================================= */}
-          {userRole === 'super_admin' && (
-            <TabsContent value="radar" className="space-y-6 overflow-x-hidden w-full max-w-full">
+          <TabsContent value="radar" className="space-y-6 overflow-x-hidden w-full max-w-full">
+            {userRole === 'super_admin' ? (
               <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-5 shadow-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
                   <div>
@@ -2844,11 +2870,21 @@ export function AdminRoutePage() {
                 </div>
 
                 {c.pendingProducts.length === 0 ? (
-                  <div className="py-12 text-center text-slate-500">
-                    <Zap className="mx-auto h-8 w-8 mb-2 opacity-40" />
-                    <p className="text-xs font-semibold">
-                      Fila do Radar vazia. Todos os achadinhos já foram aprovados ou o robô ainda não rodou.
+                  <div className="py-12 text-center text-slate-400 rounded-2xl border border-dashed border-slate-800 p-6">
+                    <Zap className="mx-auto h-8 w-8 mb-2 text-amber-400/60" />
+                    <h3 className="text-sm font-bold text-white mb-1">Fila do Radar vazia</h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
+                      Todos os achadinhos já foram aprovados ou o robô ainda não rodou.
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => c.syncRadar()}
+                      disabled={c.isSyncing}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFE600] px-4 py-2 text-xs font-black text-slate-950 hover:bg-yellow-400 transition"
+                    >
+                      <RefreshCw className={cn('h-3.5 w-3.5', c.isSyncing && 'animate-spin')} />
+                      <span>Sincronizar Ofertas Agora</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -2895,8 +2931,102 @@ export function AdminRoutePage() {
                   </div>
                 )}
               </div>
-            </TabsContent>
-          )}
+            ) : (
+              <div className="rounded-3xl border border-slate-800 bg-[#0F172A] p-4 sm:p-5 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
+                  <div>
+                    <h2 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-[#FFE600]" />
+                      Ofertas em Destaque & Carrossel ({c.products.filter((p) => p.featured).length})
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Produtos exibidos com prioridade no carrossel do topo da vitrine da sua loja ({loggedStore?.nomeLoja || 'Minha Loja'}).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingProductId(null);
+                      setProductFeatured(true);
+                      handleTabChange('produtos');
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FFE600] px-3.5 py-2 text-xs font-black text-slate-950 hover:bg-yellow-400 transition active:scale-95 cursor-pointer shrink-0"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Destacar Nova Oferta</span>
+                  </button>
+                </div>
+
+                {c.products.filter((p) => p.featured).length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 rounded-2xl border border-dashed border-slate-800 p-6">
+                    <Zap className="mx-auto h-8 w-8 mb-2 text-amber-400/60" />
+                    <h3 className="text-sm font-bold text-white mb-1">Nenhuma oferta destacada no momento</h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
+                      Todas as suas {c.products.length} ofertas ativas continuam sendo exibidas na grade da sua vitrine.
+                      Ative o destaque em um produto para colocá-lo no carrossel principal.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('produtos')}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 transition"
+                    >
+                      <ShoppingBag className="h-3.5 w-3.5 text-[#FFE600]" />
+                      <span>Ir para Meus Produtos</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {c.products
+                      .filter((p) => p.featured)
+                      .map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-950 p-3.5 hover:border-slate-700 transition"
+                        >
+                          <div className="flex gap-3">
+                            <img
+                              src={p.imageUrl}
+                              alt={p.title}
+                              className="h-16 w-16 rounded-xl object-contain bg-white p-1 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="inline-flex items-center gap-1 rounded bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-black uppercase text-amber-400 mb-1">
+                                ⭐ Carrossel Ativo
+                              </span>
+                              <h4 className="text-xs font-bold text-white line-clamp-2">{p.title}</h4>
+                              <p className="text-xs font-black text-emerald-400 mt-1">
+                                {formatBRL(p.currentPrice)}{' '}
+                                {p.discountPercent > 0 && (
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    ({p.discountPercent}% OFF)
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800/80">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleProductFeatured(p)}
+                              className="flex-1 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 py-1.5 text-[11px] font-semibold text-slate-300 transition text-center cursor-pointer"
+                            >
+                              Remover Destaque
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEditProduct(p)}
+                              className="rounded-xl bg-[#FFE600]/10 hover:bg-[#FFE600]/20 px-3 py-1.5 text-[11px] font-bold text-[#FFE600] transition cursor-pointer"
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
 
           {/* ========================================================================= */}
           {/* ABA 4 (SUPER ADMIN): CONFIGURAÇÕES GERAIS */}
