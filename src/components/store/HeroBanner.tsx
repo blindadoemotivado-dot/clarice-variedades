@@ -52,14 +52,14 @@ export function HeroBanner({
     <div className="space-y-3 mb-4">
       {/* 1. Banner Principal / Hero Banner para Lojas Parceiras e Destaques */}
       {customBanner && (
-        <div className="relative overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-950 shadow-md">
+        <div className="relative mx-auto w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-950 shadow-md">
           <img
             src={customBanner}
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
             alt={`Banner Oficial ${storeName}`}
-            className="w-full max-h-48 sm:max-h-64 object-cover object-center rounded-2xl"
+            className="w-full h-auto aspect-[1200/628] max-h-[380px] md:max-h-[440px] object-contain object-top rounded-2xl mx-auto block"
             loading="eager"
           />
         </div>
